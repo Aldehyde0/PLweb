@@ -1,0 +1,2 @@
+import { BookOpen } from 'lucide-react';
+export function EmptyState({title,description}:{title:string;description:string}){return <div className="rounded-2xl border border-dashed border-border bg-card/40 px-6 py-14 text-center"><BookOpen className="mx-auto text-muted-foreground" size={24}/><h2 className="mt-4 font-medium">{title}</h2><p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted-foreground">{description}</p></div>}
