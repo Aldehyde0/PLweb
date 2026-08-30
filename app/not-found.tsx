@@ -1,0 +1,2 @@
+import Link from 'next/link';
+export default function NotFound(){return <main className="grid min-h-[70vh] place-items-center px-5 text-center"><div><p className="eyebrow">404 · 没有找到</p><h1 className="mt-3 text-3xl font-semibold">这个概念暂时不存在</h1><p className="mt-3 text-sm text-muted-foreground">链接可能已变化，返回知识库继续探索吧。</p><Link href="/" className="mt-6 inline-flex rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground">返回首页</Link></div></main>}

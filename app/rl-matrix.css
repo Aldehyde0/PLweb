@@ -1,0 +1,1 @@
+.learning-routes{display:grid;gap:.7rem;margin-top:1rem}.learning-routes article{border:1px solid #343434;border-radius:.6rem;background:#1d1d1d;padding:.8rem}.learning-routes h3{font-size:.78rem}.learning-routes p{margin-top:.35rem;color:#8f8f8f;font-size:.7rem;line-height:1.6}@media(min-width:720px){.learning-routes{grid-template-columns:repeat(2,minmax(0,1fr))}}
