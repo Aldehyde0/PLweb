@@ -23,6 +23,11 @@ export type TaskStatus =
   | 'skipped'
   | 'blocked';
 export type TaskType =
+  | 'concept-understanding'
+  | 'principle-practice'
+  | 'phase-review'
+  | 'context'
+  | 'related-concepts'
   | 'concept-reading'
   | 'definition-reading'
   | 'intuition'
@@ -62,6 +67,25 @@ export interface PlanConcept {
   prerequisites: string[];
   hasCode: boolean;
   hasInteractive: boolean;
+  hasFormula?: boolean;
+  definition?: string[];
+  summary?: string;
+  principles?: string[];
+  relatedConcepts?: string[];
+  inputs?: string[];
+  outputs?: string[];
+}
+
+export interface PlanSubstep {
+  id: string;
+  type: TaskType;
+  title: string;
+  description: string;
+  estimatedMinutes: number;
+  status: TaskStatus;
+  completedAt: string | null;
+  targetSection: string | null;
+  dueDate: string | null;
 }
 
 export interface StageQuestion {
@@ -104,6 +128,7 @@ export interface PlanTask {
   completedAt: string | null;
   notes: string;
   targetSection: string | null;
+  substeps: PlanSubstep[];
 }
 
 export interface PlanPhase {
@@ -248,6 +273,66 @@ export function localDate(date: Date) {
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
+export function parseWeeklyMinutes(raw: string) {
+  const clean = raw.trim();
+  if (!clean) return { value: null, error: '请输入每周学习时间' };
+  const value = Number(clean);
+  if (!Number.isFinite(value) || !Number.isInteger(value))
+    return { value: null, error: '每周时间需要是整数分钟' };
+  if (value < 30 || value > 10_080)
+    return { value: null, error: '每周时间需要在 30～10080 分钟之间' };
+  return { value, error: null };
+}
+export function daysInMonth(year: number, month: number) {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12)
+    return 0;
+  return new Date(year, month, 0).getDate();
+}
+export function buildLocalDate(year: number, month: number, day: number) {
+  const maxDay = daysInMonth(year, month);
+  if (!maxDay || !Number.isInteger(day) || day < 1 || day > maxDay) return null;
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function sentence(value: string) {
+  const clean = value.trim().replace(/\s+/g, ' ');
+  if (!clean) return '';
+  return /[。！？.!?]$/.test(clean) ? clean : `${clean}。`;
+}
+function normalizedSentence(value: string) {
+  return value.toLowerCase().replace(/[\s，。；、：,.!?！？;:]/g, '');
+}
+export function buildDefinitionParagraph(concept: PlanConcept) {
+  const parts = [
+    ...(concept.definition ?? []),
+    concept.summary ?? '',
+    ...(concept.principles ?? []).slice(0, 1),
+  ];
+  if ((concept.prerequisites?.length ?? 0) > 0)
+    parts.push(`学习这个概念前，通常需要先理解${concept.prerequisites.join('、')}`);
+  if ((concept.relatedConcepts?.length ?? 0) > 0)
+    parts.push(`掌握后可以继续联系${concept.relatedConcepts!.slice(0, 3).join('、')}等相关内容`);
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  for (const part of parts) {
+    const complete = sentence(part);
+    const key = normalizedSentence(complete);
+    if (!key || [...seen].some((item) => item.includes(key) || key.includes(item))) continue;
+    unique.push(complete);
+    seen.add(key);
+    if (unique.join('').length >= 120) break;
+  }
+  let paragraph = unique.join('');
+  if (!paragraph) paragraph = sentence(concept.summary || `${concept.title}是当前学习路线中的一个概念`);
+  if (paragraph.length <= 180) return paragraph;
+  const clipped = paragraph.slice(0, 180);
+  const boundary = Math.max(
+    clipped.lastIndexOf('。'),
+    clipped.lastIndexOf('！'),
+    clipped.lastIndexOf('？'),
+  );
+  return boundary >= 100 ? clipped.slice(0, boundary + 1) : `${clipped.slice(0, 179)}。`;
+}
 function addDays(date: Date, days: number) {
   const copy = new Date(date);
   copy.setDate(copy.getDate() + days);
@@ -387,8 +472,29 @@ function migratePhase(
 function migrateTask(value: unknown, phaseId: string, order: number): PlanTask {
   const item =
     value && typeof value === 'object' ? (value as Partial<PlanTask>) : {};
+  const id = item.id ?? makeId('task');
+  const status = item.status ?? 'not-started';
+  const completedAt = item.completedAt ?? null;
+  const fallbackMinutes = Math.max(5, Number(item.estimatedMinutes) || 25);
+  const substeps = Array.isArray(item.substeps) && item.substeps.length
+    ? item.substeps.map((step, index) =>
+        migrateSubstep(step, id, index, status, completedAt),
+      )
+    : [
+        {
+          id: `${id}-step-1`,
+          type: item.type ?? 'custom',
+          title: item.title ?? '未命名任务',
+          description: item.description ?? '',
+          estimatedMinutes: fallbackMinutes,
+          status,
+          completedAt,
+          targetSection: item.targetSection ?? null,
+          dueDate: item.dueDate ?? null,
+        },
+      ];
   return {
-    id: item.id ?? makeId('task'),
+    id,
     phaseId,
     type: item.type ?? 'custom',
     title: item.title ?? '未命名任务',
@@ -396,14 +502,43 @@ function migrateTask(value: unknown, phaseId: string, order: number): PlanTask {
     description: item.description ?? '',
     category: item.category ?? null,
     difficulty: item.difficulty ?? null,
-    estimatedMinutes: Math.max(5, Number(item.estimatedMinutes) || 25),
+    estimatedMinutes: substeps.reduce(
+      (sum, step) => sum + step.estimatedMinutes,
+      0,
+    ),
     dueDate: item.dueDate ?? localDate(new Date()),
     order: item.order ?? order,
-    status: item.status ?? 'not-started',
+    status,
     isImportant: item.isImportant ?? false,
-    completedAt: item.completedAt ?? null,
+    completedAt,
     notes: item.notes ?? '',
     targetSection: item.targetSection ?? null,
+    substeps,
+  };
+}
+
+function migrateSubstep(
+  value: unknown,
+  taskId: string,
+  index: number,
+  fallbackStatus: TaskStatus,
+  fallbackCompletedAt: string | null,
+): PlanSubstep {
+  const item =
+    value && typeof value === 'object' ? (value as Partial<PlanSubstep>) : {};
+  const status = item.status ?? fallbackStatus;
+  return {
+    id: item.id ?? `${taskId}-step-${index + 1}`,
+    type: item.type ?? 'custom',
+    title: item.title ?? `步骤 ${index + 1}`,
+    description: item.description ?? '',
+    estimatedMinutes: Math.max(1, Number(item.estimatedMinutes) || 5),
+    status,
+    completedAt:
+      item.completedAt ??
+      (status === 'completed' ? fallbackCompletedAt : null),
+    targetSection: item.targetSection ?? null,
+    dueDate: item.dueDate ?? null,
   };
 }
 
@@ -415,8 +550,10 @@ export function generatePlan(
 ): LearningPlan {
   const planId = makeId('plan');
   const warnings: string[] = [];
-  const candidates = allConcepts.filter((concept) =>
-    input.categories.includes(concept.category),
+  const candidates = collectRouteConcepts(
+    allConcepts,
+    input.categories,
+    warnings,
   );
   const ordered = orderConcepts(candidates, learning.bookmarks, warnings);
   const days = Math.max(
@@ -426,48 +563,52 @@ export function generatePlan(
     ),
   );
   const weeks = Math.max(1, days / 7);
-  const perConcept =
-    input.method === 'deep-understanding'
-      ? 155
-      : input.method === 'code-practice'
-        ? 190
-        : input.method === 'spaced-review'
-          ? 105
-          : 75;
-  const conceptLimit = Math.max(
-    1,
-    Math.min(24, Math.floor((input.weeklyMinutes * weeks) / perConcept)),
-  );
-  const selected = ordered.slice(0, conceptLimit);
+  const capacity = Math.max(30, input.weeklyMinutes) * weeks;
+  const selected: PlanConcept[] = [];
+  let usedMinutes = 0;
+  for (const concept of ordered.slice(0, 24)) {
+    const minutes = tasksForConcept(
+      input,
+      concept,
+      'estimate',
+      learning.learned.includes(concept.slug),
+      now,
+    ).reduce((sum, task) => sum + task.estimatedMinutes, 0);
+    if (selected.length > 0 && usedMinutes + minutes > capacity) break;
+    selected.push(concept);
+    usedMinutes += minutes;
+  }
   if (selected.length < candidates.length)
     warnings.push(
       `根据可用时间，本版先安排 ${selected.length} / ${candidates.length} 个概念。`,
     );
   const phaseDefs = [
     {
-      title: '前置与入门',
-      description: '补齐依赖并建立术语、直觉和基本操作。',
-      difficulties: ['入门'] as Difficulty[],
+      title: '基础起步',
+      description: '沿前置关系完成最初一组概念，不跨过必要知识。',
     },
     {
-      title: '核心理解',
-      description: '集中学习核心原理、公式和实现。',
-      difficulties: ['进阶'] as Difficulty[],
+      title: '核心推进',
+      description: '在已有基础上继续理解核心概念、原理与联系。',
     },
     {
-      title: '挑战与综合',
-      description: '处理挑战主题、综合练习和迁移应用。',
-      difficulties: ['挑战'] as Difficulty[],
+      title: '综合应用',
+      description: '完成路线后段的原理验证、代码和综合练习。',
     },
   ];
   const phases: PlanPhase[] = [];
-  for (const def of phaseDefs) {
-    const phaseConcepts = selected.filter((concept) =>
-      def.difficulties.includes(concept.difficulty),
+  const phaseCount = Math.min(3, Math.max(1, selected.length));
+  const chunkSize = Math.max(1, Math.ceil(selected.length / phaseCount));
+  for (const [phaseIndex, def] of phaseDefs
+    .slice(0, phaseCount)
+    .entries()) {
+    const phaseConcepts = selected.slice(
+      phaseIndex * chunkSize,
+      (phaseIndex + 1) * chunkSize,
     );
     if (!phaseConcepts.length) continue;
     const phaseId = makeId('phase');
-    const tasks = phaseConcepts.flatMap((concept) =>
+    let tasks = phaseConcepts.flatMap((concept) =>
       tasksForConcept(
         input,
         concept,
@@ -476,6 +617,15 @@ export function generatePlan(
         now,
       ),
     );
+    if (
+      input.includeReview &&
+      (input.method === 'knowledge-route' ||
+        input.method === 'deep-understanding')
+    )
+      tasks = [
+        ...tasks,
+        makePhaseReviewTask(phaseId, phaseConcepts, now),
+      ];
     const test = makeStageTest(
       phaseId,
       def.title,
@@ -499,7 +649,10 @@ export function generatePlan(
   const flat = phases.flatMap((phase) => phase.tasks);
   flat.forEach((task, index) => {
     task.order = index;
-    if (input.method !== 'spaced-review' || task.type !== 'review') {
+    if (
+      task.type !== 'phase-review' &&
+      (input.method !== 'spaced-review' || task.type !== 'review')
+    ) {
       const span = Math.max(
         0,
         Math.floor(((index + 1) / Math.max(1, flat.length)) * (days - 1)),
@@ -540,6 +693,61 @@ export function generatePlan(
     },
     now,
   );
+}
+
+function normalizeConceptKey(value: string) {
+  return value.trim().toLowerCase().replace(/[、，,/（）()\s·：:]/g, '');
+}
+
+function collectRouteConcepts(
+  allConcepts: PlanConcept[],
+  categories: CategorySlug[],
+  warnings: string[],
+) {
+  const bySlug = new Map(allConcepts.map((concept) => [concept.slug, concept]));
+  const byTitle = new Map(
+    allConcepts.map((concept) => [normalizeConceptKey(concept.title), concept]),
+  );
+  const normalized = allConcepts.map((concept) => ({
+    ...concept,
+    prerequisites: concept.prerequisites.flatMap((identifier) => {
+      const resolved =
+        bySlug.get(identifier) ??
+        byTitle.get(normalizeConceptKey(identifier));
+      if (!resolved) {
+        warnings.push(`${concept.title} 缺失前置知识链接：${identifier}`);
+        return [];
+      }
+      return [resolved.slug];
+    }),
+  }));
+  const normalizedBySlug = new Map(
+    normalized.map((concept) => [concept.slug, concept]),
+  );
+  const targetSlugs = normalized
+    .filter((concept) => categories.includes(concept.category))
+    .map((concept) => concept.slug);
+  const included = new Set(targetSlugs);
+  const visit = (slug: string, visiting: Set<string>) => {
+    if (visiting.has(slug)) return;
+    const concept = normalizedBySlug.get(slug);
+    if (!concept) return;
+    const next = new Set(visiting).add(slug);
+    for (const prerequisite of concept.prerequisites) {
+      included.add(prerequisite);
+      visit(prerequisite, next);
+    }
+  };
+  for (const slug of targetSlugs) visit(slug, new Set());
+  const bridges = normalized.filter(
+    (concept) =>
+      included.has(concept.slug) && !categories.includes(concept.category),
+  );
+  if (bridges.length)
+    warnings.push(
+      `已加入跨方向前置知识：${bridges.map((concept) => concept.title).join('、')}。`,
+    );
+  return normalized.filter((concept) => included.has(concept.slug));
 }
 
 function orderConcepts(
@@ -600,6 +808,16 @@ function baseTask(
   section: string | null,
   complete = false,
 ): PlanTask {
+  const substeps = [
+    makeSubstep(
+      type,
+      title,
+      concept.title,
+      minutes,
+      section,
+      complete,
+    ),
+  ];
   return {
     id: makeId('task'),
     phaseId,
@@ -617,6 +835,239 @@ function baseTask(
     completedAt: complete ? new Date().toISOString() : null,
     notes: '',
     targetSection: section,
+    substeps,
+  };
+}
+
+function makeSubstep(
+  type: TaskType,
+  title: string,
+  description: string,
+  estimatedMinutes: number,
+  targetSection: string | null,
+  complete = false,
+  dueDate: string | null = null,
+): PlanSubstep {
+  return {
+    id: makeId('step'),
+    type,
+    title,
+    description,
+    estimatedMinutes,
+    status: complete ? 'completed' : 'not-started',
+    completedAt: complete ? new Date().toISOString() : null,
+    targetSection,
+    dueDate,
+  };
+}
+
+function groupedTask(
+  concept: PlanConcept,
+  phaseId: string,
+  type: 'concept-understanding' | 'principle-practice',
+  title: string,
+  description: string,
+  substeps: PlanSubstep[],
+  complete = false,
+): PlanTask {
+  const normalized = complete
+    ? substeps.map((step) => ({
+        ...step,
+        status: 'completed' as const,
+        completedAt: step.completedAt ?? new Date().toISOString(),
+      }))
+    : substeps;
+  return {
+    id: makeId('task'),
+    phaseId,
+    type,
+    title,
+    conceptSlug: concept.slug,
+    description,
+    category: concept.category,
+    difficulty: concept.difficulty,
+    estimatedMinutes: normalized.reduce(
+      (sum, step) => sum + step.estimatedMinutes,
+      0,
+    ),
+    dueDate: localDate(new Date()),
+    order: 0,
+    status: complete ? 'completed' : 'not-started',
+    isImportant: false,
+    completedAt: complete ? new Date().toISOString() : null,
+    notes: '',
+    targetSection: normalized[0]?.targetSection ?? null,
+    substeps: normalized,
+  };
+}
+
+function progressiveConceptTasks(
+  input: PlanFormInput,
+  concept: PlanConcept,
+  phaseId: string,
+  learned: boolean,
+): PlanTask[] {
+  const deep = input.method === 'deep-understanding';
+  const definition = buildDefinitionParagraph(concept);
+  const understanding = [
+    makeSubstep(
+      'definition-reading',
+      `阅读定义 · ${concept.title}`,
+      definition,
+      5,
+      'definition',
+      learned,
+    ),
+    makeSubstep(
+      'context',
+      '理解它解决的问题与知识位置',
+      concept.summary ?? definition,
+      deep ? 5 : 3,
+      'background',
+      learned,
+    ),
+    makeSubstep(
+      'intuition',
+      `理解直觉 · ${concept.title}`,
+      concept.summary ?? concept.title,
+      deep ? 5 : 4,
+      'intuition',
+      learned,
+    ),
+    makeSubstep(
+      'related-concepts',
+      '确认前置与后续关系',
+      [...concept.prerequisites, ...(concept.relatedConcepts ?? [])]
+        .filter(Boolean)
+        .join('、'),
+      deep ? 5 : 3,
+      'related',
+      learned,
+    ),
+    makeSubstep(
+      'understanding-question',
+      `完成理解检查 · ${concept.title}`,
+      '用自己的话说明这个概念是什么，以及它解决什么问题。',
+      5,
+      'related',
+      learned,
+    ),
+  ];
+  const practice = [
+    makeSubstep(
+      'principle',
+      `学习核心原理 · ${concept.title}`,
+      concept.principles?.[0] ?? concept.summary ?? concept.title,
+      deep ? 8 : 6,
+      'core-principle',
+    ),
+    ...(concept.hasFormula
+      ? [
+          makeSubstep(
+            'formula',
+            `阅读公式或最小例子 · ${concept.title}`,
+            '对照变量含义和最小计算，确认公式如何表达核心原理。',
+            deep ? 8 : 6,
+            'formulas',
+          ),
+        ]
+      : []),
+    ...(input.includeCode && concept.hasCode
+      ? [
+          makeSubstep(
+            'code-reading',
+            `阅读代码 · ${concept.title}`,
+            '把代码中的变量、步骤和输出与概念原理逐项对应。',
+            deep ? 12 : 10,
+            'code',
+          ),
+        ]
+      : []),
+    ...(concept.hasInteractive
+      ? [
+          makeSubstep(
+            'interactive-experiment',
+            `交互实验 · ${concept.title}`,
+            '修改一个关键参数，观察变化并记录结果。',
+            deep ? 15 : 12,
+            'algorithm-steps',
+          ),
+        ]
+      : []),
+    makeSubstep(
+      'self-explanation',
+      `用自己的话解释 · ${concept.title}`,
+      '不查看正文，说明核心原理及其适用边界。',
+      5,
+      'core-principle',
+    ),
+    makeSubstep(
+      'exercise',
+      `完成巩固练习 · ${concept.title}`,
+      '完成一个简短问题或最小练习，检查是否真正理解。',
+      5,
+      'pitfalls',
+    ),
+  ];
+  return [
+    groupedTask(
+      concept,
+      phaseId,
+      'concept-understanding',
+      `名词与理解 · ${concept.title}`,
+      definition,
+      understanding,
+      learned,
+    ),
+    groupedTask(
+      concept,
+      phaseId,
+      'principle-practice',
+      `原理与实践 · ${concept.title}`,
+      concept.principles?.[0] ?? concept.summary ?? concept.title,
+      practice,
+    ),
+  ];
+}
+
+function makePhaseReviewTask(
+  phaseId: string,
+  concepts: PlanConcept[],
+  now: Date,
+): PlanTask {
+  const names = concepts.map((concept) => concept.title).join('、');
+  const substeps = [1, 3, 7, 14].map((offset) =>
+    makeSubstep(
+      'review',
+      `${offset} 天后复习本阶段`,
+      `复习${names}，优先回看定义、核心原理和未完成的练习。`,
+      offset === 14 ? 8 : 6,
+      offset % 2 ? 'formulas' : 'code',
+      false,
+      addDays(now, offset),
+    ),
+  );
+  return {
+    id: makeId('task'),
+    phaseId,
+    type: 'phase-review',
+    title: '阶段聚合复习',
+    conceptSlug: null,
+    description: `按 1、3、7、14 天节奏复习：${names}`,
+    category: null,
+    difficulty: null,
+    estimatedMinutes: substeps.reduce(
+      (sum, step) => sum + step.estimatedMinutes,
+      0,
+    ),
+    dueDate: addDays(now, 1),
+    order: 0,
+    status: 'not-started',
+    isImportant: false,
+    completedAt: null,
+    notes: '',
+    targetSection: null,
+    substeps,
   };
 }
 
@@ -628,66 +1079,11 @@ function tasksForConcept(
   now: Date,
 ): PlanTask[] {
   let tasks: PlanTask[];
-  if (input.method === 'deep-understanding') {
-    tasks = [
-      baseTask(
-        concept,
-        phaseId,
-        'definition-reading',
-        `阅读定义 · ${concept.title}`,
-        15,
-        'definition',
-        learned,
-      ),
-      baseTask(
-        concept,
-        phaseId,
-        'intuition',
-        `理解直觉 · ${concept.title}`,
-        15,
-        'intuition',
-      ),
-      baseTask(
-        concept,
-        phaseId,
-        'principle',
-        `学习核心原理 · ${concept.title}`,
-        20,
-        'core-principle',
-      ),
-      baseTask(
-        concept,
-        phaseId,
-        'formula',
-        `阅读公式 · ${concept.title}`,
-        20,
-        'formulas',
-      ),
-      baseTask(
-        concept,
-        phaseId,
-        'code-reading',
-        `查看代码 · ${concept.title}`,
-        25,
-        'code',
-      ),
-      baseTask(
-        concept,
-        phaseId,
-        'self-explanation',
-        `用自己的话解释 · ${concept.title}`,
-        20,
-        'intuition',
-      ),
-      baseTask(
-        concept,
-        phaseId,
-        'understanding-question',
-        `回答理解问题 · ${concept.title}`,
-        20,
-        'related',
-      ),
-    ];
+  if (
+    input.method === 'knowledge-route' ||
+    input.method === 'deep-understanding'
+  ) {
+    tasks = progressiveConceptTasks(input, concept, phaseId, learned);
   } else if (input.method === 'code-practice') {
     tasks = [
       baseTask(
@@ -776,55 +1172,15 @@ function tasksForConcept(
       task.dueDate = addDays(now, offset);
       tasks.push(task);
     }
-  } else {
-    tasks = [
-      baseTask(
-        concept,
-        phaseId,
-        'concept-reading',
-        `学习概念 · ${concept.title}`,
-        35,
-        'definition',
-        learned,
-      ),
-    ];
-    if (input.includeCode && concept.hasCode)
-      tasks.push(
-        baseTask(
-          concept,
-          phaseId,
-          'code-reading',
-          `代码练习 · ${concept.title}`,
-          30,
-          'code',
-        ),
-      );
-    if (concept.hasInteractive)
-      tasks.push(
-        baseTask(
-          concept,
-          phaseId,
-          'interactive-experiment',
-          `交互实验 · ${concept.title}`,
-          20,
-          'algorithm-steps',
-        ),
-      );
-    tasks.push(
-      baseTask(
-        concept,
-        phaseId,
-        'exercise',
-        `综合练习 · ${concept.title}`,
-        25,
-        'pitfalls',
-      ),
-    );
-  }
+  } else tasks = [];
   if (
     input.includeCode &&
     concept.hasCode &&
-    !tasks.some((task) => task.type === 'code-reading')
+    !tasks.some(
+      (task) =>
+        task.type === 'code-reading' ||
+        task.substeps.some((step) => step.type === 'code-reading'),
+    )
   )
     tasks.push(
       baseTask(
@@ -836,7 +1192,12 @@ function tasksForConcept(
         'code',
       ),
     );
-  if (input.includeReview && input.method !== 'spaced-review') {
+  if (
+    input.includeReview &&
+    input.method !== 'spaced-review' &&
+    input.method !== 'knowledge-route' &&
+    input.method !== 'deep-understanding'
+  ) {
     for (const offset of [1, 3, 7, 14]) {
       const task = baseTask(
         concept,
@@ -1021,16 +1382,24 @@ export function planPreview(plan: LearningPlan) {
     phaseCount: plan.phases.length,
     conceptCount: new Set(tasks.map((task) => task.conceptSlug).filter(Boolean))
       .size,
-    codeCount: tasks.filter((task) =>
-      [
-        'code-reading',
-        'parameter-change',
-        'interactive-experiment',
-        'result-note',
-        'project',
-      ].includes(task.type),
+    codeCount: tasks.filter(
+      (task) =>
+        [
+          'code-reading',
+          'parameter-change',
+          'interactive-experiment',
+          'result-note',
+          'project',
+        ].includes(task.type) ||
+        task.substeps.some((step) =>
+          ['code-reading', 'parameter-change', 'interactive-experiment'].includes(
+            step.type,
+          ),
+        ),
     ).length,
-    reviewCount: tasks.filter((task) => task.type === 'review').length,
+    reviewCount: tasks.filter(
+      (task) => task.type === 'review' || task.type === 'phase-review',
+    ).length,
     testCount: plan.phases.filter((phase) => phase.test.questions.length > 0)
       .length,
     totalMinutes: tasks.reduce((sum, task) => sum + task.estimatedMinutes, 0),
@@ -1047,16 +1416,33 @@ export function updateTask(
     ...phase,
     tasks: phase.tasks.map((task) =>
       task.id === taskId
-        ? {
+        ? (() => {
+            const substeps = patch.status
+              ? task.substeps.map((step) => ({
+                  ...step,
+                  status: patch.status as TaskStatus,
+                  completedAt:
+                    patch.status === 'completed'
+                      ? now.toISOString()
+                      : null,
+                }))
+              : (patch.substeps ?? task.substeps);
+            return {
             ...task,
             ...patch,
+            substeps,
+            estimatedMinutes: substeps.reduce(
+              (sum, step) => sum + step.estimatedMinutes,
+              0,
+            ),
             completedAt:
               patch.status === 'completed'
                 ? now.toISOString()
                 : patch.status
                   ? null
                   : (patch.completedAt ?? task.completedAt),
-          }
+          };
+          })()
         : task,
     ),
   }));
@@ -1069,6 +1455,55 @@ export function updateTask(
   );
 }
 
+export function updateSubstep(
+  plan: LearningPlan,
+  taskId: string,
+  substepId: string,
+  status: TaskStatus,
+  now = new Date(),
+) {
+  const phases = plan.phases.map((phase) => ({
+    ...phase,
+    tasks: phase.tasks.map((task) => {
+      if (task.id !== taskId) return task;
+      const substeps = task.substeps.map((step) =>
+        step.id === substepId
+          ? {
+              ...step,
+              status,
+              completedAt:
+                status === 'completed' ? now.toISOString() : null,
+            }
+          : step,
+      );
+      const complete = substeps.every((step) => terminal(step.status));
+      const started = substeps.some(
+        (step) => step.status !== 'not-started',
+      );
+      const nextDue = substeps
+        .filter((step) => !terminal(step.status) && step.dueDate)
+        .map((step) => step.dueDate!)
+        .sort()[0];
+      return {
+        ...task,
+        substeps,
+        estimatedMinutes: substeps.reduce(
+          (sum, step) => sum + step.estimatedMinutes,
+          0,
+        ),
+        dueDate: nextDue ?? task.dueDate,
+        status: complete
+          ? ('completed' as const)
+          : started
+            ? ('in-progress' as const)
+            : ('not-started' as const),
+        completedAt: complete ? now.toISOString() : null,
+      };
+    }),
+  }));
+  return recomputePlan({ ...plan, phases, lastTaskId: taskId }, now);
+}
+
 export function syncLearnedTasks(
   plan: LearningPlan,
   learned: string[],
@@ -1079,7 +1514,9 @@ export function syncLearnedTasks(
     ...phase,
     tasks: phase.tasks.map((task) => {
       const reading =
-        task.type === 'concept-reading' || task.type === 'definition-reading';
+        task.type === 'concept-reading' ||
+        task.type === 'definition-reading' ||
+        task.type === 'concept-understanding';
       if (
         !reading ||
         !task.conceptSlug ||
@@ -1092,6 +1529,11 @@ export function syncLearnedTasks(
         ...task,
         status: 'completed' as const,
         completedAt: now.toISOString(),
+        substeps: task.substeps.map((step) => ({
+          ...step,
+          status: 'completed' as const,
+          completedAt: now.toISOString(),
+        })),
       };
     }),
   }));
@@ -1167,6 +1609,17 @@ export function scoreStageTest(
         )
         .map((slug) => {
           const source = tasks.find((task) => task.conceptSlug === slug);
+          const substeps = [
+            makeSubstep(
+              'review',
+              `复习薄弱概念 · ${source?.description ?? slug}`,
+              '回看定义、核心原理和本次错误题目。',
+              20,
+              'core-principle',
+              false,
+              addDays(now, 3),
+            ),
+          ];
           const review: PlanTask = {
             id: makeId('task'),
             phaseId,
@@ -1184,6 +1637,7 @@ export function scoreStageTest(
             completedAt: null,
             notes: '',
             targetSection: 'core-principle',
+            substeps,
           };
           return review;
         });

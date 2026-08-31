@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  buildDefinitionParagraph,
+  buildLocalDate,
   buildReminder,
   moveTask,
   scoreStageTest,
@@ -8,6 +10,7 @@ import {
   updateTask,
   generatePlan,
   migratePlanState,
+  parseWeeklyMinutes,
   recomputePlan,
   type PlanConcept,
   type PlanFormInput,
@@ -43,6 +46,26 @@ const concepts: PlanConcept[] = [
     hasInteractive: false,
   },
 ];
+
+const richConcept: PlanConcept = {
+  slug: 'gradient-descent',
+  title: '梯度下降',
+  category: 'machine-learning',
+  difficulty: '入门',
+  prerequisites: ['导数'],
+  hasCode: true,
+  hasInteractive: true,
+  hasFormula: true,
+  definition: [
+    '梯度下降是一种沿目标函数负梯度方向迭代更新参数的优化方法，它利用局部斜率逐步寻找更低的损失值。',
+  ],
+  summary:
+    '它解决模型参数无法直接求得最优解时的数值优化问题，是训练线性模型和神经网络的基础。',
+  principles: [
+    '学习率决定每次更新步长，梯度方向决定参数变化方向；二者共同影响收敛速度与稳定性。',
+  ],
+  relatedConcepts: ['learning-rate-selection', 'gradient-descent-convergence'],
+};
 
 const baseInput: PlanFormInput = {
   title: '机器学习计划',
@@ -88,13 +111,14 @@ void test('knowledge route only links existing concepts and reports broken prere
   );
   assert.equal(
     linked.find(
-      (task) => task.conceptSlug === 'intro' && task.type === 'concept-reading',
+      (task) =>
+        task.conceptSlug === 'intro' && task.type === 'concept-understanding',
     )?.status,
     'completed',
   );
 });
 
-void test('deep understanding creates every required comprehension task type', () => {
+void test('deep understanding keeps required comprehension steps inside two concept cards', () => {
   const plan = generatePlan(
     {
       ...baseInput,
@@ -106,15 +130,17 @@ void test('deep understanding creates every required comprehension task type', (
     { learned: [], bookmarks: [] },
     new Date('2026-08-31T08:00:00'),
   );
+  const tasks = plan.phases
+    .flatMap((phase) => phase.tasks)
+    .filter((task) => task.conceptSlug === 'intro');
+  assert.equal(tasks.length, 2);
   const types = new Set(
-    plan.phases.flatMap((phase) => phase.tasks).map((task) => task.type),
+    tasks.flatMap((task) => task.substeps.map((step) => step.type)),
   );
   const requiredTypes: TaskType[] = [
     'definition-reading',
     'intuition',
     'principle',
-    'formula',
-    'code-reading',
     'self-explanation',
     'understanding-question',
   ];
@@ -216,7 +242,7 @@ void test('reminder appears once per local day only for an active incomplete pla
   );
 });
 
-void test('task updates and learned synchronization only complete concept-reading work', () => {
+void test('learned synchronization completes the understanding card but not the practice card', () => {
   const plan = generatePlan(
     {
       ...baseInput,
@@ -229,10 +255,10 @@ void test('task updates and learned synchronization only complete concept-readin
     new Date('2026-08-31T08:00:00'),
   );
   const reading = plan.phases[0]!.tasks.find(
-    (task) => task.type === 'definition-reading',
+    (task) => task.type === 'concept-understanding',
   )!;
   const code = plan.phases[0]!.tasks.find(
-    (task) => task.type === 'code-reading',
+    (task) => task.type === 'principle-practice',
   )!;
   const synced = syncLearnedTasks(
     plan,
@@ -322,4 +348,107 @@ void test('stage-test can append a dedicated weak-concept review even when sched
   const answers = Object.fromEntries(phase.test.questions.map((question) => [question.id, ['错误']]));
   const scored = scoreStageTest(plan, phase.id, answers, true, new Date('2026-08-31T10:00:00'));
   assert.equal(scored.phases[0]!.tasks.filter((task) => task.type === 'review').length, before + 1);
+});
+
+void test('route includes cross-category prerequisite closure before the selected concept', () => {
+  const routeConcepts: PlanConcept[] = [
+    {
+      slug: 'calculus',
+      title: '微积分基础',
+      category: 'artificial-intelligence',
+      difficulty: '入门',
+      prerequisites: [],
+      hasCode: false,
+      hasInteractive: false,
+    },
+    {
+      slug: 'optimization',
+      title: '优化方法',
+      category: 'machine-learning',
+      difficulty: '进阶',
+      prerequisites: ['微积分基础'],
+      hasCode: true,
+      hasInteractive: false,
+    },
+  ];
+  const plan = generatePlan(
+    { ...baseInput, includeCode: false, includeReview: false },
+    routeConcepts,
+    { learned: [], bookmarks: [] },
+    new Date('2026-08-31T08:00:00'),
+  );
+  const slugs = plan.phases
+    .flatMap((phase) => phase.tasks)
+    .filter((task) => task.type === 'concept-understanding')
+    .map((task) => task.conceptSlug);
+  assert.deepEqual(slugs, ['calculus', 'optimization']);
+  assert.ok(
+    plan.generationWarnings.some((warning) => warning.includes('跨方向前置')),
+  );
+});
+
+void test('definition paragraph is natural prose without labeled colon sections or memory slogans', () => {
+  const paragraph = buildDefinitionParagraph(richConcept);
+  assert.ok(paragraph.length >= 120 && paragraph.length <= 180);
+  assert.doesNotMatch(paragraph, /(定义|用途|边界|记忆点)：/);
+  assert.doesNotMatch(paragraph, /一句话记忆点/);
+  assert.match(paragraph, /梯度下降/);
+  assert.match(paragraph, /神经网络/);
+});
+
+void test('knowledge route uses two cards per concept and derives minutes from substeps', () => {
+  const plan = generatePlan(
+    { ...baseInput, includeReview: false },
+    [richConcept],
+    { learned: [], bookmarks: [] },
+    new Date('2026-08-31T08:00:00'),
+  );
+  const tasks = plan.phases.flatMap((phase) => phase.tasks);
+  assert.equal(tasks.length, 2);
+  assert.deepEqual(
+    tasks.map((task) => task.type),
+    ['concept-understanding', 'principle-practice'],
+  );
+  const definition = tasks
+    .flatMap((task) => task.substeps)
+    .find((step) => step.type === 'definition-reading');
+  assert.equal(definition?.estimatedMinutes, 5);
+  for (const task of tasks) {
+    assert.equal(
+      task.estimatedMinutes,
+      task.substeps.reduce((sum, step) => sum + step.estimatedMinutes, 0),
+    );
+  }
+});
+
+void test('knowledge and deep routes aggregate review work by phase instead of concept', () => {
+  for (const method of ['knowledge-route', 'deep-understanding'] as const) {
+    const plan = generatePlan(
+      { ...baseInput, method, includeReview: true },
+      concepts,
+      { learned: [], bookmarks: [] },
+      new Date('2026-08-31T08:00:00'),
+    );
+    const reviews = plan.phases
+      .flatMap((phase) => phase.tasks)
+      .filter((task) => task.type === 'phase-review');
+    assert.equal(reviews.length, plan.phases.length);
+  }
+});
+
+void test('weekly minutes parser allows an empty editing state and validates on commit', () => {
+  assert.deepEqual(parseWeeklyMinutes(''), {
+    value: null,
+    error: '请输入每周学习时间',
+  });
+  assert.deepEqual(parseWeeklyMinutes('300'), { value: 300, error: null });
+  assert.equal(parseWeeklyMinutes('0').value, null);
+  assert.equal(parseWeeklyMinutes('10081').value, null);
+});
+
+void test('segmented local date rejects impossible days and supports leap years', () => {
+  assert.equal(buildLocalDate(2026, 4, 42), null);
+  assert.equal(buildLocalDate(2026, 2, 29), null);
+  assert.equal(buildLocalDate(2028, 2, 29), '2028-02-29');
+  assert.equal(buildLocalDate(2026, 9, 1), '2026-09-01');
 });

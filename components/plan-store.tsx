@@ -18,6 +18,7 @@ import {
   recomputePlan,
   scoreStageTest,
   syncLearnedTasks,
+  updateSubstep,
   updateTask,
   type LearningActivity,
   type LearningPlan,
@@ -38,6 +39,12 @@ type PlanContextValue = PlanState & {
   updatePlan: (plan: LearningPlan) => void;
   setPlanStatus: (planId: string, status: LearningPlan['status']) => void;
   setTaskStatus: (planId: string, taskId: string, status: TaskStatus) => void;
+  setSubstepStatus: (
+    planId: string,
+    taskId: string,
+    substepId: string,
+    status: TaskStatus,
+  ) => void;
   updateTaskFields: (
     planId: string,
     taskId: string,
@@ -280,6 +287,45 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
       mutatePlan(planId, (plan) => updateTask(plan, taskId, patch)),
     [mutatePlan],
   );
+  const setSubstepStatus = useCallback(
+    (
+      planId: string,
+      taskId: string,
+      substepId: string,
+      status: TaskStatus,
+    ) => {
+      const task = state.plans
+        .find((plan) => plan.id === planId)
+        ?.phases.flatMap((phase) => phase.tasks)
+        .find((item) => item.id === taskId);
+      const willComplete =
+        task?.substeps.every((step) => {
+          const next = step.id === substepId ? status : step.status;
+          return next === 'completed' || next === 'skipped';
+        }) ?? false;
+      if (
+        willComplete &&
+        task?.type === 'concept-understanding' &&
+        task.conceptSlug
+      )
+        markLearned(task.conceptSlug);
+      mutatePlan(
+        planId,
+        (plan) => updateSubstep(plan, taskId, substepId, status),
+        status === 'completed'
+          ? {
+              taskId,
+              actionType: 'task',
+              completedAt: new Date().toISOString(),
+              durationMinutes:
+                task?.substeps.find((step) => step.id === substepId)
+                  ?.estimatedMinutes ?? 0,
+            }
+          : undefined,
+      );
+    },
+    [state.plans, markLearned, mutatePlan],
+  );
   const moveTask = useCallback(
     (planId: string, taskId: string, phaseId: string, index: number) =>
       mutatePlan(planId, (plan) =>
@@ -314,6 +360,8 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
       mutatePlan(
         planId,
         (plan) => {
+          const taskId = `task-custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+          const minutes = Math.max(5, input.estimatedMinutes);
           const phases = plan.phases.map((phase) =>
             phase.id === phaseId
               ? {
@@ -321,7 +369,7 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
                   tasks: [
                     ...phase.tasks,
                     {
-                      id: `task-custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                      id: taskId,
                       phaseId,
                       type: 'custom' as const,
                       title: input.title.trim() || '自定义任务',
@@ -329,7 +377,7 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
                       description: input.description,
                       category: null,
                       difficulty: null,
-                      estimatedMinutes: Math.max(5, input.estimatedMinutes),
+                      estimatedMinutes: minutes,
                       dueDate: input.dueDate,
                       order: phase.tasks.length,
                       status: 'not-started' as const,
@@ -337,6 +385,19 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
                       completedAt: null,
                       notes: input.notes,
                       targetSection: null,
+                      substeps: [
+                        {
+                          id: `${taskId}-step-1`,
+                          type: 'custom' as const,
+                          title: input.title.trim() || '自定义任务',
+                          description: input.description,
+                          estimatedMinutes: minutes,
+                          status: 'not-started' as const,
+                          completedAt: null,
+                          targetSection: null,
+                          dueDate: input.dueDate,
+                        },
+                      ],
                     },
                   ],
                 }
@@ -420,6 +481,7 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
       updatePlan: updatePlanValue,
       setPlanStatus,
       setTaskStatus,
+      setSubstepStatus,
       updateTaskFields,
       moveTask,
       deleteTask,
@@ -439,6 +501,7 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
       updatePlanValue,
       setPlanStatus,
       setTaskStatus,
+      setSubstepStatus,
       updateTaskFields,
       moveTask,
       deleteTask,

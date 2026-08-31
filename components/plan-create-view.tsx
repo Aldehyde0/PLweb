@@ -15,7 +15,11 @@ import {
 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { categories, concepts, type CategorySlug } from '@/lib/content';
-import { longFormMap } from '@/lib/long-form-content';
+import { resolveConceptLink } from '@/lib/concept-utils';
+import {
+  longFormMap,
+  type LongFormConcept,
+} from '@/lib/long-form-content';
 import {
   generatePlan,
   localDate,
@@ -63,16 +67,38 @@ export function PlanCreateView() {
     () =>
       concepts.map((concept) => {
         const long = longFormMap[concept.slug] as
-          | { interactiveDemo?: string }
+          | (LongFormConcept & {
+              interactiveDemo?: string;
+              inputs?: string[];
+              outputs?: string[];
+            })
           | undefined;
         return {
           slug: concept.slug,
           title: concept.title,
           category: concept.category,
           difficulty: concept.difficulty,
-          prerequisites: concept.prerequisites,
+          prerequisites: concept.prerequisites.map(
+            (identifier) =>
+              resolveConceptLink(identifier).concept?.slug ?? identifier,
+          ),
           hasCode: Boolean(concept.code?.source),
           hasInteractive: Boolean(long?.interactiveDemo),
+          hasFormula: Boolean(
+            long?.formulas.some((formula) => formula.expression !== '—') ??
+              concept.formula.expression !== '—',
+          ),
+          definition: long?.definition ?? [concept.explanation],
+          summary: concept.summary,
+          principles: long?.corePrinciple ?? [concept.principle],
+          relatedConcepts: concept.relatedConcepts.flatMap(
+            (identifier) => {
+              const resolved = resolveConceptLink(identifier).concept;
+              return resolved ? [resolved.title] : [];
+            },
+          ),
+          inputs: long?.inputs ?? [],
+          outputs: long?.outputs ?? [],
         };
       }),
     [],
