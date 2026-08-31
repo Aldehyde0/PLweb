@@ -170,13 +170,12 @@ export function PlanCreateView() {
                   <option>挑战</option>
                 </select>
               </Field>
-              <Field label="学习目标" htmlFor="plan-goal" wide>
+              <Field label="学习目标（可选）" htmlFor="plan-goal" wide>
                 <Textarea
                   id="plan-goal"
-                  required
                   value={form.goal}
                   onChange={(event) => set('goal', event.target.value)}
-                  placeholder="希望最终能够解释、实现或解决什么问题？"
+                  placeholder="可选：希望最终能够解释、实现或解决什么问题？"
                 />
               </Field>
             </div>
@@ -305,9 +304,7 @@ export function PlanCreateView() {
               size="lg"
               type="submit"
               disabled={
-                !form.title.trim() ||
-                !form.goal.trim() ||
-                form.categories.length === 0
+                !form.title.trim() || form.categories.length === 0
               }
             >
               <Sparkles />
@@ -366,7 +363,7 @@ function PlanPreview({
           <div>
             <span>{method}</span>
             <h2>{plan.title}</h2>
-            <p>{plan.goal}</p>
+            <p>{plan.goal || '未设置具体学习目标，可稍后在计划详情中补充。'}</p>
             <div className="plan-preview-meta">
               <span>
                 {plan.categories
