@@ -139,7 +139,7 @@ export function PlanDetailView({
             </div>
             <h1>{viewTitle}</h1>
             {view !== 'all' && <p>{plan.title}</p>}
-            <p>{plan.goal}</p>
+            <p>{plan.goal || '暂未填写学习目标，可通过“调整计划”随时补充。'}</p>
           </div>
           <div className="plan-header-actions">
             <Button
@@ -512,7 +512,7 @@ function PlanSettings({
         />
       </label>
       <label className="wide" htmlFor={`${plan.id}-settings-goal`}>
-        学习目标
+        学习目标（可选）
         <Textarea
           id={`${plan.id}-settings-goal`}
           value={draft.goal}
