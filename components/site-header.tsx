@@ -1,13 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { Bookmark, BookOpen, Dumbbell, Menu, X } from 'lucide-react';
+import { Bookmark, BookOpen, CalendarRange, Dumbbell, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
-  const links = [{href:'/',label:'知识库',icon:BookOpen},{href:'/exercises',label:'练习',icon:Dumbbell},{href:'/bookmarks',label:'收藏',icon:Bookmark}];
+  const links = [{href:'/',label:'知识库',icon:BookOpen},{href:'/plans',label:'学习计划',icon:CalendarRange},{href:'/exercises',label:'练习',icon:Dumbbell},{href:'/bookmarks',label:'收藏',icon:Bookmark}];
   return (
     <header className="sticky top-0 z-40 border-b border-border/80 bg-background/90 backdrop-blur-lg">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
