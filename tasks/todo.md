@@ -2,19 +2,19 @@
 
 ## Phase 1: Logic Foundation
 
-- [ ] Task 1: 添加路线、内容、时间和输入校验失败测试
+- [x] Task 1: 添加路线、内容、时间和输入校验失败测试
   - 验收：覆盖依赖闭包、循环、自然段定义、两卡结构、时间求和、空数字和无效日期。
   - 验证：运行 npm test，新增测试在实现前按预期失败。
   - 依赖：无。
   - 文件：tests/plan-engine.test.ts、lib/plan-engine.ts。
 
-- [ ] Task 2: 规范化前置关系并建立严格拓扑顺序
+- [x] Task 2: 规范化前置关系并建立严格拓扑顺序
   - 验收：标题、别名、ID 和 slug 均能解析；跨方向前置自动补入；收藏不越过依赖。
   - 验证：focused tests + npx tsc --noEmit。
   - 依赖：Task 1。
   - 文件：lib/plan-engine.ts、components/plan-create-view.tsx、tests/plan-engine.test.ts。
 
-- [ ] Task 3: 增加定义自然段和任务子步骤兼容模型
+- [x] Task 3: 增加定义自然段和任务子步骤兼容模型
   - 验收：定义为自然段；目标 120～180 字；不含标签式冒号或一句话记忆点；旧任务可安全读取。
   - 验证：迁移、定义去重和完整句裁剪测试。
   - 依赖：Task 1。
@@ -22,24 +22,24 @@
 
 ## Checkpoint: Foundation
 
-- [ ] 依赖顺序、定义段落和旧数据迁移测试通过。
-- [ ] TypeScript 检查通过。
+- [x] 依赖顺序、定义段落和旧数据迁移测试通过。
+- [x] TypeScript 检查通过。
 
 ## Phase 2: Route Generation
 
-- [ ] Task 4: 实现知识路线法 V2
+- [x] Task 4: 实现知识路线法 V2
   - 验收：每概念两张主卡；严格逐概念推进；不存在无效链接。
   - 验证：生成器测试与任务数量断言。
   - 依赖：Tasks 2、3。
   - 文件：lib/plan-engine.ts、tests/plan-engine.test.ts。
 
-- [ ] Task 5: 实现深度理解法 V2
+- [x] Task 5: 实现深度理解法 V2
   - 验收：“名词与理解”“原理与实践”覆盖原有必要步骤，不生成一句话记忆点。
   - 验证：子步骤类型、顺序和完成状态测试。
   - 依赖：Tasks 2、3。
   - 文件：lib/plan-engine.ts、tests/plan-engine.test.ts。
 
-- [ ] Task 6: 统一分钟计算和聚合复习
+- [x] Task 6: 统一分钟计算和聚合复习
   - 验收：定义 5 分钟；任务与计划分钟均由子步骤求和；普通路线复习按阶段聚合。
   - 验证：总分钟一致性、容量和复习数量测试。
   - 依赖：Tasks 4、5。
@@ -47,9 +47,9 @@
 
 ## Checkpoint: Generation
 
-- [ ] 两种路线均没有前置跳跃。
-- [ ] 主任务数量相较当前实现显著下降。
-- [ ] 所有生成器测试通过。
+- [x] 两种路线均没有前置跳跃。
+- [x] 主任务数量相较当前实现显著下降。
+- [x] 所有生成器测试通过。
 
 ## Phase 3: Interaction
 
