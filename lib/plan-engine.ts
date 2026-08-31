@@ -45,6 +45,7 @@ export interface StageTest {
   score: number | null;
   completedAt: string | null;
   weakConcepts: string[];
+  incorrectQuestionIds: string[];
   addWeakToReview: boolean;
 }
 
@@ -246,7 +247,7 @@ function migratePhase(value: unknown, planId: string, order: number): PlanPhase 
     test: { id: item.test?.id ?? makeId('test'), phaseId: id, title: item.test?.title ?? '阶段练习',
       questions: item.test?.questions ?? [], status: item.test?.status ?? 'not-started',
       score: item.test?.score ?? null, completedAt: item.test?.completedAt ?? null,
-      weakConcepts: item.test?.weakConcepts ?? [], addWeakToReview: item.test?.addWeakToReview ?? false },
+      weakConcepts: item.test?.weakConcepts ?? [], incorrectQuestionIds: item.test?.incorrectQuestionIds ?? [], addWeakToReview: item.test?.addWeakToReview ?? false },
   };
 }
 
@@ -408,7 +409,7 @@ function makeStageTest(phaseId: string, phaseTitle: string, concepts: PlanConcep
   }) : [];
   return { id: makeId('test'), phaseId, title: `${phaseTitle} · 阶段练习`, questions,
     status: enabled ? 'not-started' : 'skipped', score: null, completedAt: null,
-    weakConcepts: [], addWeakToReview: false };
+    weakConcepts: [], incorrectQuestionIds: [], addWeakToReview: false };
 }
 function testTypeLabel(type: TestQuestionType) {
   return ({ 'single-choice':'单选题','multiple-choice':'多选题','true-false':'判断题','concept-explanation':'概念解释题','formula-fill':'公式填写题','code-reading':'代码阅读题','code-output':'代码输出判断题','calculation':'简单计算题' } as const)[type];
@@ -524,7 +525,7 @@ export function scoreStageTest(plan: LearningPlan, phaseId: string, answers: Rec
     return {
       ...phase,
       tasks,
-      test: { ...phase.test, status: 'completed' as const, score, completedAt: now.toISOString(), weakConcepts, addWeakToReview },
+      test: { ...phase.test, status: 'completed' as const, score, completedAt: now.toISOString(), weakConcepts, incorrectQuestionIds: wrong.map((question) => question.id), addWeakToReview },
     };
   });
   return recomputePlan({ ...plan, phases }, now);
