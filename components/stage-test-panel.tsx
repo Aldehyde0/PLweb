@@ -78,8 +78,9 @@ export function StageTestPanel({
               }
             />
           ))}
-          <label className="plan-option">
+          <label className="plan-option" htmlFor={`${phase.id}-add-review`}>
             <Checkbox
+              id={`${phase.id}-add-review`}
               checked={addReview}
               onCheckedChange={() => setAddReview(!addReview)}
             />
@@ -131,11 +132,13 @@ function Question({
       {choice ? (
         <div className="stage-options">
           {question.options!.map((option) => (
-            <label key={option}>
+            <label key={option} htmlFor={`${question.id}-${option}`}>
               {multiple ? (
-                <Checkbox
+                <input
+                  id={`${question.id}-${option}`}
+                  type="checkbox"
                   checked={value.includes(option)}
-                  onCheckedChange={() =>
+                  onChange={() =>
                     onChange(
                       value.includes(option)
                         ? value.filter((item) => item !== option)
@@ -145,6 +148,7 @@ function Question({
                 />
               ) : (
                 <input
+                  id={`${question.id}-${option}`}
                   type="radio"
                   name={question.id}
                   checked={value.includes(option)}

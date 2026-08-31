@@ -85,41 +85,55 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [reminderView, setReminderView] = useState<ReminderView | null>(null);
   const reminderChecked = useRef(false);
+  const learningSyncInitialized = useRef(false);
 
   useEffect(() => {
-    const loaded = migratePlanState(localStorage.getItem(PLAN_STORAGE_KEY));
-    loaded.reminder.lastOpenedAt = new Date().toISOString();
-    setState(loaded);
-    setReady(true);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      const loaded = migratePlanState(localStorage.getItem(PLAN_STORAGE_KEY));
+      loaded.reminder.lastOpenedAt = new Date().toISOString();
+      setState(loaded);
+      setReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
   useEffect(() => {
     if (ready) localStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify(state));
   }, [ready, state]);
   useEffect(() => {
     if (!ready || !learningReady) return;
-    setState((prev) => {
-      let changed = false;
-      const plans = prev.plans.map((plan) => {
-        const synced = syncLearnedTasks(plan, learned);
-        changed ||= synced !== plan;
-        return synced;
+    const shouldRecordStudy = learningSyncInitialized.current;
+    queueMicrotask(() => {
+      setState((prev) => {
+        let changed = false;
+        const plans = prev.plans.map((plan) => {
+          const synced = syncLearnedTasks(plan, learned);
+          changed ||= synced !== plan;
+          return synced;
+        });
+        if (!changed) return prev;
+        const completedTaskIds = plans
+          .flatMap((plan) => plan.phases.flatMap((phase) => phase.tasks))
+          .filter((task) => task.status === 'completed')
+          .map((task) => task.id);
+        const now = new Date();
+        return {
+          ...prev,
+          plans,
+          completedTaskIds,
+          reminder: shouldRecordStudy
+            ? {
+                ...prev.reminder,
+                lastStudyAt: now.toISOString(),
+                lastStudyDate: localDate(now),
+              }
+            : prev.reminder,
+        };
       });
-      if (!changed) return prev;
-      const completedTaskIds = plans
-        .flatMap((plan) => plan.phases.flatMap((phase) => phase.tasks))
-        .filter((task) => task.status === 'completed')
-        .map((task) => task.id);
-      const now = new Date();
-      return {
-        ...prev,
-        plans,
-        completedTaskIds,
-        reminder: {
-          ...prev.reminder,
-          lastStudyAt: now.toISOString(),
-          lastStudyDate: localDate(now),
-        },
-      };
+      learningSyncInitialized.current = true;
     });
   }, [ready, learningReady, learned]);
   useEffect(() => {
@@ -130,11 +144,13 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
       null;
     const view = buildReminder(active, state.reminder, new Date());
     if (!view) return;
-    setReminderView(view);
-    setState((prev) => ({
-      ...prev,
-      reminder: { ...prev.reminder, lastReminderDate: localDate(new Date()) },
-    }));
+    queueMicrotask(() => {
+      setReminderView(view);
+      setState((prev) => ({
+        ...prev,
+        reminder: { ...prev.reminder, lastReminderDate: localDate(new Date()) },
+      }));
+    });
   }, [ready, state]);
 
   const mutatePlan = useCallback(
