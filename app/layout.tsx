@@ -13,15 +13,36 @@ import './rl-matrix.css';
 import './plan-features.css';
 
 const title = 'how to learn AI · 个人学习知识库';
-const description = '从直觉、原理、代码到练习，系统学习人工智能、机器学习、深度学习与强化学习。';
+const description =
+  '从直觉、原理、代码到练习，系统学习人工智能、机器学习、深度学习与强化学习。';
 export const metadata: Metadata = {
   metadataBase: new URL('http://localhost:3000'),
-  title, description,
-  openGraph: { title, description, type: 'website', images: [{ url: '/og.png', width: 1200, height: 630, alt: 'how to learn AI 个人学习知识库' }] },
-  twitter: { card: 'summary_large_image', title, description, images: ['/og.png'] },
+  title,
+  description,
+  openGraph: {
+    title,
+    description,
+    type: 'website',
+    images: [
+      {
+        url: '/og.png',
+        width: 1200,
+        height: 630,
+        alt: 'how to learn AI 个人学习知识库',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title,
+    description,
+    images: ['/og.png'],
+  },
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="zh-CN" className="dark">
       <body>

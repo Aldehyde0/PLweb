@@ -15,7 +15,7 @@ import {
   Settings2,
   Target,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { localDate, PLAN_METHODS, type LearningPlan } from '@/lib/plan-engine';
 import { usePlans } from '@/components/plan-store';
 import { PlanTaskList } from '@/components/plan-task-list';
@@ -233,7 +233,7 @@ export function PlanDetailView({
                 warn
               />
             </section>
-          <section className="plan-toolbar" id="adjust-plan">
+            <section className="plan-toolbar" id="adjust-plan">
               <div>
                 <h2>阶段时间线</h2>
                 <p>
@@ -478,18 +478,20 @@ function PlanSettings({
       }}
     >
       <h2>调整计划信息</h2>
-      <label>
+      <label htmlFor={`${plan.id}-settings-title`}>
         计划名称
         <Input
+          id={`${plan.id}-settings-title`}
           value={draft.title}
           onChange={(event) =>
             setDraft({ ...draft, title: event.target.value })
           }
         />
       </label>
-      <label>
+      <label htmlFor={`${plan.id}-settings-weekly`}>
         每周分钟
         <Input
+          id={`${plan.id}-settings-weekly`}
           type="number"
           min={30}
           value={draft.weeklyMinutes}
@@ -498,9 +500,10 @@ function PlanSettings({
           }
         />
       </label>
-      <label>
+      <label htmlFor={`${plan.id}-settings-date`}>
         目标日期
         <Input
+          id={`${plan.id}-settings-date`}
           type="date"
           value={draft.targetDate}
           onChange={(event) =>
@@ -508,9 +511,10 @@ function PlanSettings({
           }
         />
       </label>
-      <label className="wide">
+      <label className="wide" htmlFor={`${plan.id}-settings-goal`}>
         学习目标
         <Textarea
+          id={`${plan.id}-settings-goal`}
           value={draft.goal}
           onChange={(event) => setDraft({ ...draft, goal: event.target.value })}
         />
@@ -554,9 +558,10 @@ function CustomTaskForm({
       }}
     >
       <h2>添加自定义任务</h2>
-      <label>
+      <label htmlFor={`${plan.id}-custom-title`}>
         任务名称
         <Input
+          id={`${plan.id}-custom-title`}
           required
           value={input.title}
           onChange={(event) =>
@@ -564,9 +569,10 @@ function CustomTaskForm({
           }
         />
       </label>
-      <label>
+      <label htmlFor={`${plan.id}-custom-phase`}>
         所属阶段
         <select
+          id={`${plan.id}-custom-phase`}
           value={phaseId}
           onChange={(event) => setPhaseId(event.target.value)}
         >
@@ -577,9 +583,10 @@ function CustomTaskForm({
           ))}
         </select>
       </label>
-      <label>
+      <label htmlFor={`${plan.id}-custom-minutes`}>
         预计分钟
         <Input
+          id={`${plan.id}-custom-minutes`}
           type="number"
           min={5}
           value={input.estimatedMinutes}
@@ -588,9 +595,10 @@ function CustomTaskForm({
           }
         />
       </label>
-      <label>
+      <label htmlFor={`${plan.id}-custom-date`}>
         截止日期
         <Input
+          id={`${plan.id}-custom-date`}
           type="date"
           value={input.dueDate}
           onChange={(event) =>
@@ -598,18 +606,20 @@ function CustomTaskForm({
           }
         />
       </label>
-      <label className="wide">
+      <label className="wide" htmlFor={`${plan.id}-custom-description`}>
         说明
         <Textarea
+          id={`${plan.id}-custom-description`}
           value={input.description}
           onChange={(event) =>
             setInput({ ...input, description: event.target.value })
           }
         />
       </label>
-      <label className="wide">
+      <label className="wide" htmlFor={`${plan.id}-custom-notes`}>
         备注
         <Textarea
+          id={`${plan.id}-custom-notes`}
           value={input.notes}
           onChange={(event) =>
             setInput({ ...input, notes: event.target.value })

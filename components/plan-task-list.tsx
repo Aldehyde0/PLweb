@@ -18,6 +18,7 @@ import { useState } from 'react';
 import { conceptMap } from '@/lib/content';
 import { getConceptHref } from '@/lib/concept-utils';
 import {
+  localDate,
   TASK_STATUS_LABELS,
   type LearningPlan,
   type PlanPhase,
@@ -46,27 +47,31 @@ export function PlanTaskList({
       {tasks.map((task, index) => {
         const concept = task.conceptSlug ? conceptMap[task.conceptSlug] : null;
         const overdue =
-          task.dueDate < new Date().toLocaleDateString('en-CA') &&
+          task.dueDate < localDate(new Date()) &&
           task.status !== 'completed' &&
           task.status !== 'skipped';
         return (
           <li
             key={task.id}
             className={`plan-task plan-task-${task.status} ${overdue ? 'overdue' : ''}`}
-            draggable
-            onDragStart={() => setDraggedId(task.id)}
-            onDragEnd={() => setDraggedId(null)}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={() => {
-              if (draggedId)
-                store.moveTask(plan.id, draggedId, phase.id, index);
-              setDraggedId(null);
-            }}
           >
-            <span className="plan-task-drag" title="拖拽排序">
+            <button
+              type="button"
+              className="plan-task-drag"
+              title="拖拽排序"
+              draggable
+              onDragStart={() => setDraggedId(task.id)}
+              onDragEnd={() => setDraggedId(null)}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={() => {
+                if (draggedId)
+                  store.moveTask(plan.id, draggedId, phase.id, index);
+                setDraggedId(null);
+              }}
+            >
               <GripVertical />
               <span className="sr-only">拖拽任务</span>
-            </span>
+            </button>
             <div className="plan-task-main">
               <div className="plan-task-title-row">
                 <span className="plan-task-type">
@@ -185,25 +190,31 @@ export function PlanTaskList({
 function TaskEditor({ plan, task }: { plan: LearningPlan; task: PlanTask }) {
   const store = usePlans();
   const [draft, setDraft] = useState(task);
+  const field = (name: string) => `${task.id}-${name}`;
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
         store.updateTaskFields(plan.id, task.id, draft);
+        if (draft.status !== task.status) {
+          store.setTaskStatus(plan.id, task.id, draft.status);
+        }
       }}
     >
-      <label>
+      <label htmlFor={field('title')}>
         任务名称
         <Input
+          id={field('title')}
           value={draft.title}
           onChange={(event) =>
             setDraft({ ...draft, title: event.target.value })
           }
         />
       </label>
-      <label>
+      <label htmlFor={field('minutes')}>
         预计分钟
         <Input
+          id={field('minutes')}
           type="number"
           min={5}
           value={draft.estimatedMinutes}
@@ -212,9 +223,10 @@ function TaskEditor({ plan, task }: { plan: LearningPlan; task: PlanTask }) {
           }
         />
       </label>
-      <label>
+      <label htmlFor={field('due')}>
         截止日期
         <Input
+          id={field('due')}
           type="date"
           value={draft.dueDate}
           onChange={(event) =>
@@ -222,9 +234,10 @@ function TaskEditor({ plan, task }: { plan: LearningPlan; task: PlanTask }) {
           }
         />
       </label>
-      <label>
+      <label htmlFor={field('phase')}>
         移动到阶段
         <select
+          id={field('phase')}
           value={draft.phaseId}
           onChange={(event) => {
             const phaseId = event.target.value;
@@ -245,9 +258,10 @@ function TaskEditor({ plan, task }: { plan: LearningPlan; task: PlanTask }) {
           ))}
         </select>
       </label>
-      <label>
+      <label htmlFor={field('status')}>
         状态
         <select
+          id={field('status')}
           value={draft.status}
           onChange={(event) =>
             setDraft({
@@ -263,9 +277,10 @@ function TaskEditor({ plan, task }: { plan: LearningPlan; task: PlanTask }) {
           ))}
         </select>
       </label>
-      <label className="wide">
+      <label className="wide" htmlFor={field('notes')}>
         备注
         <Textarea
+          id={field('notes')}
           value={draft.notes}
           onChange={(event) =>
             setDraft({ ...draft, notes: event.target.value })

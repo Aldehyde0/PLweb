@@ -183,8 +183,13 @@ export function PlanCreateView() {
             <fieldset className="plan-check-grid">
               <legend>学习方向（可多选）</legend>
               {categories.map((category) => (
-                <label key={category.slug} className="plan-check">
+                <label
+                  key={category.slug}
+                  className="plan-check"
+                  htmlFor={`plan-category-${category.slug}`}
+                >
                   <Checkbox
+                    id={`plan-category-${category.slug}`}
                     checked={form.categories.includes(category.slug)}
                     onCheckedChange={() => toggleCategory(category.slug)}
                   />
@@ -266,6 +271,7 @@ export function PlanCreateView() {
             </div>
             <div className="plan-option-list">
               <Option
+                id="plan-option-code"
                 checked={form.includeCode}
                 onChange={() => set('includeCode', !form.includeCode)}
                 icon={<Code2 />}
@@ -273,6 +279,7 @@ export function PlanCreateView() {
                 note="在有代码示例的概念中加入阅读或修改任务"
               />
               <Option
+                id="plan-option-tests"
                 checked={form.includeTests}
                 onChange={() => set('includeTests', !form.includeTests)}
                 icon={<FlaskConical />}
@@ -280,6 +287,7 @@ export function PlanCreateView() {
                 note="测试独立保存，不阻塞后续学习"
               />
               <Option
+                id="plan-option-review"
                 checked={form.includeReview}
                 onChange={() => set('includeReview', !form.includeReview)}
                 icon={<RefreshCw />}
@@ -455,12 +463,14 @@ function Field({
   );
 }
 function Option({
+  id,
   checked,
   onChange,
   icon,
   title,
   note,
 }: {
+  id: string;
   checked: boolean;
   onChange: () => void;
   icon: React.ReactNode;
@@ -468,8 +478,8 @@ function Option({
   note: string;
 }) {
   return (
-    <label className="plan-option">
-      <Checkbox checked={checked} onCheckedChange={onChange} />
+    <label className="plan-option" htmlFor={id}>
+      <Checkbox id={id} checked={checked} onCheckedChange={onChange} />
       <span className="plan-option-icon">{icon}</span>
       <span>
         <strong>{title}</strong>
