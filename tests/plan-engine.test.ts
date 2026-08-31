@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   buildReminder,
+  moveTask,
+  scoreStageTest,
+  syncLearnedTasks,
+  updateTask,
   generatePlan,
   migratePlanState,
   recomputePlan,
@@ -73,4 +77,38 @@ test('reminder appears once per local day only for an active incomplete plan', (
   assert.equal(reminder?.daysAway, 2);
   assert.equal(reminder?.suggestedTasks.length, 2);
   assert.equal(buildReminder(plan, { activePlanId: plan.id, lastStudyAt: '2026-08-29T08:00:00.000Z', lastStudyDate: '2026-08-29', lastOpenedAt: null, lastReminderDate: '2026-08-31', reminderDismissedDate: null }, new Date('2026-08-31T09:00:00')), null);
+});
+
+test('task updates and learned synchronization only complete concept-reading work', () => {
+  const plan = generatePlan({ ...baseInput, method: 'deep-understanding', includeCode: false, includeReview: false }, concepts.slice(0, 1), { learned: [], bookmarks: [] }, new Date('2026-08-31T08:00:00'));
+  const reading = plan.phases[0]!.tasks.find((task) => task.type === 'definition-reading')!;
+  const code = plan.phases[0]!.tasks.find((task) => task.type === 'code-reading')!;
+  const synced = syncLearnedTasks(plan, ['intro'], new Date('2026-08-31T09:00:00'));
+  assert.equal(synced.phases[0]!.tasks.find((task) => task.id === reading.id)?.status, 'completed');
+  assert.notEqual(synced.phases[0]!.tasks.find((task) => task.id === code.id)?.status, 'completed');
+  const paused = updateTask(synced, code.id, { status: 'paused' }, new Date('2026-08-31T10:00:00'));
+  assert.equal(paused.phases[0]!.tasks.find((task) => task.id === code.id)?.status, 'paused');
+});
+
+test('moving a task changes only the current plan and updates phase ownership', () => {
+  const plan = generatePlan({ ...baseInput, includeReview: false }, concepts, { learned: [], bookmarks: [] }, new Date('2026-08-31T08:00:00'));
+  const source = plan.phases[0]!;
+  const target = plan.phases[1]!;
+  const task = source.tasks[0]!;
+  const moved = moveTask(plan, task.id, target.id, 0, new Date('2026-08-31T09:00:00'));
+  assert.equal(moved.phases[0]!.tasks.some((item) => item.id === task.id), false);
+  assert.equal(moved.phases[1]!.tasks[0]?.id, task.id);
+  assert.equal(moved.phases[1]!.tasks[0]?.phaseId, target.id);
+});
+
+test('stage-test score records weak concepts without completing learning or mastery', () => {
+  const plan = generatePlan({ ...baseInput, includeReview: false }, concepts.slice(0, 1), { learned: [], bookmarks: [] }, new Date('2026-08-31T08:00:00'));
+  const phase = plan.phases[0]!;
+  const answers = Object.fromEntries(phase.test.questions.map((question, index) => [question.id, index === 0 ? ['错误'] : ['正确']]));
+  const scored = scoreStageTest(plan, phase.id, answers, true, new Date('2026-08-31T10:00:00'));
+  assert.equal(scored.phases[0]!.test.status, 'completed');
+  assert.ok((scored.phases[0]!.test.score ?? 100) < 100);
+  assert.deepEqual(scored.phases[0]!.test.weakConcepts, ['intro']);
+  assert.equal(scored.phases[0]!.mastered, false);
+  assert.ok(scored.phases[0]!.tasks.some((task) => task.status !== 'completed'));
 });

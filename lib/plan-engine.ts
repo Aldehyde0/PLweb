@@ -457,3 +457,75 @@ export function planPreview(plan: LearningPlan) {
     totalMinutes: tasks.reduce((sum, task) => sum + task.estimatedMinutes, 0),
   };
 }
+
+export function updateTask(plan: LearningPlan, taskId: string, patch: Partial<PlanTask>, now = new Date()) {
+  const phases = plan.phases.map((phase) => ({
+    ...phase,
+    tasks: phase.tasks.map((task) => task.id === taskId ? {
+      ...task,
+      ...patch,
+      completedAt: patch.status === 'completed' ? now.toISOString() : patch.status ? null : (patch.completedAt ?? task.completedAt),
+    } : task),
+  }));
+  const changed = phases.flatMap((phase) => phase.tasks).find((task) => task.id === taskId);
+  return recomputePlan({ ...plan, phases, lastTaskId: changed?.id ?? plan.lastTaskId }, now);
+}
+
+export function syncLearnedTasks(plan: LearningPlan, learned: string[], now = new Date()) {
+  let changed = false;
+  const phases = plan.phases.map((phase) => ({
+    ...phase,
+    tasks: phase.tasks.map((task) => {
+      const reading = task.type === 'concept-reading' || task.type === 'definition-reading';
+      if (!reading || !task.conceptSlug || !learned.includes(task.conceptSlug) || task.status === 'completed') return task;
+      changed = true;
+      return { ...task, status: 'completed' as const, completedAt: now.toISOString() };
+    }),
+  }));
+  return changed ? recomputePlan({ ...plan, phases }, now) : plan;
+}
+
+export function moveTask(plan: LearningPlan, taskId: string, targetPhaseId: string, targetIndex: number, now = new Date()) {
+  const task = plan.phases.flatMap((phase) => phase.tasks).find((item) => item.id === taskId);
+  if (!task || !plan.phases.some((phase) => phase.id === targetPhaseId)) return plan;
+  const phases = plan.phases.map((phase) => ({ ...phase, tasks: phase.tasks.filter((item) => item.id !== taskId) }));
+  const target = phases.find((phase) => phase.id === targetPhaseId)!;
+  const index = Math.max(0, Math.min(targetIndex, target.tasks.length));
+  target.tasks.splice(index, 0, { ...task, phaseId: targetPhaseId });
+  for (const phase of phases) phase.tasks = phase.tasks.map((item, order) => ({ ...item, order }));
+  return recomputePlan({ ...plan, phases }, now);
+}
+
+export function scoreStageTest(plan: LearningPlan, phaseId: string, answers: Record<string, string[]>, addWeakToReview: boolean, now = new Date()) {
+  const phases = plan.phases.map((phase) => {
+    if (phase.id !== phaseId) return phase;
+    const wrong = phase.test.questions.filter((question) => {
+      const actual = [...(answers[question.id] ?? [])].sort();
+      const expected = [...question.correctAnswers].sort();
+      return actual.length !== expected.length || actual.some((answer, index) => answer !== expected[index]);
+    });
+    const weakConcepts = [...new Set(wrong.map((question) => question.conceptSlug).filter((slug): slug is string => Boolean(slug)))];
+    const score = phase.test.questions.length ? Math.round((phase.test.questions.length - wrong.length) / phase.test.questions.length * 100) : 0;
+    let tasks = phase.tasks;
+    if (addWeakToReview) {
+      const additions = weakConcepts.filter((slug) => !tasks.some((task) => task.type === 'review' && task.conceptSlug === slug)).map((slug) => {
+        const source = tasks.find((task) => task.conceptSlug === slug);
+        const review: PlanTask = {
+          id: makeId('task'), phaseId, type: 'review', title: `薄弱概念复习 · ${source?.description ?? slug}`,
+          conceptSlug: slug, description: '阶段测试后重新加入的复习任务',
+          category: source?.category ?? null, difficulty: source?.difficulty ?? null,
+          estimatedMinutes: 20, dueDate: addDays(now, 3), order: tasks.length,
+          status: 'not-started', isImportant: true, completedAt: null, notes: '', targetSection: 'core-principle',
+        };
+        return review;
+      });
+      tasks = [...tasks, ...additions].map((task, order) => ({ ...task, order }));
+    }
+    return {
+      ...phase,
+      tasks,
+      test: { ...phase.test, status: 'completed' as const, score, completedAt: now.toISOString(), weakConcepts, addWeakToReview },
+    };
+  });
+  return recomputePlan({ ...plan, phases }, now);
+}
