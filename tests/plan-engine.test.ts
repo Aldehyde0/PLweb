@@ -108,6 +108,7 @@ test('stage-test score records weak concepts without completing learning or mast
   const scored = scoreStageTest(plan, phase.id, answers, true, new Date('2026-08-31T10:00:00'));
   assert.equal(scored.phases[0]!.test.status, 'completed');
   assert.ok((scored.phases[0]!.test.score ?? 100) < 100);
+  assert.equal(scored.phases[0]!.test.incorrectQuestionIds.length, 1);
   assert.deepEqual(scored.phases[0]!.test.weakConcepts, ['intro']);
   assert.equal(scored.phases[0]!.mastered, false);
   assert.ok(scored.phases[0]!.tasks.some((task) => task.status !== 'completed'));

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { LearningProvider } from '@/components/learning-store';
 import { PlanProvider } from '@/components/plan-store';
 import { SiteHeader } from '@/components/site-header';
+import { StudyReminderBanner } from '@/components/study-reminder-banner';
 import './globals.css';
 import './learning-features.css';
 import './deeplearning-features.css';
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <LearningProvider>
           <PlanProvider>
             <SiteHeader />
+            <StudyReminderBanner />
             {children}
             <footer className="mx-auto max-w-6xl border-t border-border px-5 py-8 text-xs text-muted-foreground sm:px-8">
               <span>how to learn AI · 本地个人学习空间</span>
