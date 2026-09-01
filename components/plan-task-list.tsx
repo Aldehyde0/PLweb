@@ -25,6 +25,7 @@ import {
   type PlanTask,
 } from '@/lib/plan-engine';
 import { usePlans } from '@/components/plan-store';
+import { useResources } from '@/components/resource-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -41,6 +42,7 @@ export function PlanTaskList({
   onOpenTest: () => void;
 }) {
   const store = usePlans();
+  const resourceStore = useResources();
   const [draggedId, setDraggedId] = useState<string | null>(null);
   return (
     <ol className="plan-task-list">
@@ -86,7 +88,21 @@ export function PlanTaskList({
                 )}
                 {overdue && <span className="plan-task-overdue">逾期</span>}
               </div>
-              {concept ? (
+              {task.resourceUrl ? (
+                <a
+                  className="plan-task-title"
+                  href={task.resourceUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  onClick={() => {
+                    if (task.resourceId)
+                      resourceStore.markViewed(task.resourceId);
+                  }}
+                >
+                  {task.title}
+                  <ExternalLink />
+                </a>
+              ) : concept ? (
                 <Link
                   className="plan-task-title"
                   href={`${getConceptHref(concept)}${task.targetSection ? `#${task.targetSection}` : ''}`}
@@ -417,6 +433,13 @@ function taskTypeLabel(type: PlanTask['type']) {
     'self-explanation': '自主解释',
     'understanding-question': '理解问题',
     review: '间隔复习',
+    'resource-article': '阅读资料',
+    'resource-video': '观看视频',
+    'resource-paper': '阅读论文',
+    'resource-docs': '官方文档',
+    'resource-github': 'GitHub 实践',
+    'resource-code': '代码教程',
+    'resource-review': '资料复习',
     custom: '自定义',
   };
   return labels[type] ?? type;

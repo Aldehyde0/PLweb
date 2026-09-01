@@ -9,6 +9,7 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "check:resources": "node --experimental-strip-types scripts/check-resource-links.ts",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint",
     "format": "oxfmt"
