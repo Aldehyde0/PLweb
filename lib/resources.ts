@@ -95,7 +95,8 @@ export const learningResources: LearningResource[] = [
     type: '官方文档',
     category: 'artificial-intelligence',
     subcategory: 'Agent',
-    summary: '系统介绍 Agent、工具、Handoff、Guardrail、Session 与追踪等核心组件。',
+    summary:
+      '系统介绍 Agent、工具、Handoff、Guardrail、Session 与追踪等核心组件。',
     author: 'OpenAI',
     platform: 'OpenAI',
     difficulty: '进阶',
@@ -110,7 +111,8 @@ export const learningResources: LearningResource[] = [
     type: '官方文档',
     category: 'artificial-intelligence',
     subcategory: 'Tool',
-    summary: '说明模型如何调用函数、搜索、计算机操作及其他工具，并展示结构化参数。',
+    summary:
+      '说明模型如何调用函数、搜索、计算机操作及其他工具，并展示结构化参数。',
     author: 'OpenAI',
     platform: 'OpenAI Platform',
     difficulty: '进阶',
@@ -167,7 +169,11 @@ export const learningResources: LearningResource[] = [
     difficulty: '挑战',
     duration: '一学期',
     url: 'https://inst.eecs.berkeley.edu/~cs188/',
-    conceptSlugs: ['intelligent-agent', 'state-space-search', 'markov-decision-process'],
+    conceptSlugs: [
+      'intelligent-agent',
+      'state-space-search',
+      'markov-decision-process',
+    ],
     prerequisites: ['概率基础', 'Python'],
     tags: ['视频', '公开课', '需要数学基础'],
     recommendationLevel: 'B',
@@ -178,13 +184,18 @@ export const learningResources: LearningResource[] = [
     type: '书籍',
     category: 'artificial-intelligence',
     subcategory: '综合理论',
-    summary: '以统一框架组织搜索、知识、推理、规划、学习、智能体和机器人等主题。',
+    summary:
+      '以统一框架组织搜索、知识、推理、规划、学习、智能体和机器人等主题。',
     author: 'Stuart Russell / Peter Norvig',
     platform: 'AIMA',
     difficulty: '挑战',
     isFree: false,
     url: 'https://aima.cs.berkeley.edu/',
-    conceptSlugs: ['ai-overview', 'state-space-search', 'knowledge-representation'],
+    conceptSlugs: [
+      'ai-overview',
+      'state-space-search',
+      'knowledge-representation',
+    ],
     tags: ['经典教材', '需要数学基础', '需要付费'],
     recommendationLevel: 'A',
   }),
@@ -245,7 +256,12 @@ export const learningResources: LearningResource[] = [
     platform: 'scikit-learn',
     difficulty: '进阶',
     url: 'https://scikit-learn.org/stable/user_guide',
-    conceptSlugs: ['supervised-learning', 'unsupervised-learning', 'model-evaluation'],
+    conceptSlugs: [
+      'supervised-learning',
+      'unsupervised-learning',
+      'model-evaluation',
+      'numerical-standardization',
+    ],
     tags: ['官方', '推荐', '包含代码'],
     recommendationLevel: 'A',
   }),
@@ -255,13 +271,19 @@ export const learningResources: LearningResource[] = [
     type: '视频课程',
     category: 'machine-learning',
     subcategory: '机器学习基础',
-    summary: '以短视频、可视化和练习讲解回归、分类、数据、过拟合与神经网络基础。',
+    summary:
+      '以短视频、可视化和练习讲解回归、分类、数据、过拟合与神经网络基础。',
     author: 'Google',
     platform: 'Google for Developers',
     difficulty: '入门',
     duration: '约 15 小时',
     url: 'https://developers.google.com/machine-learning/crash-course/',
-    conceptSlugs: ['machine-learning-overview', 'linear-regression', 'classification-vs-regression'],
+    conceptSlugs: [
+      'machine-learning-overview',
+      'linear-regression',
+      'classification-vs-regression',
+      'numerical-standardization',
+    ],
     tags: ['视频', '交互式', '适合入门'],
     recommendationLevel: 'A',
   }),
@@ -271,12 +293,17 @@ export const learningResources: LearningResource[] = [
     type: '书籍',
     category: 'machine-learning',
     subcategory: '统计学习',
-    summary: '以较低数学门槛系统讲解回归、分类、重采样、树模型、正则化与无监督学习。',
+    summary:
+      '以较低数学门槛系统讲解回归、分类、重采样、树模型、正则化与无监督学习。',
     author: 'James / Witten / Hastie / Tibshirani / Taylor',
     platform: 'StatLearning',
     difficulty: '进阶',
     url: 'https://www.statlearning.com/',
-    conceptSlugs: ['linear-regression', 'logistic-regression', 'decision-trees'],
+    conceptSlugs: [
+      'linear-regression',
+      'logistic-regression',
+      'decision-trees',
+    ],
     prerequisites: ['统计学基础'],
     tags: ['经典教材', '推荐', '包含代码'],
     recommendationLevel: 'A',
@@ -293,7 +320,12 @@ export const learningResources: LearningResource[] = [
     difficulty: '入门',
     duration: '系列视频',
     url: 'https://www.youtube.com/c/joshstarmer/featured',
-    conceptSlugs: ['linear-regression', 'decision-trees', 'principal-component-analysis'],
+    conceptSlugs: [
+      'linear-regression',
+      'decision-trees',
+      'principal-component-analysis',
+      'numerical-standardization',
+    ],
     tags: ['视频', '适合入门'],
     recommendationLevel: 'B',
   }),
@@ -308,7 +340,12 @@ export const learningResources: LearningResource[] = [
     platform: 'GitHub',
     difficulty: '挑战',
     url: 'https://github.com/scikit-learn/scikit-learn',
-    conceptSlugs: ['model-family-comparison', 'model-evaluation', 'data-preprocessing'],
+    conceptSlugs: [
+      'model-family-comparison',
+      'model-evaluation',
+      'data-preprocessing',
+      'numerical-standardization',
+    ],
     prerequisites: ['Python', 'NumPy', 'Cython'],
     tags: ['GitHub', '官方', '包含代码'],
     recommendationLevel: 'B',
@@ -330,7 +367,11 @@ export const learningResources: LearningResource[] = [
     platform: 'UCI',
     difficulty: '入门',
     url: 'https://archive.ics.uci.edu/',
-    conceptSlugs: ['dataset-shapes', 'classification-vs-regression', 'ml-project-lifecycle'],
+    conceptSlugs: [
+      'dataset-shapes',
+      'classification-vs-regression',
+      'ml-project-lifecycle',
+    ],
     tags: ['数据集', '公开数据'],
     recommendationLevel: 'B',
   }),
@@ -345,7 +386,12 @@ export const learningResources: LearningResource[] = [
     platform: 'scikit-learn',
     difficulty: '进阶',
     url: 'https://scikit-learn.org/stable/auto_examples/index.html',
-    conceptSlugs: ['data-preprocessing', 'model-evaluation', 'feature-engineering'],
+    conceptSlugs: [
+      'data-preprocessing',
+      'model-evaluation',
+      'feature-engineering',
+      'numerical-standardization',
+    ],
     prerequisites: ['Python', 'NumPy'],
     tags: ['官方', '包含代码', '包含实验'],
     recommendationLevel: 'A',
@@ -361,7 +407,11 @@ export const learningResources: LearningResource[] = [
     platform: 'Google for Developers',
     difficulty: '挑战',
     url: 'https://developers.google.com/machine-learning/guides/rules-of-ml',
-    conceptSlugs: ['ml-project-lifecycle', 'feature-engineering', 'model-evaluation'],
+    conceptSlugs: [
+      'ml-project-lifecycle',
+      'feature-engineering',
+      'model-evaluation',
+    ],
     tags: ['技术文章', '推荐', '工程实践'],
     recommendationLevel: 'B',
   }),
@@ -372,12 +422,17 @@ export const learningResources: LearningResource[] = [
     type: '官方文档',
     category: 'deep-learning',
     subcategory: 'PyTorch',
-    summary: '从张量、数据加载、自动微分和网络训练逐步进入视觉、NLP、性能与部署。',
+    summary:
+      '从张量、数据加载、自动微分和网络训练逐步进入视觉、NLP、性能与部署。',
     author: 'PyTorch Contributors',
     platform: 'PyTorch',
     difficulty: '入门',
     url: 'https://docs.pytorch.org/tutorials/',
-    conceptSlugs: ['pytorch-tensors-modules', 'backpropagation', 'training-engineering'],
+    conceptSlugs: [
+      'pytorch-tensors-modules',
+      'backpropagation',
+      'training-engineering',
+    ],
     tags: ['官方', '推荐', '包含代码'],
     recommendationLevel: 'A',
   }),
@@ -387,12 +442,17 @@ export const learningResources: LearningResource[] = [
     type: '书籍',
     category: 'deep-learning',
     subcategory: '综合教材',
-    summary: '把数学、图示、文字与可执行代码结合，系统覆盖深度学习基础和现代模型。',
+    summary:
+      '把数学、图示、文字与可执行代码结合，系统覆盖深度学习基础和现代模型。',
     author: 'Zhang / Lipton / Li / Smola',
     platform: 'D2L.ai',
     difficulty: '进阶',
     url: 'https://d2l.ai/',
-    conceptSlugs: ['neural-networks', 'convolutional-neural-networks', 'transformer'],
+    conceptSlugs: [
+      'neural-networks',
+      'convolutional-neural-networks',
+      'transformer',
+    ],
     tags: ['书籍', '交互式', '包含代码'],
     recommendationLevel: 'A',
   }),
@@ -408,7 +468,11 @@ export const learningResources: LearningResource[] = [
     difficulty: '进阶',
     duration: '9 课，每课约 90 分钟',
     url: 'https://course.fast.ai/',
-    conceptSlugs: ['neural-networks', 'transfer-learning', 'model-saving-inference'],
+    conceptSlugs: [
+      'neural-networks',
+      'transfer-learning',
+      'model-saving-inference',
+    ],
     prerequisites: ['Python 编程'],
     tags: ['视频', '包含代码', '包含实验'],
     recommendationLevel: 'A',
@@ -436,12 +500,17 @@ export const learningResources: LearningResource[] = [
     type: '书籍',
     category: 'deep-learning',
     subcategory: '理论基础',
-    summary: '系统讲解线性代数、优化、前馈网络、正则化、卷积、序列模型与研究主题。',
+    summary:
+      '系统讲解线性代数、优化、前馈网络、正则化、卷积、序列模型与研究主题。',
     author: 'Goodfellow / Bengio / Courville',
     platform: 'DeepLearningBook.org',
     difficulty: '挑战',
     url: 'https://www.deeplearningbook.org/',
-    conceptSlugs: ['neural-networks', 'deep-learning-regularization', 'optimizers-schedulers'],
+    conceptSlugs: [
+      'neural-networks',
+      'deep-learning-regularization',
+      'optimizers-schedulers',
+    ],
     prerequisites: ['线性代数', '概率', '微积分'],
     tags: ['经典教材', '需要数学基础'],
     recommendationLevel: 'A',
@@ -457,7 +526,11 @@ export const learningResources: LearningResource[] = [
     platform: 'GitHub',
     difficulty: '进阶',
     url: 'https://github.com/pytorch/examples',
-    conceptSlugs: ['pytorch-tensors-modules', 'convolutional-neural-networks', 'training-engineering'],
+    conceptSlugs: [
+      'pytorch-tensors-modules',
+      'convolutional-neural-networks',
+      'training-engineering',
+    ],
     prerequisites: ['Python', 'PyTorch'],
     tags: ['GitHub', '官方', '包含代码', '包含实验'],
     recommendationLevel: 'A',
@@ -479,7 +552,11 @@ export const learningResources: LearningResource[] = [
     platform: 'TensorFlow',
     difficulty: '入门',
     url: 'https://playground.tensorflow.org/',
-    conceptSlugs: ['neural-networks', 'activation-functions', 'learning-rate-selection'],
+    conceptSlugs: [
+      'neural-networks',
+      'activation-functions',
+      'learning-rate-selection',
+    ],
     tags: ['交互式', '适合入门'],
     recommendationLevel: 'B',
   }),
@@ -489,7 +566,8 @@ export const learningResources: LearningResource[] = [
     type: '论文',
     category: 'deep-learning',
     subcategory: 'Transformer',
-    summary: '提出完全基于注意力机制的 Transformer 架构，并用于序列建模和机器翻译。',
+    summary:
+      '提出完全基于注意力机制的 Transformer 架构，并用于序列建模和机器翻译。',
     author: 'Vaswani et al.',
     platform: 'arXiv / NeurIPS',
     difficulty: '挑战',
@@ -522,13 +600,18 @@ export const learningResources: LearningResource[] = [
     type: '书籍',
     category: 'reinforcement-learning',
     subcategory: '强化学习基础',
-    summary: '从多臂赌博机、MDP、动态规划、蒙特卡洛和 TD 方法建立强化学习理论主线。',
+    summary:
+      '从多臂赌博机、MDP、动态规划、蒙特卡洛和 TD 方法建立强化学习理论主线。',
     author: 'Richard Sutton / Andrew Barto',
     platform: 'MIT Press',
     difficulty: '进阶',
     isFree: false,
     url: 'https://mitpress.mit.edu/9780262039246/reinforcement-learning/',
-    conceptSlugs: ['reinforcement-learning-overview', 'markov-decision-process', 'td-learning'],
+    conceptSlugs: [
+      'reinforcement-learning-overview',
+      'markov-decision-process',
+      'td-learning',
+    ],
     prerequisites: ['概率基础'],
     tags: ['经典教材', '推荐', '需要数学基础', '需要付费'],
     recommendationLevel: 'A',
@@ -539,7 +622,8 @@ export const learningResources: LearningResource[] = [
     type: '技术文章',
     category: 'reinforcement-learning',
     subcategory: '深度强化学习',
-    summary: '从术语、数学背景和算法分类进入 VPG、TRPO、PPO、DDPG、TD3 与 SAC。',
+    summary:
+      '从术语、数学背景和算法分类进入 VPG、TRPO、PPO、DDPG、TD3 与 SAC。',
     author: 'OpenAI',
     platform: 'OpenAI',
     difficulty: '进阶',
@@ -556,7 +640,8 @@ export const learningResources: LearningResource[] = [
     type: '视频课程',
     category: 'reinforcement-learning',
     subcategory: '深度强化学习',
-    summary: '从 Q-Learning、DQN、Policy Gradient 和 Actor-Critic 逐步进入 PPO 与多智能体。',
+    summary:
+      '从 Q-Learning、DQN、Policy Gradient 和 Actor-Critic 逐步进入 PPO 与多智能体。',
     author: 'Hugging Face',
     platform: 'Hugging Face',
     difficulty: '入门',
@@ -573,13 +658,18 @@ export const learningResources: LearningResource[] = [
     type: '视频',
     category: 'reinforcement-learning',
     subcategory: '强化学习理论',
-    summary: '沿 MDP、动态规划、价值函数、TD、策略梯度和函数近似讲解经典强化学习。',
+    summary:
+      '沿 MDP、动态规划、价值函数、TD、策略梯度和函数近似讲解经典强化学习。',
     author: 'David Silver',
     platform: 'Google DeepMind / YouTube',
     difficulty: '进阶',
     duration: '10 讲',
     url: 'https://www.youtube.com/watch?v=2pWv7GOvuf0',
-    conceptSlugs: ['markov-decision-process', 'value-q-function', 'policy-gradient'],
+    conceptSlugs: [
+      'markov-decision-process',
+      'value-q-function',
+      'policy-gradient',
+    ],
     prerequisites: ['概率基础', '线性代数'],
     tags: ['视频', '经典课程', '需要数学基础'],
     recommendationLevel: 'A',
@@ -590,7 +680,8 @@ export const learningResources: LearningResource[] = [
     type: '论文',
     category: 'reinforcement-learning',
     subcategory: 'DQN',
-    summary: '提出使用深度网络、经验回放和目标网络从像素输入学习 Atari 控制策略。',
+    summary:
+      '提出使用深度网络、经验回放和目标网络从像素输入学习 Atari 控制策略。',
     author: 'Mnih et al.',
     platform: 'arXiv',
     difficulty: '挑战',
@@ -606,7 +697,8 @@ export const learningResources: LearningResource[] = [
     type: '论文',
     category: 'reinforcement-learning',
     subcategory: 'PPO',
-    summary: '提出基于概率比率裁剪的策略优化目标，限制单次更新幅度并复用 rollout。',
+    summary:
+      '提出基于概率比率裁剪的策略优化目标，限制单次更新幅度并复用 rollout。',
     author: 'Schulman et al.',
     platform: 'arXiv',
     difficulty: '挑战',
@@ -622,7 +714,8 @@ export const learningResources: LearningResource[] = [
     type: '论文',
     category: 'reinforcement-learning',
     subcategory: 'Offline RL',
-    summary: '在 Bellman 误差之外加入保守价值正则，降低固定数据外动作的乐观估计。',
+    summary:
+      '在 Bellman 误差之外加入保守价值正则，降低固定数据外动作的乐观估计。',
     author: 'Kumar et al.',
     platform: 'arXiv / NeurIPS',
     difficulty: '挑战',
@@ -638,7 +731,8 @@ export const learningResources: LearningResource[] = [
     type: '论文',
     category: 'reinforcement-learning',
     subcategory: 'Offline RL',
-    summary: '通过 expectile value、数据动作 TD 更新和优势加权行为克隆完成隐式策略改进。',
+    summary:
+      '通过 expectile value、数据动作 TD 更新和优势加权行为克隆完成隐式策略改进。',
     author: 'Kostrikov / Nair / Levine',
     platform: 'arXiv',
     difficulty: '挑战',
@@ -654,7 +748,8 @@ export const learningResources: LearningResource[] = [
     type: '论文',
     category: 'reinforcement-learning',
     subcategory: '偏好优化',
-    summary: '把带参考策略约束的偏好优化转写为直接训练 chosen/rejected 概率差的目标。',
+    summary:
+      '把带参考策略约束的偏好优化转写为直接训练 chosen/rejected 概率差的目标。',
     author: 'Rafailov et al.',
     platform: 'arXiv / NeurIPS',
     difficulty: '挑战',
@@ -670,7 +765,8 @@ export const learningResources: LearningResource[] = [
     type: '论文',
     category: 'reinforcement-learning',
     subcategory: 'GRPO',
-    summary: '介绍 DeepSeekMath 训练流程及以组内相对奖励替代独立 Value Model 的 GRPO。',
+    summary:
+      '介绍 DeepSeekMath 训练流程及以组内相对奖励替代独立 Value Model 的 GRPO。',
     author: 'Shao et al.',
     platform: 'arXiv',
     difficulty: '挑战',
@@ -757,13 +853,11 @@ export function filterResources(
         .toLowerCase();
       return (
         (!query || haystack.includes(query)) &&
-        (filters.category === 'all' ||
-          item.category === filters.category) &&
+        (filters.category === 'all' || item.category === filters.category) &&
         (filters.type === 'all' || item.type === filters.type) &&
         (filters.difficulty === 'all' ||
           item.difficulty === filters.difficulty) &&
-        (filters.language === 'all' ||
-          item.language === filters.language) &&
+        (filters.language === 'all' || item.language === filters.language) &&
         (filters.cost === 'all' ||
           (filters.cost === 'free' ? item.isFree : !item.isFree)) &&
         (filters.recommendation === 'all' ||
@@ -796,8 +890,7 @@ export function validateResourceLibrary(resources: LearningResource[]) {
       errors.push(`${item.id} 网址不是 HTTPS`);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(item.lastVerifiedAt))
       errors.push(`${item.id} 最后验证时间格式不正确`);
-    if (!item.conceptSlugs.length)
-      errors.push(`${item.id} 没有关联概念`);
+    if (!item.conceptSlugs.length) errors.push(`${item.id} 没有关联概念`);
     if (item.type === 'GitHub 仓库' && !item.github)
       errors.push(`${item.id} 缺少 GitHub 元数据`);
   }

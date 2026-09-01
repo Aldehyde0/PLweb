@@ -42,6 +42,13 @@ export type TaskType =
   | 'self-explanation'
   | 'understanding-question'
   | 'review'
+  | 'resource-article'
+  | 'resource-video'
+  | 'resource-paper'
+  | 'resource-docs'
+  | 'resource-github'
+  | 'resource-code'
+  | 'resource-review'
   | 'custom';
 export type TestQuestionType =
   | 'single-choice'
@@ -74,6 +81,17 @@ export interface PlanConcept {
   relatedConcepts?: string[];
   inputs?: string[];
   outputs?: string[];
+  resources?: PlanResourceRef[];
+}
+
+export interface PlanResourceRef {
+  id: string;
+  title: string;
+  type: string;
+  url: string;
+  summary: string;
+  estimatedMinutes: number;
+  recommendationLevel: 'A' | 'B' | 'C';
 }
 
 export interface PlanSubstep {
@@ -129,6 +147,8 @@ export interface PlanTask {
   notes: string;
   targetSection: string | null;
   substeps: PlanSubstep[];
+  resourceId?: string | null;
+  resourceUrl?: string | null;
 }
 
 export interface PlanPhase {
@@ -163,6 +183,7 @@ export interface LearningPlan {
   includeCode: boolean;
   includeTests: boolean;
   includeReview: boolean;
+  includeResources: boolean;
   completionRate: number;
   phases: PlanPhase[];
   generationWarnings: string[];
@@ -207,6 +228,7 @@ export interface PlanFormInput {
   includeCode: boolean;
   includeTests: boolean;
   includeReview: boolean;
+  includeResources?: boolean;
 }
 
 export interface ReminderView {
@@ -469,6 +491,7 @@ function migratePlan(value: unknown): LearningPlan {
       includeCode: item.includeCode ?? true,
       includeTests: item.includeTests ?? false,
       includeReview: item.includeReview ?? false,
+      includeResources: item.includeResources ?? false,
       completionRate: item.completionRate ?? 0,
       phases,
       generationWarnings: Array.isArray(item.generationWarnings)
@@ -563,6 +586,8 @@ function migrateTask(value: unknown, phaseId: string, order: number): PlanTask {
     notes: item.notes ?? '',
     targetSection: item.targetSection ?? null,
     substeps,
+    resourceId: item.resourceId ?? null,
+    resourceUrl: item.resourceUrl ?? null,
   };
 }
 
@@ -729,6 +754,7 @@ export function generatePlan(
       includeCode: input.includeCode,
       includeTests: input.includeTests,
       includeReview: input.includeReview,
+      includeResources: input.includeResources ?? false,
       completionRate: 0,
       phases,
       generationWarnings: warnings,
@@ -1109,6 +1135,119 @@ function makePhaseReviewTask(
   };
 }
 
+function resourceTaskType(type: string): TaskType {
+  if (type === '视频' || type === '视频课程') return 'resource-video';
+  if (type === '论文') return 'resource-paper';
+  if (type === '官方文档') return 'resource-docs';
+  if (type === 'GitHub 仓库') return 'resource-github';
+  if (type === '代码教程') return 'resource-code';
+  return 'resource-article';
+}
+
+function resourceTaskTitle(resource: PlanResourceRef) {
+  const verb: Record<string, string> = {
+    'resource-video': '观看',
+    'resource-paper': '阅读论文',
+    'resource-docs': '查看官方文档',
+    'resource-github': '实践 GitHub 仓库',
+    'resource-code': '完成代码教程',
+    'resource-review': '复习参考资料',
+  };
+  const type = resourceTaskType(resource.type);
+  return `${verb[type] ?? '阅读'} · ${resource.title}`;
+}
+
+function resourceTasksForConcept(
+  input: PlanFormInput,
+  concept: PlanConcept,
+  phaseId: string,
+  now: Date,
+) {
+  if (!input.includeResources || !concept.resources?.length) return [];
+  const priorityByMethod: Record<PlanMethod, string[]> = {
+    'knowledge-route': [
+      '技术文章',
+      '官方文档',
+      '视频',
+      '视频课程',
+      'GitHub 仓库',
+      '代码教程',
+      '论文',
+    ],
+    'deep-understanding': [
+      '技术文章',
+      '官方文档',
+      '论文',
+      '视频',
+      '视频课程',
+      'GitHub 仓库',
+    ],
+    'code-practice': [
+      '代码教程',
+      'GitHub 仓库',
+      '官方文档',
+      '技术文章',
+      '视频',
+    ],
+    'spaced-review': ['技术文章', '官方文档', '视频', '论文', 'GitHub 仓库'],
+  };
+  const typePriority = priorityByMethod[input.method];
+  const recommendationRank = { A: 0, B: 1, C: 2 } as const;
+  const limit = input.method === 'spaced-review' ? 1 : 3;
+  return [...concept.resources]
+    .sort(
+      (a, b) =>
+        (typePriority.indexOf(a.type) < 0 ? 99 : typePriority.indexOf(a.type)) -
+          (typePriority.indexOf(b.type) < 0
+            ? 99
+            : typePriority.indexOf(b.type)) ||
+        recommendationRank[a.recommendationLevel] -
+          recommendationRank[b.recommendationLevel],
+    )
+    .slice(0, limit)
+    .map((resource) => {
+      const type =
+        input.method === 'spaced-review'
+          ? ('resource-review' as const)
+          : resourceTaskType(resource.type);
+      const title =
+        input.method === 'spaced-review'
+          ? `复习参考资料 · ${resource.title}`
+          : resourceTaskTitle(resource);
+      const minutes = Math.max(5, resource.estimatedMinutes);
+      const substeps = [
+        makeSubstep(
+          type,
+          title,
+          resource.summary,
+          minutes,
+          null,
+        ),
+      ];
+      return {
+        id: makeId('task'),
+        phaseId,
+        type,
+        title,
+        conceptSlug: concept.slug,
+        description: resource.summary,
+        category: concept.category,
+        difficulty: concept.difficulty,
+        estimatedMinutes: minutes,
+        dueDate: localDate(now),
+        order: 0,
+        status: 'not-started' as const,
+        isImportant: resource.recommendationLevel === 'A',
+        completedAt: null,
+        notes: '',
+        targetSection: null,
+        substeps,
+        resourceId: resource.id,
+        resourceUrl: resource.url,
+      } satisfies PlanTask;
+    });
+}
+
 function tasksForConcept(
   input: PlanFormInput,
   concept: PlanConcept,
@@ -1211,6 +1350,7 @@ function tasksForConcept(
       tasks.push(task);
     }
   } else tasks = [];
+  tasks.push(...resourceTasksForConcept(input, concept, phaseId, now));
   if (
     input.includeCode &&
     concept.hasCode &&
@@ -1451,6 +1591,7 @@ export function planPreview(plan: LearningPlan) {
     reviewCount: tasks.filter(
       (task) => task.type === 'review' || task.type === 'phase-review',
     ).length,
+    resourceCount: tasks.filter((task) => Boolean(task.resourceId)).length,
     testCount: plan.phases.filter((phase) => phase.test.questions.length > 0)
       .length,
     totalMinutes: tasks.reduce((sum, task) => sum + task.estimatedMinutes, 0),

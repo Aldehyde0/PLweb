@@ -641,3 +641,69 @@ void test('deleting a plan removes its local records without affecting other pla
   assert.deepEqual(result.completedTaskIds, []);
   assert.equal(result.reminder.activePlanId, second.id);
 });
+
+void test('optional reference resources create independent plan tasks in method order', () => {
+  const plan = generatePlan(
+    {
+      ...baseInput,
+      method: 'knowledge-route',
+      includeReview: false,
+      includeResources: true,
+    },
+    [
+      {
+        ...richConcept,
+        resources: [
+          {
+            id: 'article',
+            title: '基础文章',
+            type: '技术文章',
+            url: 'https://example.com/article',
+            summary: '文章摘要',
+            estimatedMinutes: 10,
+            recommendationLevel: 'A',
+          },
+          {
+            id: 'video',
+            title: '视频讲解',
+            type: '视频',
+            url: 'https://example.com/video',
+            summary: '视频摘要',
+            estimatedMinutes: 20,
+            recommendationLevel: 'B',
+          },
+          {
+            id: 'repo',
+            title: '实验仓库',
+            type: 'GitHub 仓库',
+            url: 'https://example.com/repo',
+            summary: '仓库摘要',
+            estimatedMinutes: 30,
+            recommendationLevel: 'A',
+          },
+        ],
+      },
+    ],
+    { learned: [], bookmarks: [] },
+    new Date('2026-08-31T08:00:00'),
+  );
+  const resourceTasks = plan.phases
+    .flatMap((phase) => phase.tasks)
+    .filter((task) => task.resourceId);
+  assert.deepEqual(
+    resourceTasks.map((task) => task.type),
+    ['resource-article', 'resource-video', 'resource-github'],
+  );
+  assert.ok(resourceTasks.every((task) => task.status === 'not-started'));
+  const learned = syncLearnedTasks(
+    plan,
+    ['gradient-descent'],
+    new Date('2026-08-31T09:00:00'),
+  );
+  assert.ok(
+    learned.phases
+      .flatMap((phase) => phase.tasks)
+      .filter((task) => task.resourceId)
+      .every((task) => task.status !== 'completed'),
+  );
+});

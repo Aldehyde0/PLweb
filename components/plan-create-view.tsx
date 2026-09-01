@@ -8,6 +8,7 @@ import {
   Check,
   Code2,
   FlaskConical,
+  LibraryBig,
   RefreshCw,
   RotateCcw,
   Save,
@@ -30,6 +31,7 @@ import {
   type PlanLevel,
   type PlanMethod,
 } from '@/lib/plan-engine';
+import { resourcesForConcept } from '@/lib/resources';
 import { useLearning } from '@/components/learning-store';
 import { usePlans } from '@/components/plan-store';
 import { Button } from '@/components/ui/button';
@@ -54,6 +56,7 @@ const initialForm: PlanFormInput = {
   includeCode: true,
   includeTests: true,
   includeReview: true,
+  includeResources: false,
 };
 
 export function PlanCreateView() {
@@ -106,6 +109,23 @@ export function PlanCreateView() {
           }),
           inputs: long?.inputs ?? [],
           outputs: long?.outputs ?? [],
+          resources: resourcesForConcept(concept.slug).map((resource) => ({
+            id: resource.id,
+            title: resource.title,
+            type: resource.type,
+            url: resource.url,
+            summary: resource.summary,
+            estimatedMinutes:
+              resource.type === '视频' || resource.type === '视频课程'
+                ? 20
+                : resource.type === 'GitHub 仓库' ||
+                    resource.type === '代码教程'
+                  ? 30
+                  : resource.type === '论文'
+                    ? 25
+                    : 12,
+            recommendationLevel: resource.recommendationLevel,
+          })),
         };
       }),
     [],
@@ -435,6 +455,16 @@ export function PlanCreateView() {
                 title="包含间隔复习"
                 note="按 1、3、7、14 天安排复习；复习法额外包含当天"
               />
+              <Option
+                id="plan-option-resources"
+                checked={form.includeResources ?? false}
+                onChange={() =>
+                  set('includeResources', !(form.includeResources ?? false))
+                }
+                icon={<LibraryBig />}
+                title="加入参考资料任务"
+                note="根据学习方法加入文章、视频、论文、官方文档或 GitHub 实践"
+              />
             </div>
           </section>
           <div className="plan-form-actions">
@@ -477,6 +507,7 @@ function PlanPreview({
     ['概念', summary.conceptCount],
     ['代码练习', summary.codeCount],
     ['复习任务', summary.reviewCount],
+    ['参考资料', summary.resourceCount],
     ['阶段测试', summary.testCount],
     ['预计总时长', `${summary.totalMinutes} 分钟`],
   ];

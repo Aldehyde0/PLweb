@@ -5,6 +5,7 @@ import {
   resourceCategories,
   resourceTypes,
   validateResourceLibrary,
+  resourcesForConcept,
 } from '../lib/resources.ts';
 
 void test('resource library has at least eight entries for every learning direction', () => {
@@ -54,4 +55,13 @@ void test('GitHub resources include repository-specific metadata without star co
     assert.ok(resource.github?.primaryLanguage);
     assert.equal('stars' in (resource.github ?? {}), false);
   }
+});
+
+void test('numerical standardization has mixed automatically linked resources', () => {
+  const resources = resourcesForConcept('numerical-standardization');
+  const types = new Set(resources.map((resource) => resource.type));
+  assert.ok(resources.length >= 4);
+  assert.ok(types.has('官方文档'));
+  assert.ok(types.has('视频') || types.has('视频课程'));
+  assert.ok(types.has('GitHub 仓库') || types.has('代码教程'));
 });

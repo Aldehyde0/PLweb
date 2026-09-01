@@ -6,6 +6,7 @@ import {
   BookOpen,
   CalendarRange,
   Dumbbell,
+  LibraryBig,
   Menu,
   X,
 } from 'lucide-react';
@@ -16,6 +17,7 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const links = [
     { href: '/', label: '知识库', icon: BookOpen },
+    { href: '/resources', label: '参考库', icon: LibraryBig },
     { href: '/plans', label: '学习计划', icon: CalendarRange },
     { href: '/exercises', label: '练习', icon: Dumbbell },
     { href: '/bookmarks', label: '收藏', icon: Bookmark },

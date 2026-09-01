@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { LearningProvider } from '@/components/learning-store';
 import { PlanProvider } from '@/components/plan-store';
+import { ResourceProvider } from '@/components/resource-store';
 import { SiteHeader } from '@/components/site-header';
 import { StudyReminderBanner } from '@/components/study-reminder-banner';
 import './globals.css';
@@ -11,6 +12,7 @@ import './ai-category.css';
 import './rl-features.css';
 import './rl-matrix.css';
 import './plan-features.css';
+import './resource-features.css';
 
 const title = 'how to learn AI · 个人学习知识库';
 const description =
@@ -47,15 +49,17 @@ export default function RootLayout({
     <html lang="zh-CN" className="dark">
       <body>
         <LearningProvider>
-          <PlanProvider>
-            <SiteHeader />
-            <StudyReminderBanner />
-            {children}
-            <footer className="mx-auto max-w-6xl border-t border-border px-5 py-8 text-xs text-muted-foreground sm:px-8">
-              <span>how to learn AI · 本地个人学习空间</span>
-              <span className="float-right">数据仅存于浏览器</span>
-            </footer>
-          </PlanProvider>
+          <ResourceProvider>
+            <PlanProvider>
+              <SiteHeader />
+              <StudyReminderBanner />
+              {children}
+              <footer className="mx-auto max-w-6xl border-t border-border px-5 py-8 text-xs text-muted-foreground sm:px-8">
+                <span>how to learn AI · 本地个人学习空间</span>
+                <span className="float-right">数据仅存于浏览器</span>
+              </footer>
+            </PlanProvider>
+          </ResourceProvider>
         </LearningProvider>
       </body>
     </html>
