@@ -1,10 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  getNextTheme,
-  normalizeTheme,
-  resolveTheme,
-} from '../lib/theme.ts';
+import { getNextTheme, normalizeTheme, resolveTheme } from '../lib/theme.ts';
 
 void test('normalizes only supported persisted theme values', () => {
   assert.equal(normalizeTheme('light'), 'light');

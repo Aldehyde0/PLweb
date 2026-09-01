@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
+@import '../tokens.css';
 @import 'katex/dist/katex.min.css';
 @import 'tailwindcss';
 @import 'tw-animate-css';
@@ -10,21 +12,20 @@
 }
 
 :root {
-  --font-sans-local:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
-  --font-mono-local:"Cascadia Code","SFMono-Regular",Consolas,monospace;
-  --background:#171717;--foreground:#d6d6d6;--card:#202020;--card-foreground:#d8d8d8;
-  --popover:#202020;--popover-foreground:#dddddd;--primary:#8aa4b5;--primary-foreground:#101315;
-  --secondary:#292929;--secondary-foreground:#dedede;--muted:#292929;--muted-foreground:#999999;
-  --accent:#282828;--accent-foreground:#e0e0e0;--destructive:#d98787;--border:#363636;--input:#3b3b3b;--ring:#8aa4b5;--radius:.7rem;
+  --font-sans-local:var(--font-body);
+  --font-mono-local:var(--font-outlier);
+  --background:var(--color-paper);--foreground:var(--color-ink);--card:var(--color-paper-2);--card-foreground:var(--color-ink);
+  --popover:var(--color-paper-2);--popover-foreground:var(--color-ink);--primary:var(--color-accent);--primary-foreground:var(--color-accent-ink);
+  --secondary:var(--color-paper-3);--secondary-foreground:var(--color-ink-2);--muted:var(--color-paper-3);--muted-foreground:var(--color-muted);
+  --accent:var(--color-accent-tint);--accent-foreground:var(--color-ink);--destructive:var(--color-error);--border:var(--color-rule);--input:var(--color-rule-2);--ring:var(--color-focus);--radius:var(--radius-input);
 }
 
-.dark{color-scheme:dark}
 @layer base{
   *{@apply border-border outline-ring/50}
-  html{@apply font-sans;scroll-behavior:smooth;background:var(--background)}
-  body{@apply bg-background text-foreground;min-width:320px;overflow-x:hidden;text-rendering:optimizeLegibility}
+  html{@apply font-sans;scroll-behavior:smooth;background:var(--background);overflow-x:clip}
+  body{@apply bg-background text-foreground;min-width:320px;overflow-x:clip;text-rendering:optimizeLegibility}
   button,a,input,select{@apply outline-none}
-  h1,h2,h3,h4,h5{color:#e5e5e5}
+  h1,h2,h3,h4,h5{color:var(--color-ink);font-family:var(--font-display);font-style:normal;overflow-wrap:anywhere;min-width:0}
 }
 
 .eyebrow{color:var(--primary);font-size:.72rem;font-weight:650;letter-spacing:.055em;text-transform:uppercase}
