@@ -4,6 +4,7 @@ import {
   buildDefinitionParagraph,
   buildLocalDate,
   buildReminder,
+  deletePlanFromState,
   moveTask,
   scoreStageTest,
   syncLearnedTasks,
@@ -591,4 +592,52 @@ void test('estimated completion uses only unfinished substep minutes', () => {
       plan,
     );
   assert.ok(partial.estimatedCompletionDate < plan.estimatedCompletionDate);
+});
+
+void test('deleting a plan removes its local records without affecting other plans', () => {
+  const first = generatePlan(
+    { ...baseInput, title: '计划一', includeReview: false },
+    [richConcept],
+    { learned: [], bookmarks: [] },
+    new Date('2026-08-31T08:00:00'),
+  );
+  const second = generatePlan(
+    { ...baseInput, title: '计划二', includeReview: false },
+    [richConcept],
+    { learned: [], bookmarks: [] },
+    new Date('2026-08-31T08:00:00'),
+  );
+  const firstTask = first.phases[0]!.tasks[0]!;
+  const state = {
+    version: 1 as const,
+    plans: [first, second],
+    activities: [
+      {
+        id: 'a1',
+        planId: first.id,
+        taskId: firstTask.id,
+        actionType: 'task' as const,
+        startedAt: '2026-08-31T08:00:00.000Z',
+        completedAt: null,
+        durationMinutes: 5,
+      },
+    ],
+    reminder: {
+      activePlanId: first.id,
+      lastStudyAt: null,
+      lastStudyDate: null,
+      lastOpenedAt: null,
+      lastReminderDate: null,
+      reminderDismissedDate: null,
+    },
+    completedTaskIds: [firstTask.id],
+  };
+  const result = deletePlanFromState(state, first.id);
+  assert.deepEqual(
+    result.plans.map((plan) => plan.id),
+    [second.id],
+  );
+  assert.deepEqual(result.activities, []);
+  assert.deepEqual(result.completedTaskIds, []);
+  assert.equal(result.reminder.activePlanId, second.id);
 });

@@ -405,6 +405,36 @@ export function migratePlanState(raw: string | null): PlanState {
   };
 }
 
+export function deletePlanFromState(
+  state: PlanState,
+  planId: string,
+): PlanState {
+  const deletedTaskIds = new Set(
+    state.plans
+      .find((plan) => plan.id === planId)
+      ?.phases.flatMap((phase) => phase.tasks)
+      .map((task) => task.id) ?? [],
+  );
+  const plans = state.plans.filter((plan) => plan.id !== planId);
+  const activePlanId =
+    state.reminder.activePlanId === planId
+      ? (plans.find((plan) => plan.status === 'active')?.id ??
+        plans[0]?.id ??
+        null)
+      : state.reminder.activePlanId;
+  return {
+    ...state,
+    plans,
+    activities: state.activities.filter(
+      (activity) => activity.planId !== planId,
+    ),
+    completedTaskIds: state.completedTaskIds.filter(
+      (taskId) => !deletedTaskIds.has(taskId),
+    ),
+    reminder: { ...state.reminder, activePlanId },
+  };
+}
+
 function migratePlan(value: unknown): LearningPlan {
   const item =
     value && typeof value === 'object' ? (value as Partial<LearningPlan>) : {};

@@ -19,6 +19,7 @@ import { useState } from 'react';
 import { localDate, PLAN_METHODS, type LearningPlan } from '@/lib/plan-engine';
 import { usePlans } from '@/components/plan-store';
 import { PlanNextStep } from '@/components/plan-next-step';
+import { PlanDeleteButton } from '@/components/plan-delete-button';
 import { PlanTaskList } from '@/components/plan-task-list';
 import { StageTestPanel } from '@/components/stage-test-panel';
 import { Button } from '@/components/ui/button';
@@ -412,6 +413,11 @@ export function PlanDetailView({
         </section>
         {view === 'all' && (
           <div className="plan-bottom-actions">
+            <PlanDeleteButton
+              planId={plan.id}
+              title={plan.title}
+              redirectTo="/plans"
+            />
             <Button
               variant="outline"
               onClick={() =>
