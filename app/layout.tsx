@@ -4,7 +4,9 @@ import { PlanProvider } from '@/components/plan-store';
 import { ResourceProvider } from '@/components/resource-store';
 import { SiteHeader } from '@/components/site-header';
 import { StudyReminderBanner } from '@/components/study-reminder-banner';
+import { THEME_STORAGE_KEY } from '@/lib/theme';
 import './globals.css';
+import './hallmark-design.css';
 import './learning-features.css';
 import './deeplearning-features.css';
 import './ai-features.css';
@@ -46,7 +48,14 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="zh-CN" className="dark">
+    <html lang="zh-CN" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var saved=localStorage.getItem('${THEME_STORAGE_KEY}');var theme=saved==='light'||saved==='dark'?saved:(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.theme=theme;document.documentElement.classList.toggle('dark',theme==='dark')}catch(e){document.documentElement.dataset.theme='light'}})()`,
+          }}
+        />
+      </head>
       <body>
         <LearningProvider>
           <ResourceProvider>
@@ -54,9 +63,14 @@ export default function RootLayout({
               <SiteHeader />
               <StudyReminderBanner />
               {children}
-              <footer className="mx-auto max-w-6xl border-t border-border px-5 py-8 text-xs text-muted-foreground sm:px-8">
-                <span>how to learn AI · 本地个人学习空间</span>
-                <span className="float-right">数据仅存于浏览器</span>
+              <footer className="site-footer">
+                <p className="site-footer__statement">
+                  理解一个概念，再独立解决一个问题。
+                </p>
+                <div className="site-footer__meta">
+                  <span>how to learn AI</span>
+                  <span>学习数据仅保存在当前浏览器</span>
+                </div>
               </footer>
             </PlanProvider>
           </ResourceProvider>

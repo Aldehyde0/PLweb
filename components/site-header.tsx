@@ -11,62 +11,52 @@ import {
   X,
 } from 'lucide-react';
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const links = [
-    { href: '/', label: '知识库', icon: BookOpen },
-    { href: '/resources', label: '参考库', icon: LibraryBig },
-    { href: '/plans', label: '学习计划', icon: CalendarRange },
+    { href: '/', label: '知识', icon: BookOpen },
+    { href: '/resources', label: '资源', icon: LibraryBig },
+    { href: '/plans', label: '计划', icon: CalendarRange },
     { href: '/exercises', label: '练习', icon: Dumbbell },
     { href: '/bookmarks', label: '收藏', icon: Bookmark },
   ];
   return (
-    <header className="sticky top-0 z-40 border-b border-border/80 bg-background/90 backdrop-blur-lg">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
-        <Link
-          href="/"
-          className="rounded-md text-base font-semibold tracking-[-0.035em] outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-lg"
-        >
+    <header className="site-header">
+      <div className="site-nav">
+        <Link href="/" className="site-nav__brand">
           how to learn AI<span className="text-primary">.</span>
         </Link>
-        <nav aria-label="主导航" className="hidden items-center gap-1 sm:flex">
+        <nav aria-label="主导航" className="site-nav__links">
           {links.map(({ href, label, icon: Icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <Icon size={16} />
+            <Link key={href} href={href} className="site-nav__link">
+              <Icon size={16} aria-hidden="true" />
               {label}
             </Link>
           ))}
         </nav>
-        <Button
+        <ThemeToggle />
+        <button
+          type="button"
           aria-label={open ? '关闭菜单' : '打开菜单'}
           aria-expanded={open}
-          variant="ghost"
-          size="icon"
-          className="sm:hidden"
+          className="site-nav__menu"
           onClick={() => setOpen(!open)}
         >
-          {open ? <X /> : <Menu />}
-        </Button>
+          {open ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
+        </button>
       </div>
       {open && (
-        <nav
-          aria-label="移动端导航"
-          className="border-t border-border px-5 py-3 sm:hidden"
-        >
+        <nav aria-label="移动端导航" className="site-nav__mobile">
           {links.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               onClick={() => setOpen(false)}
               href={href}
-              className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="site-nav__mobile-link"
             >
-              <Icon size={17} />
+              <Icon size={17} aria-hidden="true" />
               {label}
             </Link>
           ))}

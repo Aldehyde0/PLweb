@@ -1,26 +1,276 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, Bookmark, BrainCircuit, CheckCircle2, Clock3, Dumbbell, Network, Orbit, Sparkles } from 'lucide-react';
-import { categories, categoryMap, conceptMap, concepts, getConceptsByCategory } from '@/lib/content';
-import { exercises } from '@/lib/exercises';
+import {
+  ArrowRight,
+  Bookmark,
+  BrainCircuit,
+  CheckCircle2,
+  Clock3,
+  Dumbbell,
+  Network,
+  Orbit,
+  Sparkles,
+} from 'lucide-react';
 import { useLearning } from '@/components/learning-store';
+import {
+  categories,
+  categoryMap,
+  conceptMap,
+  concepts,
+  getConceptsByCategory,
+} from '@/lib/content';
+import { exercises } from '@/lib/exercises';
 
-const icons = { 'artificial-intelligence': Sparkles, 'machine-learning': Orbit, 'deep-learning': Network, 'reinforcement-learning': BrainCircuit };
+const icons = {
+  'artificial-intelligence': Sparkles,
+  'machine-learning': Orbit,
+  'deep-learning': Network,
+  'reinforcement-learning': BrainCircuit,
+};
 
 export function Dashboard() {
   const { learned, bookmarks, recent, practiced, ready } = useLearning();
-  const recentConcepts = recent.map((slug)=>conceptMap[slug]).filter(Boolean).slice(0,3); const savedConcepts = bookmarks.map((slug)=>conceptMap[slug]).filter(Boolean).slice(0,3); const recommended = concepts.find((c)=>!learned.includes(c.slug)) ?? concepts[0];
-  return <main><div className="mx-auto max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
-    <section className="grid gap-8 border-b border-border pb-10 lg:grid-cols-[1fr_370px] lg:items-end"><div className="max-w-2xl"><p className="eyebrow">个人 AI 学习与练习库</p><h1 className="mt-4 text-4xl font-semibold leading-[1.12] tracking-[-.045em] sm:text-5xl">从理解概念，到独立解决问题。</h1><p className="mt-5 max-w-xl text-base leading-7 text-muted-foreground">沿着本地资料的学习路线，从数学和数据地基走到模型、工程实践与练习。所有记录仅保存在当前浏览器。</p></div><div className="grid grid-cols-4 gap-2 rounded-2xl border border-border bg-card p-4 text-center"><Stat value={concepts.length} label="概念"/><Stat value={ready?learned.length:'—'} label="已学习"/><Stat value={exercises.length} label="练习"/><Stat value={ready?practiced.length:'—'} label="已完成"/></div></section>
-    <section aria-labelledby="directions" className="py-10"><SectionHead eyebrow="学习地图" title="选择一个方向开始" note={`${concepts.length} 个概念`}/><div className="mt-5 grid gap-4 sm:grid-cols-2">{categories.map((category)=>{const Icon=icons[category.slug];const list=getConceptsByCategory(category.slug);const completed=list.filter((c)=>learned.includes(c.slug)).length;const pct=list.length?completed/list.length*100:0;return <Link key={category.slug} href={`/category/${category.slug}`} className="group rounded-2xl border border-border bg-card p-5 outline-none transition-colors hover:border-primary/40 hover:bg-accent/35 focus-visible:ring-2 focus-visible:ring-ring"><div className="flex items-start justify-between"><span className="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary"><Icon size={19}/></span><ArrowRight size={17} className="text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary"/></div><h3 className="mt-5 text-lg font-medium">{category.title}</h3><p className="mt-2 min-h-12 text-sm leading-6 text-muted-foreground">{category.description}</p><div className="mt-5 flex items-center gap-3"><div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-[width]" style={{width:`${pct}%`}}/></div><span className="text-xs tabular-nums text-muted-foreground">{completed} / {list.length}</span></div></Link>})}</div></section>
-    <section className="mb-10 rounded-2xl border border-primary/20 bg-primary/[.06] p-6 sm:flex sm:items-center sm:justify-between sm:gap-8"><div className="flex gap-4"><span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Dumbbell size={20}/></span><div><p className="eyebrow">练习区</p><h2 className="mt-1 text-xl font-medium">{exercises.length} 道题，连接学习位置与参考答案</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">按方向、难度、题型、状态和标签检索，独立作答后再展开答案。</p></div></div><Link href="/exercises" className="mt-5 inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground outline-none hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring sm:mt-0">开始练习<ArrowRight size={16}/></Link></section>
-    <section className="grid gap-8 border-t border-border py-10 lg:grid-cols-2"><div><SectionHead eyebrow="继续学习" title="最近浏览" icon={<Clock3 size={16}/>}/><div className="mt-4 space-y-2">{recentConcepts.length?recentConcepts.map((c)=><CompactLink key={c.slug} slug={c.slug} title={c.title} meta={categoryMap[c.category].title}/>):<Hint text="打开任意概念后，会在这里留下阅读足迹。"/>}</div></div><div><SectionHead eyebrow="稍后阅读" title="收藏概念" icon={<Bookmark size={16}/>}/><div className="mt-4 space-y-2">{savedConcepts.length?savedConcepts.map((c)=><CompactLink key={c.slug} slug={c.slug} title={c.title} meta={categoryMap[c.category].title}/>):<Hint text="遇到重要概念时，点击收藏即可在这里找到。"/>}</div></div></section>
-    <section className="rounded-2xl border border-border bg-card p-6 sm:flex sm:items-center sm:justify-between sm:gap-8"><div><p className="eyebrow">推荐下一步</p><h2 className="mt-2 text-xl font-medium">{recommended.title}</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{recommended.summary}</p></div><Link href={`/concept/${recommended.slug}`} className="mt-5 inline-flex shrink-0 items-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-medium outline-none hover:border-primary/40 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring sm:mt-0">继续学习<ArrowRight size={16}/></Link></section>
-  </div></main>;
+  const recentConcepts = recent
+    .map((slug) => conceptMap[slug])
+    .filter(Boolean)
+    .slice(0, 3);
+  const savedConcepts = bookmarks
+    .map((slug) => conceptMap[slug])
+    .filter(Boolean)
+    .slice(0, 3);
+  const recommended =
+    concepts.find((concept) => !learned.includes(concept.slug)) ?? concepts[0];
+  const progress = ready
+    ? Math.round((learned.length / Math.max(concepts.length, 1)) * 100)
+    : 0;
+
+  return (
+    <main className="dashboard">
+      <section className="dashboard-hero" aria-labelledby="dashboard-title">
+        <div className="dashboard-hero__copy">
+          <p className="dashboard-status">
+            <span aria-hidden="true" />
+            个人 AI 学习工作台
+          </p>
+          <h1 id="dashboard-title">从理解概念，到独立解决问题。</h1>
+          <p className="dashboard-hero__lede">
+            沿着本地资料的学习路线，从数学和数据地基走到模型、工程实践与练习。学习记录只保存在当前浏览器。
+          </p>
+          <div className="dashboard-hero__actions">
+            <Link
+              href={`/concept/${recommended.slug}`}
+              className="dashboard-button dashboard-button--primary"
+            >
+              继续学习
+              <ArrowRight aria-hidden="true" />
+            </Link>
+            <Link
+              href="/plans"
+              className="dashboard-button dashboard-button--secondary"
+            >
+              查看计划
+            </Link>
+          </div>
+        </div>
+
+        <aside className="learning-console" aria-label="学习状态概览">
+          <div className="learning-console__header">
+            <div>
+              <span>今日工作台</span>
+              <strong>{recommended.title}</strong>
+            </div>
+            <span className="learning-console__state">
+              <span aria-hidden="true" />
+              本地同步
+            </span>
+          </div>
+          <dl className="learning-console__stats">
+            <Stat value={concepts.length} label="概念总数" />
+            <Stat value={ready ? learned.length : '—'} label="已学习" />
+            <Stat value={exercises.length} label="练习总数" />
+            <Stat value={ready ? practiced.length : '—'} label="已完成" />
+          </dl>
+          <div className="learning-console__progress">
+            <div>
+              <span>整体进度</span>
+              <strong>{ready ? `${progress}%` : '读取中'}</strong>
+            </div>
+            <progress
+              className="sr-only"
+              aria-label="整体学习进度"
+              max={100}
+              value={progress}
+            />
+            <div className="learning-console__track" aria-hidden="true">
+              <span
+                style={{ '--progress': `${progress}%` } as React.CSSProperties}
+              />
+            </div>
+          </div>
+          <Link
+            className="learning-console__next"
+            href={`/concept/${recommended.slug}`}
+          >
+            <span>
+              <small>推荐下一步</small>
+              <strong>{recommended.title}</strong>
+            </span>
+            <ArrowRight aria-hidden="true" />
+          </Link>
+        </aside>
+      </section>
+
+      <section className="dashboard-section" aria-labelledby="directions">
+        <SectionHead
+          id="directions"
+          title="选择一个学习方向"
+          note={`${concepts.length} 个概念，按真实依赖组织`}
+        />
+        <div className="direction-grid">
+          {categories.map((category) => {
+            const Icon = icons[category.slug];
+            const list = getConceptsByCategory(category.slug);
+            const completed = list.filter((concept) =>
+              learned.includes(concept.slug),
+            ).length;
+            const percentage = list.length
+              ? (completed / list.length) * 100
+              : 0;
+            return (
+              <Link
+                key={category.slug}
+                href={`/category/${category.slug}`}
+                className="direction-card"
+              >
+                <div className="direction-card__title">
+                  <Icon aria-hidden="true" />
+                  <h3>{category.title}</h3>
+                  <ArrowRight
+                    className="direction-card__arrow"
+                    aria-hidden="true"
+                  />
+                </div>
+                <p>{category.description}</p>
+                <div className="direction-card__progress">
+                  <span>
+                    <i
+                      style={
+                        {
+                          '--progress': `${percentage}%`,
+                        } as React.CSSProperties
+                      }
+                    />
+                  </span>
+                  <small>
+                    {completed} / {list.length}
+                  </small>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="practice-strip" aria-labelledby="practice-title">
+        <div className="practice-strip__icon">
+          <Dumbbell aria-hidden="true" />
+        </div>
+        <div>
+          <h2 id="practice-title">把理解放进题目里检验</h2>
+          <p>
+            {exercises.length}{' '}
+            道题按方向、难度、题型和状态组织。独立作答后，再展开参考答案。
+          </p>
+        </div>
+        <Link
+          href="/exercises"
+          className="dashboard-button dashboard-button--primary"
+        >
+          开始练习
+          <ArrowRight aria-hidden="true" />
+        </Link>
+      </section>
+
+      <section className="dashboard-section dashboard-history">
+        <HistoryColumn
+          title="最近浏览"
+          icon={<Clock3 aria-hidden="true" />}
+          items={recentConcepts}
+          empty="打开任意概念后，这里会保留你的阅读足迹。"
+        />
+        <HistoryColumn
+          title="收藏概念"
+          icon={<Bookmark aria-hidden="true" />}
+          items={savedConcepts}
+          empty="收藏重要概念后，可以从这里直接返回。"
+        />
+      </section>
+    </main>
+  );
 }
 
-function Stat({value,label}:{value:number|string;label:string}){return <div className="rounded-xl bg-background/35 px-1 py-3"><strong className="block text-lg font-semibold tabular-nums sm:text-xl">{value}</strong><span className="mt-1 block text-[11px] text-muted-foreground sm:text-xs">{label}</span></div>}
-function SectionHead({eyebrow,title,note,icon}:{eyebrow:string;title:string;note?:string;icon?:React.ReactNode}){return <div className="flex items-end justify-between gap-4"><div><p className="flex items-center gap-2 text-xs font-medium text-primary">{icon}{eyebrow}</p><h2 className="mt-1.5 text-xl font-semibold tracking-tight" id={title==='选择一个方向开始'?'directions':undefined}>{title}</h2></div>{note&&<span className="text-sm text-muted-foreground">{note}</span>}</div>}
-function CompactLink({slug,title,meta}:{slug:string;title:string;meta:string}){return <Link href={`/concept/${slug}`} className="group flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 outline-none hover:border-primary/30 focus-visible:ring-2 focus-visible:ring-ring"><span><strong className="block text-sm font-medium">{title}</strong><span className="mt-1 block text-xs text-muted-foreground">{meta}</span></span><ArrowRight size={15} className="text-muted-foreground group-hover:text-primary"/></Link>}
-function Hint({text}:{text:string}){return <div className="flex min-h-20 items-center gap-3 rounded-xl border border-dashed border-border px-4 text-sm text-muted-foreground"><CheckCircle2 size={17}/>{text}</div>}
+function Stat({ value, label }: { value: number | string; label: string }) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
+}
+
+function SectionHead({
+  id,
+  title,
+  note,
+}: {
+  id: string;
+  title: string;
+  note: string;
+}) {
+  return (
+    <div className="dashboard-section__head">
+      <h2 id={id}>{title}</h2>
+      <p>{note}</p>
+    </div>
+  );
+}
+
+function HistoryColumn({
+  title,
+  icon,
+  items,
+  empty,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  items: (typeof concepts)[number][];
+  empty: string;
+}) {
+  return (
+    <div className="history-column">
+      <div className="history-column__head">
+        <span>{icon}</span>
+        <h2>{title}</h2>
+      </div>
+      <div className="history-column__list">
+        {items.length ? (
+          items.map((concept) => (
+            <Link key={concept.slug} href={`/concept/${concept.slug}`}>
+              <span>
+                <strong>{concept.title}</strong>
+                <small>{categoryMap[concept.category].title}</small>
+              </span>
+              <ArrowRight aria-hidden="true" />
+            </Link>
+          ))
+        ) : (
+          <div className="history-column__empty">
+            <CheckCircle2 aria-hidden="true" />
+            <span>{empty}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

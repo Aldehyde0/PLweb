@@ -1,0 +1,16 @@
+{
+  "scanned_at": "2026-09-01",
+  "framework": "Next.js-compatible Vinext app router",
+  "framework_evidence": "package.json scripts and vinext dependency",
+  "font_stack": "Geist + Geist Mono",
+  "palette": "studied-DNA OKLCH tokens with light and dark variants",
+  "motion": "motion-cut; no animation library installed",
+  "spacing": "4-point named token scale",
+  "hosting": "OpenAI Sites project",
+  "preserved": [
+    "routes",
+    "component ownership",
+    "learning content",
+    "browser-local learning data"
+  ]
+}
