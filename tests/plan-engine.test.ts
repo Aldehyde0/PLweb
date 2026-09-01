@@ -343,12 +343,28 @@ void test('stage-test score records weak concepts without completing learning or
 });
 
 void test('stage-test can append a dedicated weak-concept review even when scheduled reviews exist', () => {
-  const plan = generatePlan(baseInput, concepts.slice(0, 1), { learned: [], bookmarks: [] }, new Date('2026-08-31T08:00:00'));
+  const plan = generatePlan(
+    baseInput,
+    concepts.slice(0, 1),
+    { learned: [], bookmarks: [] },
+    new Date('2026-08-31T08:00:00'),
+  );
   const phase = plan.phases[0]!;
   const before = phase.tasks.filter((task) => task.type === 'review').length;
-  const answers = Object.fromEntries(phase.test.questions.map((question) => [question.id, ['错误']]));
-  const scored = scoreStageTest(plan, phase.id, answers, true, new Date('2026-08-31T10:00:00'));
-  assert.equal(scored.phases[0]!.tasks.filter((task) => task.type === 'review').length, before + 1);
+  const answers = Object.fromEntries(
+    phase.test.questions.map((question) => [question.id, ['错误']]),
+  );
+  const scored = scoreStageTest(
+    plan,
+    phase.id,
+    answers,
+    true,
+    new Date('2026-08-31T10:00:00'),
+  );
+  assert.equal(
+    scored.phases[0]!.tasks.filter((task) => task.type === 'review').length,
+    before + 1,
+  );
 });
 
 void test('route includes cross-category prerequisite closure before the selected concept', () => {
@@ -531,4 +547,48 @@ void test('migration wraps legacy tasks in a compatible fallback substep', () =>
   assert.equal(task.substeps.length, 1);
   assert.equal(task.substeps[0]!.estimatedMinutes, 15);
   assert.equal(task.substeps[0]!.status, 'completed');
+});
+
+void test('pausing and resuming a card preserves completed substeps', () => {
+  const plan = generatePlan(
+    { ...baseInput, includeReview: false },
+    [richConcept],
+    { learned: [], bookmarks: [] },
+    new Date('2026-08-31T08:00:00'),
+  );
+  const task = plan.phases[0]!.tasks[0]!;
+  const partial = updateSubstep(
+    plan,
+    task.id,
+    task.substeps[0]!.id,
+    'completed',
+    new Date('2026-08-31T09:00:00'),
+  );
+  const paused = updateTask(partial, task.id, { status: 'paused' });
+  const resumed = updateTask(paused, task.id, { status: 'in-progress' });
+  assert.equal(resumed.phases[0]!.tasks[0]!.substeps[0]!.status, 'completed');
+});
+
+void test('estimated completion uses only unfinished substep minutes', () => {
+  const plan = generatePlan(
+    { ...baseInput, weeklyMinutes: 30, includeReview: false },
+    [richConcept],
+    { learned: [], bookmarks: [] },
+    new Date('2026-08-31T08:00:00'),
+  );
+  const task = plan.phases[0]!.tasks[0]!;
+  const partial = task.substeps
+    .slice(0, -1)
+    .reduce(
+      (current, step) =>
+        updateSubstep(
+          current,
+          task.id,
+          step.id,
+          'completed',
+          new Date('2026-08-31T09:00:00'),
+        ),
+      plan,
+    );
+  assert.ok(partial.estimatedCompletionDate < plan.estimatedCompletionDate);
 });

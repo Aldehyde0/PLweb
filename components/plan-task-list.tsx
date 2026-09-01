@@ -233,9 +233,9 @@ export function PlanTaskList({
               )}
               {(task.type === 'review' || task.type === 'phase-review') &&
                 phase.test.questions.length > 0 && (
-                <Button size="sm" variant="outline" onClick={onOpenTest}>
-                  阶段测试
-                </Button>
+                  <Button size="sm" variant="outline" onClick={onOpenTest}>
+                    阶段测试
+                  </Button>
                 )}
             </div>
           </li>
@@ -253,7 +253,12 @@ function TaskEditor({ plan, task }: { plan: LearningPlan; task: PlanTask }) {
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        store.updateTaskFields(plan.id, task.id, draft);
+        store.updateTaskFields(plan.id, task.id, {
+          title: draft.title,
+          estimatedMinutes: draft.estimatedMinutes,
+          dueDate: draft.dueDate,
+          notes: draft.notes,
+        });
         if (draft.status !== task.status) {
           store.setTaskStatus(plan.id, task.id, draft.status);
         }
@@ -357,7 +362,11 @@ function TaskEditor({ plan, task }: { plan: LearningPlan; task: PlanTask }) {
             store.setTaskStatus(
               plan.id,
               task.id,
-              task.status === 'paused' ? 'not-started' : 'paused',
+              task.status === 'paused'
+                ? task.substeps.some((step) => step.status === 'completed')
+                  ? 'in-progress'
+                  : 'not-started'
+                : 'paused',
             )
           }
         >
