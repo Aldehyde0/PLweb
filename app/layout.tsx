@@ -20,7 +20,9 @@ const title = 'how to learn AI · 个人学习知识库';
 const description =
   '从直觉、原理、代码到练习，系统学习人工智能、机器学习、深度学习与强化学习。';
 export const metadata: Metadata = {
-  metadataBase: new URL('http://localhost:3000'),
+  metadataBase: new URL(
+    'https://personal-learning-web-aldehyde.soft-slug-6394.chatgpt.site',
+  ),
   title,
   description,
   openGraph: {
