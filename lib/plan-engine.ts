@@ -225,12 +225,12 @@ export const PLAN_METHODS: {
   {
     value: 'knowledge-route',
     label: '知识路线法',
-    summary: '前置知识到综合练习，按难度和依赖关系推进。',
+    summary: '严格沿前置关系逐概念推进，每个概念包含理解与实践两张卡。',
   },
   {
     value: 'deep-understanding',
     label: '深度理解法',
-    summary: '定义、直觉、原理、公式、代码、复述与理解题。',
+    summary: '先建立完整名词理解，再用原理、公式、代码和复述验证。',
   },
   {
     value: 'code-practice',
@@ -1406,6 +1406,30 @@ export function planPreview(plan: LearningPlan) {
   };
 }
 
+function resizeSubsteps(
+  substeps: PlanSubstep[],
+  requestedMinutes: number,
+) {
+  if (!substeps.length) return substeps;
+  const target = Math.max(substeps.length, Math.round(requestedMinutes));
+  const current = Math.max(
+    1,
+    substeps.reduce((sum, step) => sum + step.estimatedMinutes, 0),
+  );
+  let allocated = 0;
+  return substeps.map((step, index) => {
+    const minutes =
+      index === substeps.length - 1
+        ? Math.max(1, target - allocated)
+        : Math.max(
+            1,
+            Math.floor((step.estimatedMinutes / current) * target),
+          );
+    allocated += minutes;
+    return { ...step, estimatedMinutes: minutes };
+  });
+}
+
 export function updateTask(
   plan: LearningPlan,
   taskId: string,
@@ -1417,7 +1441,7 @@ export function updateTask(
     tasks: phase.tasks.map((task) =>
       task.id === taskId
         ? (() => {
-            const substeps = patch.status
+            let substeps = patch.status
               ? task.substeps.map((step) => ({
                   ...step,
                   status: patch.status as TaskStatus,
@@ -1427,6 +1451,15 @@ export function updateTask(
                       : null,
                 }))
               : (patch.substeps ?? task.substeps);
+            if (
+              !patch.status &&
+              !patch.substeps &&
+              patch.estimatedMinutes !== undefined
+            )
+              substeps = resizeSubsteps(
+                substeps,
+                patch.estimatedMinutes,
+              );
             return {
             ...task,
             ...patch,
@@ -1609,10 +1642,13 @@ export function scoreStageTest(
         )
         .map((slug) => {
           const source = tasks.find((task) => task.conceptSlug === slug);
+          const sourceTitle =
+            source?.title.replace(/^(名词与理解|原理与实践) · /, '') ??
+            slug;
           const substeps = [
             makeSubstep(
               'review',
-              `复习薄弱概念 · ${source?.description ?? slug}`,
+              `复习薄弱概念 · ${sourceTitle}`,
               '回看定义、核心原理和本次错误题目。',
               20,
               'core-principle',
@@ -1624,7 +1660,7 @@ export function scoreStageTest(
             id: makeId('task'),
             phaseId,
             type: 'review',
-            title: `薄弱概念复习 · ${source?.description ?? slug}`,
+            title: `薄弱概念复习 · ${sourceTitle}`,
             conceptSlug: slug,
             description: '阶段测试后重新加入的复习任务',
             category: source?.category ?? null,

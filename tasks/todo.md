@@ -53,25 +53,25 @@
 
 ## Phase 3: Interaction
 
-- [ ] Task 7: 更新预览和详情任务卡
+- [x] Task 7: 更新预览和详情任务卡
   - 验收：自然段定义可读；子步骤可展开和单独完成；主列表每概念最多两项。
   - 验证：定向 lint、TypeScript、本地页面响应。
   - 依赖：Tasks 4～6。
   - 文件：components/plan-create-view.tsx、components/plan-task-list.tsx、app/plan-features.css。
 
-- [ ] Task 8: 增加下一步推荐和完成阶段折叠
+- [x] Task 8: 增加下一步推荐和完成阶段折叠
   - 验收：顶部显示下一条未完成任务；已完成阶段默认折叠；支持只看未完成。
   - 验证：桌面和移动端本地检查。
   - 依赖：Task 7。
   - 文件：components/plan-detail-view.tsx、components/plan-task-list.tsx、app/plan-features.css。
 
-- [ ] Task 9: 修复每周时间输入
+- [x] Task 9: 修复每周时间输入
   - 验收：可以删空再输入；非法值有行内错误；快捷值正常工作。
   - 验证：输入解析测试和 TypeScript 检查。
   - 依赖：Task 1。
   - 文件：components/plan-create-view.tsx、lib/plan-engine.ts、tests/plan-engine.test.ts。
 
-- [ ] Task 10: 实现年月日分段日期选择
+- [x] Task 10: 实现年月日分段日期选择
   - 验收：日选项随月份和闰年变化；不能选择 42 日；目标日期不能早于开始日期。
   - 验证：闰年、月末和非法日期测试。
   - 依赖：Task 1。
@@ -79,13 +79,13 @@
 
 ## Checkpoint: Interaction
 
-- [ ] 创建、预览、保存和详情流程本地可用。
-- [ ] 移动端无横向溢出，键盘操作正常。
-- [ ] 空数字与非法日期问题已复现并修复。
+- [x] 创建、预览、保存和详情流程本地可用。
+- [x] 移动端无横向溢出，键盘操作正常。
+- [x] 空数字与非法日期问题已复现并修复。
 
 ## Phase 4: Compatibility and Verification
 
-- [ ] Task 11: 完成旧计划迁移与状态联动回归
+- [x] Task 11: 完成旧计划迁移与状态联动回归
   - 验收：旧完成状态、已学习、收藏、重点、备忘录均保留。
   - 验证：迁移和联动测试。
   - 依赖：Tasks 3～10。

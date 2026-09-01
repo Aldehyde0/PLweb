@@ -21,8 +21,11 @@ import {
   type LongFormConcept,
 } from '@/lib/long-form-content';
 import {
+  buildLocalDate,
+  daysInMonth,
   generatePlan,
   localDate,
+  parseWeeklyMinutes,
   PLAN_METHODS,
   planPreview,
   type LearningPlan,
@@ -61,6 +64,15 @@ export function PlanCreateView() {
   const { learned, bookmarks } = useLearning();
   const { savePlan } = usePlans();
   const [form, setForm] = useState(initialForm);
+  const [weeklyInput, setWeeklyInput] = useState(
+    String(initialForm.weeklyMinutes),
+  );
+  const [weeklyError, setWeeklyError] = useState<string | null>(null);
+  const [dateError, setDateError] = useState<string | null>(null);
+  const [targetParts, setTargetParts] = useState(() => {
+    const [year, month, day] = initialForm.targetDate.split('-').map(Number);
+    return { year, month, day };
+  });
   const [draft, setDraft] = useState<LearningPlan | null>(null);
   const previewRef = useRef<HTMLHeadingElement>(null);
   const planConcepts = useMemo(
@@ -115,9 +127,43 @@ export function PlanCreateView() {
         : [...current.categories, slug],
     }));
   }
+  function commitWeekly(raw: string) {
+    const parsed = parseWeeklyMinutes(raw);
+    setWeeklyError(parsed.error);
+    if (parsed.value !== null) set('weeklyMinutes', parsed.value);
+    return parsed.value;
+  }
+  function applyWeeklyPreset(value: number) {
+    setWeeklyInput(String(value));
+    setWeeklyError(null);
+    set('weeklyMinutes', value);
+  }
+  function changeTargetPart(
+    key: 'year' | 'month' | 'day',
+    value: number,
+  ) {
+    const next = { ...targetParts, [key]: value };
+    const maxDay = daysInMonth(next.year, next.month);
+    if (next.day > maxDay) next.day = maxDay;
+    const targetDate = buildLocalDate(next.year, next.month, next.day);
+    setTargetParts(next);
+    setDateError(null);
+    if (targetDate) set('targetDate', targetDate);
+  }
   function generate() {
+    const weeklyMinutes = commitWeekly(weeklyInput);
+    const targetDate = buildLocalDate(
+      targetParts.year,
+      targetParts.month,
+      targetParts.day,
+    );
+    if (!targetDate || targetDate < localDate(new Date())) {
+      setDateError('目标日期需要是今天或之后的有效日期');
+      return;
+    }
+    if (weeklyMinutes === null) return;
     const next = generatePlan(
-      form,
+      { ...form, weeklyMinutes, targetDate },
       planConcepts,
       { learned, bookmarks },
       new Date(),
@@ -272,27 +318,107 @@ export function PlanCreateView() {
               </div>
             </div>
             <div className="plan-form-grid">
-              <Field label="每周可投入时间（分钟）" htmlFor="weekly-minutes">
+              <div className="plan-field">
+                <label htmlFor="weekly-minutes">
+                  每周可投入时间（分钟）
+                </label>
                 <Input
                   id="weekly-minutes"
-                  type="number"
-                  min={30}
-                  step={15}
-                  value={form.weeklyMinutes}
-                  onChange={(event) =>
-                    set('weeklyMinutes', Number(event.target.value))
+                  type="text"
+                  inputMode="numeric"
+                  value={weeklyInput}
+                  aria-invalid={Boolean(weeklyError)}
+                  aria-describedby={
+                    weeklyError ? 'weekly-minutes-error' : undefined
                   }
+                  onChange={(event) => {
+                    setWeeklyInput(event.target.value);
+                    if (weeklyError) setWeeklyError(null);
+                  }}
+                  onBlur={() => commitWeekly(weeklyInput)}
+                  placeholder="例如 300"
                 />
-              </Field>
-              <Field label="目标完成日期" htmlFor="target-date">
-                <Input
-                  id="target-date"
-                  type="date"
-                  min={localDate(new Date())}
-                  value={form.targetDate}
-                  onChange={(event) => set('targetDate', event.target.value)}
-                />
-              </Field>
+                <div className="plan-time-presets" aria-label="常用每周时间">
+                  {[120, 300, 480, 600].map((value) => (
+                    <button
+                      type="button"
+                      key={value}
+                      onClick={() => applyWeeklyPreset(value)}
+                    >
+                      {value} 分钟
+                    </button>
+                  ))}
+                </div>
+                {weeklyError && (
+                  <small id="weekly-minutes-error" role="alert">
+                    {weeklyError}
+                  </small>
+                )}
+              </div>
+              <fieldset className="plan-field plan-date-field">
+                <legend>目标完成日期</legend>
+                <div>
+                  <label>
+                    <span className="sr-only">年份</span>
+                    <select
+                      value={targetParts.year}
+                      onChange={(event) =>
+                        changeTargetPart('year', Number(event.target.value))
+                      }
+                    >
+                      {Array.from(
+                        { length: 6 },
+                        (_, index) => new Date().getFullYear() + index,
+                      ).map((year) => (
+                        <option key={year} value={year}>
+                          {year} 年
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span className="sr-only">月份</span>
+                    <select
+                      value={targetParts.month}
+                      onChange={(event) =>
+                        changeTargetPart('month', Number(event.target.value))
+                      }
+                    >
+                      {Array.from({ length: 12 }, (_, index) => index + 1).map(
+                        (month) => (
+                          <option key={month} value={month}>
+                            {month} 月
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </label>
+                  <label>
+                    <span className="sr-only">日期</span>
+                    <select
+                      value={targetParts.day}
+                      onChange={(event) =>
+                        changeTargetPart('day', Number(event.target.value))
+                      }
+                    >
+                      {Array.from(
+                        {
+                          length: daysInMonth(
+                            targetParts.year,
+                            targetParts.month,
+                          ),
+                        },
+                        (_, index) => index + 1,
+                      ).map((day) => (
+                        <option key={day} value={day}>
+                          {day} 日
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                {dateError && <small role="alert">{dateError}</small>}
+              </fieldset>
             </div>
             <div className="plan-option-list">
               <Option
@@ -435,12 +561,30 @@ function PlanPreview({
                     <span>{task.order + 1}</span>
                     <div>
                       <strong>{task.title}</strong>
+                      {task.description && (
+                        <p className="plan-preview-task-description">
+                          {task.description}
+                        </p>
+                      )}
                       <small>
                         {task.estimatedMinutes} 分钟 · 截止 {task.dueDate}
                         {task.status === 'completed'
                           ? ' · 已按现有学习状态完成'
                           : ''}
                       </small>
+                      <details className="plan-preview-substeps">
+                        <summary>
+                          查看 {task.substeps.length} 个学习步骤
+                        </summary>
+                        <div>
+                          {task.substeps.map((step) => (
+                            <p key={step.id}>
+                              <span>{step.title}</span>
+                              <em>{step.estimatedMinutes} 分钟</em>
+                            </p>
+                          ))}
+                        </div>
+                      </details>
                     </div>
                   </li>
                 ))}
