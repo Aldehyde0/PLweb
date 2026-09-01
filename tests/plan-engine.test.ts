@@ -8,6 +8,7 @@ import {
   scoreStageTest,
   syncLearnedTasks,
   updateTask,
+  updateSubstep,
   generatePlan,
   migratePlanState,
   parseWeeklyMinutes,
@@ -451,4 +452,83 @@ void test('segmented local date rejects impossible days and supports leap years'
   assert.equal(buildLocalDate(2026, 2, 29), null);
   assert.equal(buildLocalDate(2028, 2, 29), '2028-02-29');
   assert.equal(buildLocalDate(2026, 9, 1), '2026-09-01');
+});
+
+void test('substep completion updates its parent card without completing sibling cards', () => {
+  const plan = generatePlan(
+    { ...baseInput, includeReview: false },
+    [richConcept],
+    { learned: [], bookmarks: [] },
+    new Date('2026-08-31T08:00:00'),
+  );
+  const card = plan.phases[0]!.tasks[0]!;
+  const first = updateSubstep(
+    plan,
+    card.id,
+    card.substeps[0]!.id,
+    'completed',
+    new Date('2026-08-31T09:00:00'),
+  );
+  assert.equal(first.phases[0]!.tasks[0]!.status, 'in-progress');
+  const completed = card.substeps.reduce(
+    (current, step) =>
+      updateSubstep(
+        current,
+        card.id,
+        step.id,
+        'completed',
+        new Date('2026-08-31T09:00:00'),
+      ),
+    plan,
+  );
+  assert.equal(completed.phases[0]!.tasks[0]!.status, 'completed');
+  assert.notEqual(completed.phases[0]!.tasks[1]!.status, 'completed');
+});
+
+void test('manual task duration stays equal to redistributed substep minutes', () => {
+  const plan = generatePlan(
+    { ...baseInput, includeReview: false },
+    [richConcept],
+    { learned: [], bookmarks: [] },
+    new Date('2026-08-31T08:00:00'),
+  );
+  const task = plan.phases[0]!.tasks[0]!;
+  const updated = updateTask(plan, task.id, { estimatedMinutes: 30 });
+  const result = updated.phases[0]!.tasks[0]!;
+  assert.equal(result.estimatedMinutes, 30);
+  assert.equal(
+    result.substeps.reduce((sum, step) => sum + step.estimatedMinutes, 0),
+    30,
+  );
+});
+
+void test('migration wraps legacy tasks in a compatible fallback substep', () => {
+  const migrated = migratePlanState(
+    JSON.stringify({
+      plans: [
+        {
+          id: 'legacy',
+          title: '旧计划',
+          phases: [
+            {
+              id: 'phase-1',
+              tasks: [
+                {
+                  id: 'task-1',
+                  title: '旧阅读任务',
+                  type: 'concept-reading',
+                  estimatedMinutes: 15,
+                  status: 'completed',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  const task = migrated.plans[0]!.phases[0]!.tasks[0]!;
+  assert.equal(task.substeps.length, 1);
+  assert.equal(task.substeps[0]!.estimatedMinutes, 15);
+  assert.equal(task.substeps[0]!.status, 'completed');
 });

@@ -53,6 +53,7 @@ export function PlanTaskList({
         return (
           <li
             key={task.id}
+            id={`task-${task.id}`}
             className={`plan-task plan-task-${task.status} ${overdue ? 'overdue' : ''}`}
           >
             <button
@@ -109,6 +110,62 @@ export function PlanTaskList({
                 <span>{TASK_STATUS_LABELS[task.status]}</span>
               </div>
               {task.description && <p>{task.description}</p>}
+              {task.substeps.length > 0 && (
+                <details className="plan-task-substeps">
+                  <summary>
+                    <span>学习步骤</span>
+                    <strong>
+                      {
+                        task.substeps.filter(
+                          (step) => step.status === 'completed',
+                        ).length
+                      }{' '}
+                      / {task.substeps.length}
+                    </strong>
+                  </summary>
+                  <ul>
+                    {task.substeps.map((step) => {
+                      const stepId = `${task.id}-${step.id}`;
+                      return (
+                        <li key={step.id}>
+                          <input
+                            id={stepId}
+                            type="checkbox"
+                            checked={step.status === 'completed'}
+                            onChange={(event) =>
+                              store.setSubstepStatus(
+                                plan.id,
+                                task.id,
+                                step.id,
+                                event.target.checked
+                                  ? 'completed'
+                                  : 'not-started',
+                              )
+                            }
+                          />
+                          <label htmlFor={stepId}>
+                            <span>
+                              <strong>{step.title}</strong>
+                              {step.description && (
+                                <small>{step.description}</small>
+                              )}
+                            </span>
+                            <em>{step.estimatedMinutes} 分钟</em>
+                          </label>
+                          {concept && step.targetSection && (
+                            <Link
+                              href={`${getConceptHref(concept)}#${step.targetSection}`}
+                              aria-label={`打开${step.title}对应章节`}
+                            >
+                              <ExternalLink />
+                            </Link>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </details>
+              )}
               <details className="plan-task-edit">
                 <summary>
                   <Edit3 />
@@ -174,11 +231,12 @@ export function PlanTaskList({
                   重新打开
                 </Button>
               )}
-              {task.type === 'review' && phase.test.questions.length > 0 && (
+              {(task.type === 'review' || task.type === 'phase-review') &&
+                phase.test.questions.length > 0 && (
                 <Button size="sm" variant="outline" onClick={onOpenTest}>
                   阶段测试
                 </Button>
-              )}
+                )}
             </div>
           </li>
         );
@@ -331,6 +389,11 @@ function TaskEditor({ plan, task }: { plan: LearningPlan; task: PlanTask }) {
 
 function taskTypeLabel(type: PlanTask['type']) {
   const labels: Partial<Record<PlanTask['type'], string>> = {
+    'concept-understanding': '名词与理解',
+    'principle-practice': '原理与实践',
+    'phase-review': '阶段复习',
+    context: '知识位置',
+    'related-concepts': '概念关系',
     'concept-reading': '概念阅读',
     'definition-reading': '阅读定义',
     intuition: '理解直觉',

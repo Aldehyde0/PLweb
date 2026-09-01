@@ -18,6 +18,7 @@ import {
 import { useState } from 'react';
 import { localDate, PLAN_METHODS, type LearningPlan } from '@/lib/plan-engine';
 import { usePlans } from '@/components/plan-store';
+import { PlanNextStep } from '@/components/plan-next-step';
 import { PlanTaskList } from '@/components/plan-task-list';
 import { StageTestPanel } from '@/components/stage-test-panel';
 import { Button } from '@/components/ui/button';
@@ -37,6 +38,7 @@ export function PlanDetailView({
   const [testPhaseId, setTestPhaseId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [customOpen, setCustomOpen] = useState(false);
+  const [incompleteOnly, setIncompleteOnly] = useState(false);
 
   if (!store.ready)
     return (
@@ -98,6 +100,14 @@ export function PlanDetailView({
             ),
           }))
           .filter((phase) => phase.tasks.length);
+  const displayPhases = visiblePhases
+    .map((phase) => ({
+      ...phase,
+      tasks: incompleteOnly
+        ? phase.tasks.filter((task) => isOpen(task.status))
+        : phase.tasks,
+    }))
+    .filter((phase) => phase.tasks.length > 0);
   const viewTitle =
     view === 'today' ? '今日任务' : view === 'week' ? '本周任务' : plan.title;
 
@@ -167,6 +177,7 @@ export function PlanDetailView({
             )}
           </div>
         </header>
+        {view === 'all' && <PlanNextStep plan={plan} />}
         {view === 'all' && (
           <>
             <section className="plan-overview-grid">
@@ -252,6 +263,13 @@ export function PlanDetailView({
                   <Plus />
                   添加自定义任务
                 </Button>
+                <Button
+                  variant={incompleteOnly ? 'secondary' : 'outline'}
+                  onClick={() => setIncompleteOnly(!incompleteOnly)}
+                  aria-pressed={incompleteOnly}
+                >
+                  {incompleteOnly ? '显示全部任务' : '只看未完成'}
+                </Button>
               </div>
             </section>
             {settingsOpen && (
@@ -275,14 +293,14 @@ export function PlanDetailView({
           </>
         )}
         <section className="plan-timeline" aria-label="计划阶段">
-          {visiblePhases.length === 0 ? (
+          {displayPhases.length === 0 ? (
             <div className="plan-empty">
               <CalendarDays />
               <h2>这个时间范围没有任务</h2>
               <p>返回完整计划调整截止日期或查看其他阶段。</p>
             </div>
           ) : (
-            visiblePhases.map((phase) => (
+            displayPhases.map((phase) => (
               <article className="plan-phase" key={phase.id}>
                 <aside>
                   <span className="plan-phase-index">
@@ -290,28 +308,33 @@ export function PlanDetailView({
                   </span>
                   <div className="plan-phase-line" />
                 </aside>
-                <div className="plan-phase-body">
-                  <header>
-                    <div>
-                      <p className="eyebrow">
-                        {phase.status === 'completed'
-                          ? '阶段已完成'
-                          : phase.status === 'in-progress'
-                            ? '正在学习'
-                            : '等待开始'}
-                      </p>
-                      <h2>{phase.title}</h2>
-                      <p>{phase.description}</p>
-                    </div>
-                    <div className="plan-phase-progress">
-                      <strong>{phase.completionRate}%</strong>
-                      <span>截止 {phase.targetDate}</span>
-                    </div>
-                  </header>
-                  <Progress
-                    value={phase.completionRate}
-                    aria-label={`${phase.title}完成度 ${phase.completionRate}%`}
-                  />
+                <details
+                  className="plan-phase-body"
+                  open={phase.status !== 'completed'}
+                >
+                  <summary className="plan-phase-summary">
+                    <header>
+                      <div>
+                        <p className="eyebrow">
+                          {phase.status === 'completed'
+                            ? '阶段已完成 · 点击展开'
+                            : phase.status === 'in-progress'
+                              ? '正在学习'
+                              : '等待开始'}
+                        </p>
+                        <h2>{phase.title}</h2>
+                        <p>{phase.description}</p>
+                      </div>
+                      <div className="plan-phase-progress">
+                        <strong>{phase.completionRate}%</strong>
+                        <span>截止 {phase.targetDate}</span>
+                      </div>
+                    </header>
+                    <Progress
+                      value={phase.completionRate}
+                      aria-label={`${phase.title}完成度 ${phase.completionRate}%`}
+                    />
+                  </summary>
                   {phase.completionRate === 100 &&
                     phase.test.status === 'not-started' && (
                       <div className="phase-complete-prompt">
@@ -382,7 +405,7 @@ export function PlanDetailView({
                     tasks={phase.tasks}
                     onOpenTest={() => setTestPhaseId(phase.id)}
                   />
-                </div>
+                </details>
               </article>
             ))
           )}
