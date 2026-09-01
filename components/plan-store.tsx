@@ -288,12 +288,7 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
     [mutatePlan],
   );
   const setSubstepStatus = useCallback(
-    (
-      planId: string,
-      taskId: string,
-      substepId: string,
-      status: TaskStatus,
-    ) => {
+    (planId: string, taskId: string, substepId: string, status: TaskStatus) => {
       const task = state.plans
         .find((plan) => plan.id === planId)
         ?.phases.flatMap((phase) => phase.tasks)

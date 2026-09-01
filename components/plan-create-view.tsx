@@ -16,10 +16,7 @@ import {
 import { useMemo, useRef, useState } from 'react';
 import { categories, concepts, type CategorySlug } from '@/lib/content';
 import { resolveConceptLink } from '@/lib/concept-utils';
-import {
-  longFormMap,
-  type LongFormConcept,
-} from '@/lib/long-form-content';
+import { longFormMap, type LongFormConcept } from '@/lib/long-form-content';
 import {
   buildLocalDate,
   daysInMonth,
@@ -98,17 +95,15 @@ export function PlanCreateView() {
           hasInteractive: Boolean(long?.interactiveDemo),
           hasFormula: Boolean(
             long?.formulas.some((formula) => formula.expression !== '—') ??
-              concept.formula.expression !== '—',
+            concept.formula.expression !== '—',
           ),
           definition: long?.definition ?? [concept.explanation],
           summary: concept.summary,
           principles: long?.corePrinciple ?? [concept.principle],
-          relatedConcepts: concept.relatedConcepts.flatMap(
-            (identifier) => {
-              const resolved = resolveConceptLink(identifier).concept;
-              return resolved ? [resolved.title] : [];
-            },
-          ),
+          relatedConcepts: concept.relatedConcepts.flatMap((identifier) => {
+            const resolved = resolveConceptLink(identifier).concept;
+            return resolved ? [resolved.title] : [];
+          }),
           inputs: long?.inputs ?? [],
           outputs: long?.outputs ?? [],
         };
@@ -138,10 +133,7 @@ export function PlanCreateView() {
     setWeeklyError(null);
     set('weeklyMinutes', value);
   }
-  function changeTargetPart(
-    key: 'year' | 'month' | 'day',
-    value: number,
-  ) {
+  function changeTargetPart(key: 'year' | 'month' | 'day', value: number) {
     const next = { ...targetParts, [key]: value };
     const maxDay = daysInMonth(next.year, next.month);
     if (next.day > maxDay) next.day = maxDay;
@@ -319,9 +311,7 @@ export function PlanCreateView() {
             </div>
             <div className="plan-form-grid">
               <div className="plan-field">
-                <label htmlFor="weekly-minutes">
-                  每周可投入时间（分钟）
-                </label>
+                <label htmlFor="weekly-minutes">每周可投入时间（分钟）</label>
                 <Input
                   id="weekly-minutes"
                   type="text"
@@ -455,9 +445,7 @@ export function PlanCreateView() {
             <Button
               size="lg"
               type="submit"
-              disabled={
-                !form.title.trim() || form.categories.length === 0
-              }
+              disabled={!form.title.trim() || form.categories.length === 0}
             >
               <Sparkles />
               生成计划

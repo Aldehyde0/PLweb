@@ -10,9 +10,7 @@ import { Button } from '@/components/ui/button';
 export function PlanNextStep({ plan }: { plan: LearningPlan }) {
   const task = plan.phases
     .flatMap((phase) => phase.tasks)
-    .find(
-      (item) => item.status !== 'completed' && item.status !== 'skipped',
-    );
+    .find((item) => item.status !== 'completed' && item.status !== 'skipped');
   if (!task)
     return (
       <section className="plan-next-step complete">

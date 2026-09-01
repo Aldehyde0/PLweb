@@ -284,7 +284,12 @@ export function parseWeeklyMinutes(raw: string) {
   return { value, error: null };
 }
 export function daysInMonth(year: number, month: number) {
-  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12)
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    month < 1 ||
+    month > 12
+  )
     return 0;
   return new Date(year, month, 0).getDate();
 }
@@ -309,21 +314,32 @@ export function buildDefinitionParagraph(concept: PlanConcept) {
     ...(concept.principles ?? []).slice(0, 1),
   ];
   if ((concept.prerequisites?.length ?? 0) > 0)
-    parts.push(`学习这个概念前，通常需要先理解${concept.prerequisites.join('、')}`);
+    parts.push(
+      `学习这个概念前，通常需要先理解${concept.prerequisites.join('、')}`,
+    );
   if ((concept.relatedConcepts?.length ?? 0) > 0)
-    parts.push(`掌握后可以继续联系${concept.relatedConcepts!.slice(0, 3).join('、')}等相关内容`);
+    parts.push(
+      `掌握后可以继续联系${concept.relatedConcepts!.slice(0, 3).join('、')}等相关内容`,
+    );
   const unique: string[] = [];
   const seen = new Set<string>();
   for (const part of parts) {
     const complete = sentence(part);
     const key = normalizedSentence(complete);
-    if (!key || [...seen].some((item) => item.includes(key) || key.includes(item))) continue;
+    if (
+      !key ||
+      [...seen].some((item) => item.includes(key) || key.includes(item))
+    )
+      continue;
     unique.push(complete);
     seen.add(key);
     if (unique.join('').length >= 120) break;
   }
   let paragraph = unique.join('');
-  if (!paragraph) paragraph = sentence(concept.summary || `${concept.title}是当前学习路线中的一个概念`);
+  if (!paragraph)
+    paragraph = sentence(
+      concept.summary || `${concept.title}是当前学习路线中的一个概念`,
+    );
   if (paragraph.length <= 180) return paragraph;
   const clipped = paragraph.slice(0, 180);
   const boundary = Math.max(
@@ -331,7 +347,9 @@ export function buildDefinitionParagraph(concept: PlanConcept) {
     clipped.lastIndexOf('！'),
     clipped.lastIndexOf('？'),
   );
-  return boundary >= 100 ? clipped.slice(0, boundary + 1) : `${clipped.slice(0, 179)}。`;
+  return boundary >= 100
+    ? clipped.slice(0, boundary + 1)
+    : `${clipped.slice(0, 179)}。`;
 }
 function addDays(date: Date, days: number) {
   const copy = new Date(date);
@@ -476,23 +494,24 @@ function migrateTask(value: unknown, phaseId: string, order: number): PlanTask {
   const status = item.status ?? 'not-started';
   const completedAt = item.completedAt ?? null;
   const fallbackMinutes = Math.max(5, Number(item.estimatedMinutes) || 25);
-  const substeps = Array.isArray(item.substeps) && item.substeps.length
-    ? item.substeps.map((step, index) =>
-        migrateSubstep(step, id, index, status, completedAt),
-      )
-    : [
-        {
-          id: `${id}-step-1`,
-          type: item.type ?? 'custom',
-          title: item.title ?? '未命名任务',
-          description: item.description ?? '',
-          estimatedMinutes: fallbackMinutes,
-          status,
-          completedAt,
-          targetSection: item.targetSection ?? null,
-          dueDate: item.dueDate ?? null,
-        },
-      ];
+  const substeps =
+    Array.isArray(item.substeps) && item.substeps.length
+      ? item.substeps.map((step, index) =>
+          migrateSubstep(step, id, index, status, completedAt),
+        )
+      : [
+          {
+            id: `${id}-step-1`,
+            type: item.type ?? 'custom',
+            title: item.title ?? '未命名任务',
+            description: item.description ?? '',
+            estimatedMinutes: fallbackMinutes,
+            status,
+            completedAt,
+            targetSection: item.targetSection ?? null,
+            dueDate: item.dueDate ?? null,
+          },
+        ];
   return {
     id,
     phaseId,
@@ -535,8 +554,7 @@ function migrateSubstep(
     estimatedMinutes: Math.max(1, Number(item.estimatedMinutes) || 5),
     status,
     completedAt:
-      item.completedAt ??
-      (status === 'completed' ? fallbackCompletedAt : null),
+      item.completedAt ?? (status === 'completed' ? fallbackCompletedAt : null),
     targetSection: item.targetSection ?? null,
     dueDate: item.dueDate ?? null,
   };
@@ -599,9 +617,7 @@ export function generatePlan(
   const phases: PlanPhase[] = [];
   const phaseCount = Math.min(3, Math.max(1, selected.length));
   const chunkSize = Math.max(1, Math.ceil(selected.length / phaseCount));
-  for (const [phaseIndex, def] of phaseDefs
-    .slice(0, phaseCount)
-    .entries()) {
+  for (const [phaseIndex, def] of phaseDefs.slice(0, phaseCount).entries()) {
     const phaseConcepts = selected.slice(
       phaseIndex * chunkSize,
       (phaseIndex + 1) * chunkSize,
@@ -622,10 +638,7 @@ export function generatePlan(
       (input.method === 'knowledge-route' ||
         input.method === 'deep-understanding')
     )
-      tasks = [
-        ...tasks,
-        makePhaseReviewTask(phaseId, phaseConcepts, now),
-      ];
+      tasks = [...tasks, makePhaseReviewTask(phaseId, phaseConcepts, now)];
     const test = makeStageTest(
       phaseId,
       def.title,
@@ -696,7 +709,10 @@ export function generatePlan(
 }
 
 function normalizeConceptKey(value: string) {
-  return value.trim().toLowerCase().replace(/[、，,/（）()\s·：:]/g, '');
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[、，,/（）()\s·：:]/g, '');
 }
 
 function collectRouteConcepts(
@@ -712,8 +728,7 @@ function collectRouteConcepts(
     ...concept,
     prerequisites: concept.prerequisites.flatMap((identifier) => {
       const resolved =
-        bySlug.get(identifier) ??
-        byTitle.get(normalizeConceptKey(identifier));
+        bySlug.get(identifier) ?? byTitle.get(normalizeConceptKey(identifier));
       if (!resolved) {
         warnings.push(`${concept.title} 缺失前置知识链接：${identifier}`);
         return [];
@@ -809,14 +824,7 @@ function baseTask(
   complete = false,
 ): PlanTask {
   const substeps = [
-    makeSubstep(
-      type,
-      title,
-      concept.title,
-      minutes,
-      section,
-      complete,
-    ),
+    makeSubstep(type, title, concept.title, minutes, section, complete),
   ];
   return {
     id: makeId('task'),
@@ -1311,7 +1319,14 @@ export function recomputePlan(
     '';
   const remainingMinutes = tasks
     .filter((task) => !terminal(task.status))
-    .reduce((sum, task) => sum + task.estimatedMinutes, 0);
+    .reduce(
+      (sum, task) =>
+        sum +
+        task.substeps
+          .filter((step) => !terminal(step.status))
+          .reduce((stepSum, step) => stepSum + step.estimatedMinutes, 0),
+      0,
+    );
   const weeks = remainingMinutes / Math.max(30, plan.weeklyMinutes);
   const estimatedCompletionDate = addDays(now, Math.ceil(weeks * 7));
   return {
@@ -1369,7 +1384,11 @@ export function buildReminder(
       plan.title,
     suggestedTasks,
     estimatedMinutes: suggestedTasks.reduce(
-      (sum, task) => sum + task.estimatedMinutes,
+      (sum, task) =>
+        sum +
+        task.substeps
+          .filter((step) => !terminal(step.status))
+          .reduce((stepSum, step) => stepSum + step.estimatedMinutes, 0),
       0,
     ),
     paused: plan.status === 'paused',
@@ -1392,9 +1411,11 @@ export function planPreview(plan: LearningPlan) {
           'project',
         ].includes(task.type) ||
         task.substeps.some((step) =>
-          ['code-reading', 'parameter-change', 'interactive-experiment'].includes(
-            step.type,
-          ),
+          [
+            'code-reading',
+            'parameter-change',
+            'interactive-experiment',
+          ].includes(step.type),
         ),
     ).length,
     reviewCount: tasks.filter(
@@ -1406,10 +1427,7 @@ export function planPreview(plan: LearningPlan) {
   };
 }
 
-function resizeSubsteps(
-  substeps: PlanSubstep[],
-  requestedMinutes: number,
-) {
+function resizeSubsteps(substeps: PlanSubstep[], requestedMinutes: number) {
   if (!substeps.length) return substeps;
   const target = Math.max(substeps.length, Math.round(requestedMinutes));
   const current = Math.max(
@@ -1421,10 +1439,7 @@ function resizeSubsteps(
     const minutes =
       index === substeps.length - 1
         ? Math.max(1, target - allocated)
-        : Math.max(
-            1,
-            Math.floor((step.estimatedMinutes / current) * target),
-          );
+        : Math.max(1, Math.floor((step.estimatedMinutes / current) * target));
     allocated += minutes;
     return { ...step, estimatedMinutes: minutes };
   });
@@ -1441,14 +1456,16 @@ export function updateTask(
     tasks: phase.tasks.map((task) =>
       task.id === taskId
         ? (() => {
-            let substeps = patch.status
+            const cascadeStatus =
+              patch.status === 'completed' ||
+              patch.status === 'skipped' ||
+              patch.status === 'not-started';
+            let substeps = cascadeStatus
               ? task.substeps.map((step) => ({
                   ...step,
                   status: patch.status as TaskStatus,
                   completedAt:
-                    patch.status === 'completed'
-                      ? now.toISOString()
-                      : null,
+                    patch.status === 'completed' ? now.toISOString() : null,
                 }))
               : (patch.substeps ?? task.substeps);
             if (
@@ -1456,25 +1473,22 @@ export function updateTask(
               !patch.substeps &&
               patch.estimatedMinutes !== undefined
             )
-              substeps = resizeSubsteps(
-                substeps,
-                patch.estimatedMinutes,
-              );
+              substeps = resizeSubsteps(substeps, patch.estimatedMinutes);
             return {
-            ...task,
-            ...patch,
-            substeps,
-            estimatedMinutes: substeps.reduce(
-              (sum, step) => sum + step.estimatedMinutes,
-              0,
-            ),
-            completedAt:
-              patch.status === 'completed'
-                ? now.toISOString()
-                : patch.status
-                  ? null
-                  : (patch.completedAt ?? task.completedAt),
-          };
+              ...task,
+              ...patch,
+              substeps,
+              estimatedMinutes: substeps.reduce(
+                (sum, step) => sum + step.estimatedMinutes,
+                0,
+              ),
+              completedAt:
+                patch.status === 'completed'
+                  ? now.toISOString()
+                  : patch.status
+                    ? null
+                    : (patch.completedAt ?? task.completedAt),
+            };
           })()
         : task,
     ),
@@ -1504,15 +1518,12 @@ export function updateSubstep(
           ? {
               ...step,
               status,
-              completedAt:
-                status === 'completed' ? now.toISOString() : null,
+              completedAt: status === 'completed' ? now.toISOString() : null,
             }
           : step,
       );
       const complete = substeps.every((step) => terminal(step.status));
-      const started = substeps.some(
-        (step) => step.status !== 'not-started',
-      );
+      const started = substeps.some((step) => step.status !== 'not-started');
       const nextDue = substeps
         .filter((step) => !terminal(step.status) && step.dueDate)
         .map((step) => step.dueDate!)
@@ -1643,8 +1654,7 @@ export function scoreStageTest(
         .map((slug) => {
           const source = tasks.find((task) => task.conceptSlug === slug);
           const sourceTitle =
-            source?.title.replace(/^(名词与理解|原理与实践) · /, '') ??
-            slug;
+            source?.title.replace(/^(名词与理解|原理与实践) · /, '') ?? slug;
           const substeps = [
             makeSubstep(
               'review',

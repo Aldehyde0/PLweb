@@ -91,13 +91,13 @@
   - 依赖：Tasks 3～10。
   - 文件：lib/plan-engine.ts、components/plan-store.tsx、tests/plan-engine.test.ts。
 
-- [ ] Task 12: 最终质量门禁
+- [x] Task 12: 最终质量门禁
   - 验收：测试、定向 lint、TypeScript 和本地构建通过；不执行部署。
   - 验证：npm test、npx tsc --noEmit、定向 oxlint、npm run build、localhost 路由检查。
   - 依赖：Task 11。
 
 ## Final Checkpoint
 
-- [ ] 所有验收标准满足。
-- [ ] 项目保持本地运行。
-- [ ] 未调用远程 API，未部署。
+- [x] 所有验收标准满足。
+- [x] 项目保持本地运行。
+- [x] 未调用远程 API，未部署。
