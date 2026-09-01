@@ -12,6 +12,7 @@ import {
 import {
   PLAN_STORAGE_KEY,
   buildReminder,
+  deletePlanFromState,
   localDate,
   migratePlanState,
   moveTask as moveTaskInPlan,
@@ -218,21 +219,7 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
   const deletePlan = useCallback(
-    (planId: string) =>
-      setState((prev) => {
-        const plans = prev.plans.filter((plan) => plan.id !== planId);
-        return {
-          ...prev,
-          plans,
-          reminder: {
-            ...prev.reminder,
-            activePlanId:
-              prev.reminder.activePlanId === planId
-                ? (plans.find((plan) => plan.status === 'active')?.id ?? null)
-                : prev.reminder.activePlanId,
-          },
-        };
-      }),
+    (planId: string) => setState((prev) => deletePlanFromState(prev, planId)),
     [],
   );
   const updatePlanValue = useCallback(

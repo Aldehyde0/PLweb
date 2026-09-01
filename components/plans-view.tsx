@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { PLAN_METHODS } from '@/lib/plan-engine';
 import { usePlans } from '@/components/plan-store';
+import { PlanDeleteButton } from '@/components/plan-delete-button';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
@@ -103,10 +104,13 @@ export function PlansView() {
                       {plan.phases.length} 个阶段 · {remaining} 个待办
                     </span>
                   </div>
-                  <Link href={`/plans/${plan.id}`} className="plan-card-link">
-                    查看计划
-                    <ArrowRight />
-                  </Link>
+                  <div className="plan-card-actions">
+                    <PlanDeleteButton planId={plan.id} title={plan.title} />
+                    <Link href={`/plans/${plan.id}`} className="plan-card-link">
+                      查看计划
+                      <ArrowRight />
+                    </Link>
+                  </div>
                 </article>
               );
             })}
