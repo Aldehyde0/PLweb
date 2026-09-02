@@ -70,7 +70,12 @@
 }
 
 .study-reminder {
-  border-color: var(--color-rule-2);
+  z-index: var(--z-base);
+  width: min(calc(100% - (var(--space-sm) * 2)), 72rem);
+  margin: var(--space-xl) auto 0;
+  overflow: clip;
+  border: var(--rule-hair) solid var(--color-rule-2);
+  border-radius: var(--radius-card);
 }
 
 .study-reminder-icon,
