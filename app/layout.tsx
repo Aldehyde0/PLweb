@@ -63,8 +63,8 @@ export default function RootLayout({
           <ResourceProvider>
             <PlanProvider>
               <SiteHeader />
-              <StudyReminderBanner />
               {children}
+              <StudyReminderBanner />
               <footer className="site-footer">
                 <p className="site-footer__statement">
                   理解一个概念，再独立解决一个问题。
