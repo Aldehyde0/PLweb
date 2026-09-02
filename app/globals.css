@@ -72,3 +72,126 @@ table thead{background:#202020;color:#c9c9c9}table th,table td{padding:.75rem 1r
 @media(max-width:640px){.concept-shell{padding:1.25rem .9rem 3rem}.concept-header h1{font-size:2.25rem}.article-flow{gap:2.2rem;padding-top:2.2rem}.doc-section{padding-top:2rem}.formula-card,.numerical-example{padding:1rem}.formula-context{grid-template-columns:1fr}.code-caption{align-items:flex-start}.code-lines{font-size:.74rem}.analysis-card{grid-template-columns:1.55rem minmax(0,1fr);padding:.85rem}.variable-grid>div{grid-template-columns:1fr}.math-block .katex{font-size:1em}.select-control{min-width:0}}
 @media(min-width:768px){.formula-context{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
+
+/* Hallmark · component: filters + semantic labels · design-system: design.md
+ * states: default · hover · focus · active · disabled · loading · error · success
+ */
+.select-control {
+  height: var(--size-control);
+  border-width: var(--rule-hair);
+  border-color: var(--color-rule-2);
+  outline: var(--rule-fine) solid transparent;
+  outline-offset: var(--focus-offset);
+  background-color: var(--color-input-surface);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-control-arrow) 50%),
+    linear-gradient(135deg, var(--color-control-arrow) 50%, transparent 50%);
+  color: var(--color-ink);
+}
+
+[data-theme='light'] .select-control,
+[data-theme='light'] .select-control option {
+  color-scheme: light;
+}
+
+[data-theme='dark'] .select-control,
+[data-theme='dark'] .select-control option {
+  color-scheme: dark;
+}
+
+.select-control option {
+  background: var(--color-input-surface);
+  color: var(--color-ink);
+}
+
+.select-control:focus-visible {
+  border-color: var(--color-ink-2);
+  outline-color: var(--color-focus);
+  box-shadow: none;
+}
+
+.select-control:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  color: var(--color-muted);
+}
+
+.select-control[aria-invalid='true'] {
+  border-color: var(--color-error);
+}
+
+.select-control:active:not(:disabled),
+.select-control[aria-busy='true'] {
+  background-color: var(--color-input-hover);
+}
+
+.select-control[aria-busy='true'] {
+  cursor: wait;
+}
+
+.select-control[data-state='success'] {
+  border-color: var(--color-success);
+}
+
+.difficulty-入门 {
+  background: var(--color-official-surface);
+  color: var(--color-official-ink);
+}
+
+.difficulty-进阶 {
+  background: var(--color-research-surface);
+  color: var(--color-research-ink);
+}
+
+.difficulty-挑战 {
+  background: var(--color-book-surface);
+  color: var(--color-book-ink);
+}
+
+.exercise-type {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding-inline: var(--space-xs);
+  border: var(--rule-hair) solid;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.exercise-type-concept {
+  border-color: var(--color-official-rule);
+  background: var(--color-official-surface);
+  color: var(--color-official-ink);
+}
+
+.exercise-type-calculation {
+  border-color: var(--color-book-rule);
+  background: var(--color-book-surface);
+  color: var(--color-book-ink);
+}
+
+.exercise-type-code {
+  border-color: var(--color-article-rule);
+  background: var(--color-article-surface);
+  color: var(--color-article-ink);
+}
+
+.exercise-type-diagnostic {
+  border-color: var(--color-video-rule);
+  background: var(--color-video-surface);
+  color: var(--color-video-ink);
+}
+
+.exercise-type-project {
+  border-color: var(--color-research-rule);
+  background: var(--color-research-surface);
+  color: var(--color-research-ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .select-control:hover:not(:disabled) {
+    background-color: var(--color-input-hover);
+  }
+}
