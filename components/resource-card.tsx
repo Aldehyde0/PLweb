@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import {
   Bookmark,
+  BookOpen,
   Check,
   Code2,
   Database,
@@ -10,10 +11,12 @@ import {
   FileText,
   MousePointer2,
   PlaySquare,
+  ScrollText,
 } from 'lucide-react';
 import { conceptMap } from '@/lib/content';
 import { getConceptHref } from '@/lib/concept-utils';
 import type { LearningResource, ResourceType } from '@/lib/resources';
+import { getResourceTypeGroup } from '@/lib/resource-style';
 import { useResources } from '@/components/resource-store';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,15 +28,9 @@ const iconByType: Partial<Record<ResourceType, typeof FileText>> = {
   数据集: Database,
   代码教程: Code2,
   交互式工具: MousePointer2,
+  书籍: BookOpen,
+  论文: ScrollText,
 };
-function typeGroup(type: ResourceType) {
-  if (type === '视频' || type === '视频课程') return 'video';
-  if (type === 'GitHub 仓库') return 'github';
-  if (type === '技术文章') return 'article';
-  if (type === '官方文档') return 'official';
-  return 'default';
-}
-
 export function ResourceCard({ resource }: { resource: LearningResource }) {
   const {
     viewedIds,
@@ -53,7 +50,7 @@ export function ResourceCard({ resource }: { resource: LearningResource }) {
     <article className="resource-card">
       <div className="resource-card-top">
         <span
-          className={`resource-type resource-type-${typeGroup(resource.type)}`}
+          className={`resource-type resource-type-${getResourceTypeGroup(resource.type)}`}
         >
           <Icon />
           {resource.type}

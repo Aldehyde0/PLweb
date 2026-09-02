@@ -1,3 +1,5 @@
+/* Hallmark · genre: modern-minimal · macrostructure: Workbench · theme: studied-DNA · design-system: design.md · designed-as-app */
+/* Hallmark · pre-emit critique: P5 H4 E5 S5 R5 V4 */
 .plan-page{min-height:calc(100vh - 4rem);background:linear-gradient(180deg,color-mix(in oklab,var(--background) 96%,#1d2530),var(--background) 22rem)}
 .study-reminder{position:relative;z-index:30;border-bottom:1px solid #3b4659;background:#171c25}.study-reminder-inner{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:1rem;width:min(72rem,100%);margin:0 auto;padding:.9rem 3rem .9rem 1.25rem}.study-reminder-icon{display:grid;place-items:center;width:2.25rem;height:2.25rem;border-radius:.55rem;background:#202a3a;color:#a9bddd}.study-reminder-icon svg{width:1.1rem}.study-reminder-copy strong{font-size:.8rem}.study-reminder-copy p{margin-top:.25rem;color:var(--muted-foreground);font-size:.72rem}.study-reminder-copy ul{display:flex;flex-wrap:wrap;gap:.35rem .9rem;margin-top:.4rem;color:#cbd5e1;font-size:.7rem}.study-reminder-copy li::before{content:'·';margin-right:.35rem;color:#8fa6c9}.study-reminder-time{display:flex;align-items:center;gap:.35rem;margin-top:.4rem;color:var(--muted-foreground);font-size:.68rem}.study-reminder-time svg{width:.8rem}.study-reminder-actions{display:flex;flex-wrap:wrap;align-content:center;justify-content:flex-end;gap:.4rem}.study-reminder-close{position:absolute;top:.45rem;right:.75rem;border:0;background:transparent;color:var(--muted-foreground)}.study-reminder-close svg{width:.9rem}
 .plan-container{width:min(72rem,100%);margin:0 auto;padding:2.5rem 1.25rem 4rem}
@@ -46,3 +48,213 @@
 .plan-task-substeps{margin-top:.65rem;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}.plan-task-substeps>summary{display:flex;justify-content:space-between;gap:1rem;padding:.55rem 0;color:var(--muted-foreground);font-size:.68rem;cursor:pointer}.plan-task-substeps>summary strong{color:var(--foreground);font-variant-numeric:tabular-nums}.plan-task-substeps ul{display:grid;padding-bottom:.5rem}.plan-task-substeps li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:.55rem;padding:.55rem 0;border-top:1px solid color-mix(in oklab,var(--border) 70%,transparent)}.plan-task-substeps input{margin-top:.18rem}.plan-task-substeps label{display:flex;justify-content:space-between;gap:.8rem;cursor:pointer}.plan-task-substeps label span{min-width:0}.plan-task-substeps label strong,.plan-task-substeps label small{display:block}.plan-task-substeps label strong{font-size:.72rem}.plan-task-substeps label small{margin-top:.25rem;color:var(--muted-foreground);font-size:.67rem;line-height:1.55}.plan-task-substeps label em{flex:none;color:var(--muted-foreground);font-size:.64rem;font-style:normal}.plan-task-substeps>a{color:var(--muted-foreground)}.plan-task-substeps>a svg{width:.78rem}
 @media (max-width:650px){.plan-next-step{align-items:stretch;flex-direction:column}.plan-next-step>a{align-self:flex-start}.plan-date-field>div{grid-template-columns:1fr 1fr 1fr}.plan-task-substeps label{display:block}.plan-task-substeps label em{display:block;margin-top:.25rem}.plan-phase-summary>header{align-items:stretch;flex-direction:column}}
 .plan-card-actions{display:flex;align-items:center;justify-content:flex-end;gap:.5rem;margin-top:1rem}.plan-card-actions .plan-card-link{position:static;right:auto;bottom:auto;margin:0}.plan-delete-trigger{color:var(--muted-foreground)}.plan-delete-trigger:hover{color:var(--destructive)}.plan-bottom-actions{gap:.5rem}
+
+.plan-page {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+.study-reminder,
+.plan-card,
+.plan-preview-hero,
+.plan-preview-phases > article,
+.plan-task-summary,
+.plan-inline-form,
+.plan-phase-body,
+.plan-task,
+.stage-question,
+.test-result-grid > article,
+.plan-next-step {
+  background: var(--color-paper-2);
+  color: var(--color-ink);
+}
+
+.study-reminder {
+  border-color: var(--color-rule-2);
+}
+
+.study-reminder-icon,
+.plan-method.selected > span,
+.plan-method input:focus-visible + span {
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+}
+
+.study-reminder-copy ul {
+  color: var(--color-ink-2);
+}
+
+.study-reminder-copy li::before {
+  color: var(--color-accent);
+}
+
+.plan-field input,
+.plan-field select,
+.plan-field textarea,
+.plan-inline-form select,
+.plan-task-edit select {
+  min-height: var(--size-control);
+  border-width: var(--rule-hair);
+  border-color: var(--color-rule-2);
+  outline: var(--rule-fine) solid transparent;
+  outline-offset: var(--focus-offset);
+  background: var(--color-input-surface);
+  color: var(--color-ink);
+}
+
+.plan-field textarea {
+  min-height: var(--size-textarea);
+  resize: vertical;
+}
+
+.plan-field input::placeholder,
+.plan-field textarea::placeholder {
+  color: var(--color-muted);
+}
+
+.plan-field select option,
+.plan-inline-form select option,
+.plan-task-edit select option {
+  background: var(--color-input-surface);
+  color: var(--color-ink);
+}
+
+[data-theme='light'] .plan-field select,
+[data-theme='light'] .plan-inline-form select,
+[data-theme='light'] .plan-task-edit select,
+[data-theme='light'] .plan-field select option,
+[data-theme='light'] .plan-inline-form select option,
+[data-theme='light'] .plan-task-edit select option {
+  color-scheme: light;
+}
+
+[data-theme='dark'] .plan-field select,
+[data-theme='dark'] .plan-inline-form select,
+[data-theme='dark'] .plan-task-edit select,
+[data-theme='dark'] .plan-field select option,
+[data-theme='dark'] .plan-inline-form select option,
+[data-theme='dark'] .plan-task-edit select option {
+  color-scheme: dark;
+}
+
+.plan-field input:focus-visible,
+.plan-field select:focus-visible,
+.plan-field textarea:focus-visible,
+.plan-inline-form select:focus-visible,
+.plan-task-edit select:focus-visible {
+  border-color: var(--color-ink-2);
+  outline-color: var(--color-focus);
+  box-shadow: none;
+}
+
+.plan-field input:disabled,
+.plan-field select:disabled,
+.plan-field textarea:disabled,
+.plan-inline-form select:disabled,
+.plan-task-edit select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  color: var(--color-muted);
+}
+
+.plan-field input[aria-invalid='true'],
+.plan-field select[aria-invalid='true'],
+.plan-field textarea[aria-invalid='true'],
+.plan-inline-form select[aria-invalid='true'],
+.plan-task-edit select[aria-invalid='true'] {
+  border-color: var(--color-error);
+}
+
+.plan-field input:active:not(:disabled),
+.plan-field select:active:not(:disabled),
+.plan-field textarea:active:not(:disabled),
+.plan-inline-form select:active:not(:disabled),
+.plan-task-edit select:active:not(:disabled),
+.plan-field input[aria-busy='true'],
+.plan-field select[aria-busy='true'],
+.plan-field textarea[aria-busy='true'] {
+  background: var(--color-input-hover);
+}
+
+.plan-field input[aria-busy='true'],
+.plan-field select[aria-busy='true'],
+.plan-field textarea[aria-busy='true'] {
+  cursor: wait;
+}
+
+.plan-field input[data-state='success'],
+.plan-field select[data-state='success'],
+.plan-field textarea[data-state='success'],
+.plan-inline-form select[data-state='success'],
+.plan-task-edit select[data-state='success'] {
+  border-color: var(--color-success);
+}
+
+.plan-check,
+.plan-option,
+.plan-method > span,
+.plan-preview-phases header,
+.plan-inline-form,
+.plan-task,
+.plan-time-presets button {
+  background: var(--color-input-surface);
+  color: var(--color-ink);
+}
+
+.plan-status-completed,
+.phase-complete-prompt > svg,
+.test-result-hero > svg,
+.plan-next-step.complete > svg {
+  color: var(--color-success);
+}
+
+.plan-status-paused,
+.plan-phase-actions > button.mastered,
+.plan-task-important {
+  color: var(--color-warning);
+}
+
+.plan-task-overdue,
+.plan-field > small,
+.plan-date-field > small,
+.test-result-grid svg {
+  color: var(--color-error);
+}
+
+.plan-warning {
+  border-color: var(--color-warning);
+  background: var(--color-warning-tint);
+  color: var(--color-book-ink);
+}
+
+.plan-task-summary.warn,
+.plan-task.overdue {
+  border-color: var(--color-error);
+  background: var(--color-error-tint);
+  color: var(--color-ink);
+}
+
+.phase-complete-prompt,
+.test-result-hero {
+  border-color: var(--color-success);
+  background: var(--color-success-tint);
+  color: var(--color-ink);
+}
+
+.plan-next-step {
+  border-color: var(--color-official-rule);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .plan-field input:hover:not(:disabled),
+  .plan-field select:hover:not(:disabled),
+  .plan-field textarea:hover:not(:disabled),
+  .plan-inline-form select:hover:not(:disabled),
+  .plan-task-edit select:hover:not(:disabled),
+  .plan-check:hover,
+  .plan-option:hover,
+  .plan-method > span:hover,
+  .plan-time-presets button:hover:not(:disabled) {
+    background: var(--color-input-hover);
+  }
+}

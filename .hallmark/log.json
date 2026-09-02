@@ -1,5 +1,15 @@
 [
   {
+    "date": "2026-09-03",
+    "scope": "app",
+    "macrostructure": "Workbench",
+    "theme": "studied-DNA",
+    "enrichment": "none",
+    "brief": "light-mode semantic surfaces for resources, plans, and exercises",
+    "nav": "N5 Floating pill",
+    "footer": "Ft5 Statement"
+  },
+  {
     "date": "2026-09-01",
     "scope": "app",
     "macrostructure": "Marquee Hero / Workbench / Long Document",

@@ -22,6 +22,34 @@
   --color-success: oklch(52% 0.13 145);
   --color-warning: oklch(62% 0.14 65);
   --color-error: oklch(54% 0.18 25);
+  --color-input-surface: oklch(99% 0.004 258);
+  --color-input-hover: oklch(96.2% 0.01 258);
+  --color-control-arrow: oklch(43% 0.018 258);
+  --color-success-tint: oklch(94% 0.035 145);
+  --color-warning-tint: oklch(95% 0.04 75);
+  --color-error-tint: oklch(95% 0.035 25);
+
+  --color-book-ink: oklch(43% 0.13 65);
+  --color-book-surface: oklch(95% 0.04 75);
+  --color-book-rule: oklch(84% 0.08 75);
+  --color-paper-tag-ink: oklch(40% 0.11 165);
+  --color-paper-tag-surface: oklch(95% 0.035 165);
+  --color-paper-tag-rule: oklch(84% 0.07 165);
+  --color-official-ink: oklch(46% 0.16 268);
+  --color-official-surface: oklch(95% 0.035 268);
+  --color-official-rule: oklch(84% 0.07 268);
+  --color-article-ink: oklch(43% 0.12 235);
+  --color-article-surface: oklch(95% 0.03 235);
+  --color-article-rule: oklch(84% 0.06 235);
+  --color-video-ink: oklch(46% 0.13 350);
+  --color-video-surface: oklch(95% 0.03 350);
+  --color-video-rule: oklch(84% 0.06 350);
+  --color-github-ink: oklch(36% 0.04 250);
+  --color-github-surface: oklch(94% 0.012 250);
+  --color-github-rule: oklch(82% 0.025 250);
+  --color-research-ink: oklch(40% 0.1 190);
+  --color-research-surface: oklch(95% 0.03 190);
+  --color-research-rule: oklch(84% 0.06 190);
 
   --font-display: 'Geist', 'Microsoft YaHei', ui-sans-serif, sans-serif;
   --font-body: 'Geist', 'Microsoft YaHei', ui-sans-serif, sans-serif;
@@ -58,9 +86,12 @@
 
   --rule-hair: 1px;
   --rule-fine: 2px;
+  --focus-offset: 1px;
   --radius-card: 1.25rem;
   --radius-input: 0.75rem;
   --radius-pill: 999px;
+  --size-control: 2.75rem;
+  --size-textarea: 6rem;
   --shadow-card: 0 1.5rem 4rem -2.75rem oklch(20% 0.04 258 / 0.28);
   --shadow-nav: 0 0.75rem 2.5rem -1.5rem oklch(20% 0.04 258 / 0.25);
 
@@ -93,6 +124,34 @@
   --color-success: oklch(68% 0.12 145);
   --color-warning: oklch(74% 0.13 65);
   --color-error: oklch(70% 0.15 25);
+  --color-input-surface: oklch(18.5% 0.017 258);
+  --color-input-hover: oklch(22% 0.02 258);
+  --color-control-arrow: oklch(72% 0.015 258);
+  --color-success-tint: oklch(24% 0.045 145);
+  --color-warning-tint: oklch(25% 0.045 75);
+  --color-error-tint: oklch(24% 0.045 25);
+
+  --color-book-ink: oklch(78% 0.11 75);
+  --color-book-surface: oklch(25% 0.045 75);
+  --color-book-rule: oklch(42% 0.07 75);
+  --color-paper-tag-ink: oklch(78% 0.09 165);
+  --color-paper-tag-surface: oklch(24% 0.04 165);
+  --color-paper-tag-rule: oklch(40% 0.065 165);
+  --color-official-ink: oklch(80% 0.12 268);
+  --color-official-surface: oklch(25% 0.05 268);
+  --color-official-rule: oklch(42% 0.075 268);
+  --color-article-ink: oklch(79% 0.1 235);
+  --color-article-surface: oklch(24% 0.04 235);
+  --color-article-rule: oklch(41% 0.065 235);
+  --color-video-ink: oklch(80% 0.1 350);
+  --color-video-surface: oklch(25% 0.04 350);
+  --color-video-rule: oklch(42% 0.065 350);
+  --color-github-ink: oklch(80% 0.025 250);
+  --color-github-surface: oklch(24% 0.018 250);
+  --color-github-rule: oklch(40% 0.03 250);
+  --color-research-ink: oklch(79% 0.08 190);
+  --color-research-surface: oklch(24% 0.035 190);
+  --color-research-rule: oklch(41% 0.06 190);
 
   --shadow-card: none;
   --shadow-nav: 0 0.75rem 2.5rem -1.5rem oklch(4% 0.02 258 / 0.55);
