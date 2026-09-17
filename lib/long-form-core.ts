@@ -97,9 +97,9 @@ export const longFormConcepts:LongFormConcept[] = [
     prerequisites:['标量、向量和矩阵','均值、方差与标准差','训练集、验证集和测试集','NumPy 的 axis 与广播','fit 与 transform 的区别'],
     relatedConcepts:['mean-variance-standard-deviation','euclidean-distance','preprocessing-fit-transform-boundary','min-max-scaling','robust-scaling-and-outliers','sklearn-pipeline-column-transformer','data-leakage'],
     sourceDocuments:[
-      {path:'D:\\python_code\\meachine_learning\\learning_tech\\02_preprocessing_feature_engineering.md',title:'02｜数据预处理与特征工程',kind:'原始文档'},
-      {path:'D:\\python_code\\meachine_learning\\learning_tech\\01_math_data_foundations.md',title:'01｜数学与数据基础',kind:'原始文档'},
-      {path:'D:\\python_code\\meachine_learning\\learning_tech\\11_l1_regularization.md',title:'11｜L1 正则化：稀疏模型与特征选择',kind:'原始文档'},
+      {path:'学习资料/learning_tech/02_preprocessing_feature_engineering.md',title:'02｜数据预处理与特征工程',kind:'原始文档'},
+      {path:'学习资料/learning_tech/01_math_data_foundations.md',title:'01｜数学与数据基础',kind:'原始文档'},
+      {path:'学习资料/learning_tech/11_l1_regularization.md',title:'11｜L1 正则化：稀疏模型与特征选择',kind:'原始文档'},
     ],
     sourceSections:['02 / §1 先划分，再学习预处理参数','02 / §5 数值标准化与特征缩放','02 / §12 使用 Pipeline 防止泄漏','01 / §3 均值、方差和标准差','01 / §5.2 为什么距离模型需要标准化','11 / §5 使用 L1 前为什么要标准化'],
     extensionNotes:[],
