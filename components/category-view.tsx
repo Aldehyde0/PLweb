@@ -158,13 +158,14 @@ export function CategoryView({
         )}
         <section className="mt-10 rounded-2xl border border-border bg-card p-3">
           <div className="flex flex-col gap-3 md:flex-row">
-            <label className="relative flex-1">
+            <label className="relative flex-1" htmlFor="concept-search">
               <span className="sr-only">搜索概念</span>
               <Search
                 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
                 size={16}
               />
               <Input
+                id="concept-search"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="搜索标题或摘要…"

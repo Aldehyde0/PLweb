@@ -46,6 +46,7 @@ function PaginationLink({
   className,
   isActive,
   size = 'icon',
+  children,
   ...props
 }: PaginationLinkProps) {
   return (
@@ -55,12 +56,16 @@ function PaginationLink({
       className={cn(className)}
       nativeButton={false}
       render={
+        // Children are placed on the anchor itself so assistive technology sees
+        // an accessible name and the rendered link really contains its content.
         <a
           aria-current={isActive ? 'page' : undefined}
           data-slot="pagination-link"
           data-active={isActive}
           {...props}
-        />
+        >
+          {children}
+        </a>
       }
     />
   );

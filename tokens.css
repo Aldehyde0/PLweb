@@ -28,6 +28,11 @@
   --color-success-tint: oklch(94% 0.035 145);
   --color-warning-tint: oklch(95% 0.04 75);
   --color-error-tint: oklch(95% 0.035 25);
+  --color-learning-surface: oklch(97% 0.015 85);
+  --color-learning-surface-raised: oklch(94.5% 0.02 85);
+  --color-learning-rule: oklch(84% 0.018 85);
+  --color-learning-ink: oklch(22% 0.02 75);
+  --color-learning-ink-2: oklch(40% 0.018 75);
 
   --color-book-ink: oklch(43% 0.13 65);
   --color-book-surface: oklch(95% 0.04 75);
@@ -130,6 +135,11 @@
   --color-success-tint: oklch(24% 0.045 145);
   --color-warning-tint: oklch(25% 0.045 75);
   --color-error-tint: oklch(24% 0.045 25);
+  --color-learning-surface: oklch(18.5% 0.017 258);
+  --color-learning-surface-raised: oklch(22% 0.02 258);
+  --color-learning-rule: oklch(29% 0.022 258);
+  --color-learning-ink: oklch(94% 0.008 258);
+  --color-learning-ink-2: oklch(72% 0.015 258);
 
   --color-book-ink: oklch(78% 0.11 75);
   --color-book-surface: oklch(25% 0.045 75);

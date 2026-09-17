@@ -1,6 +1,9 @@
+/* Hallmark · genre: modern-minimal · macrostructure: Long Document · theme: studied-DNA · design-system: design.md · designed-as-app */
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V4 */
 @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
 @import '../tokens.css';
-@import 'katex/dist/katex.min.css';
+/* Generated from katex/dist/katex.min.css with absolute /fonts/ URLs. */
+@import './katex-fonts.css';
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
@@ -193,5 +196,214 @@ table thead{background:#202020;color:#c9c9c9}table th,table td{padding:.75rem 1r
 @media (hover: hover) and (pointer: fine) {
   .select-control:hover:not(:disabled) {
     background-color: var(--color-input-hover);
+  }
+}
+
+/* Hallmark · reading surfaces · studied-DNA · warm ivory in light mode */
+.definition-callout,
+.doc-callout,
+.step-row,
+.pitfall-row,
+.related-link,
+.source-card,
+.formula-card,
+.numerical-example,
+.result-callout,
+.code-analysis,
+.analysis-card,
+.formula-context > div,
+.demo-status {
+  border-color: var(--color-learning-rule);
+  background: var(--color-learning-surface);
+  color: var(--color-learning-ink);
+}
+
+.definition-callout,
+.result-callout,
+.demo-status,
+.formula-context > div {
+  border: var(--rule-hair) solid var(--color-learning-rule);
+}
+
+.doc-section-body,
+.concept-header > p,
+.definition-callout,
+.doc-callout,
+.pitfall-row,
+.related-link,
+.source-card p,
+.formula-description,
+.formula-context p,
+.formula-context li,
+.result-callout,
+.analysis-heading p,
+.analysis-card,
+.demo-status p,
+table td {
+  color: var(--color-learning-ink-2);
+}
+
+.doc-section-body strong,
+.source-card p,
+.formula-context h4,
+.numerical-example > h3,
+.analysis-card h5,
+table thead {
+  color: var(--color-learning-ink);
+}
+
+.doc-tag,
+.category-badge,
+.step-row > span,
+.analysis-card-icon,
+table thead {
+  background: var(--color-learning-surface-raised);
+}
+
+.doc-tag,
+.category-badge,
+.source-card p span,
+.source-card > code,
+.related-link svg {
+  color: var(--color-learning-ink-2);
+}
+
+.step-row > span,
+.analysis-card-icon {
+  color: var(--color-accent);
+}
+
+.math-block,
+.math-inline {
+  color: var(--color-learning-ink);
+}
+
+.formula-context code {
+  color: var(--color-article-ink);
+}
+
+.formula-context li > span:first-child {
+  background: var(--color-learning-surface-raised);
+  color: var(--color-accent);
+}
+
+.extension-note {
+  border: var(--rule-hair) solid var(--color-book-rule);
+  background: var(--color-warning-tint);
+  color: var(--color-book-ink);
+}
+
+.math-fallback {
+  border-color: var(--color-error);
+  background: var(--color-error-tint);
+  color: var(--color-error);
+}
+
+.math-fallback code {
+  color: var(--color-learning-ink);
+}
+
+.demo-status-good {
+  border-color: var(--color-success);
+}
+
+.demo-status-warn {
+  border-color: var(--color-warning);
+}
+
+.demo-status-danger {
+  border-color: var(--color-error);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .related-link:hover {
+    border-color: var(--color-learning-rule);
+    background: var(--color-learning-surface-raised);
+    color: var(--color-learning-ink);
+  }
+}
+
+/* Hallmark · storage warning banner · warm ivory surfaces · studied-DNA */
+.persistence-banner {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  left: 1rem;
+  z-index: 60;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem 1.25rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 1rem 1.15rem;
+  border: var(--rule-hair) solid var(--color-error);
+  border-radius: var(--radius-lg);
+  background: var(--color-error-tint);
+  color: var(--color-learning-ink);
+  box-shadow: var(--shadow-nav);
+}
+
+.persistence-banner__body {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  max-width: 40rem;
+}
+
+.persistence-banner__body strong {
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+
+.persistence-banner__body p {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.6;
+  color: var(--color-learning-ink-2);
+}
+
+.persistence-banner__hint {
+  color: var(--color-learning-ink-2);
+  opacity: 0.85;
+}
+
+.persistence-banner__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex: none;
+}
+
+.persistence-banner__actions button {
+  padding: 0.45rem 0.85rem;
+  border: var(--rule-hair) solid var(--color-error);
+  border-radius: var(--radius-input);
+  background: var(--color-paper);
+  color: var(--color-learning-ink);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.persistence-banner__actions button:focus-visible {
+  outline: var(--rule-fine) solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+@media (max-width: 560px) {
+  .persistence-banner {
+    gap: 0.7rem;
+    padding: 0.85rem 0.9rem;
+  }
+
+  .persistence-banner__actions {
+    width: 100%;
+  }
+
+  .persistence-banner__actions button {
+    flex: 1 1 auto;
   }
 }

@@ -16,7 +16,30 @@ const exactFormulas:Record<string,string>={
   'Gini(S)=1-Σₖpₖ²；Gain=Gini(S)-Σc(nc/n)Gini(Sc)':'\\operatorname{Gini}(S)=1-\\sum_kp_k^2,\\qquad \\operatorname{Gain}=\\operatorname{Gini}(S)-\\sum_c\\frac{n_c}{n}\\operatorname{Gini}(S_c)',
 };
 function normalizeLatex(value:string){if(exactFormulas[value])return exactFormulas[value];return value.replaceAll('μ','\\mu ').replaceAll('σ','\\sigma ').replaceAll('θ','\\theta ').replaceAll('α','\\alpha ').replaceAll('η','\\eta ').replaceAll('λ','\\lambda ').replaceAll('γ','\\gamma ').replaceAll('ρ','\\rho ').replaceAll('ε','\\varepsilon ').replaceAll('∇','\\nabla ').replaceAll('Σ','\\sum ').replaceAll('∈','\\in ').replaceAll('ℝ','\\mathbb{R}').replaceAll('→','\\rightarrow ').replaceAll('≤','\\le ').replaceAll('≥','\\ge ').replaceAll('≈','\\approx ').replaceAll('×','\\times ').replaceAll('·','\\cdot ')}
-function render(latex:string,displayMode:boolean){return katex.renderToString(normalizeLatex(latex),{displayMode,throwOnError:true,strict:'ignore',trust:false,output:'html'})}
-export function BlockMath({latex,label}:{latex:string;label?:string}){try{return <div className="math-block" role="img" aria-label={label??`公式：${latex}`} dangerouslySetInnerHTML={{__html:render(latex,true)}}/>}catch{return <div className="math-fallback" role="alert"><span>公式渲染失败，降级显示：</span><code>{latex}</code></div>}}
-export function InlineMath({latex}:{latex:string}){try{return <span className="math-inline" dangerouslySetInnerHTML={{__html:render(latex,false)}}/>}catch{return <code className="math-inline-fallback" title="公式渲染失败">{latex}</code>}}
+
+/**
+ * Renders LaTeX to an HTML string. Returns `null` instead of throwing so the
+ * caller can choose a fallback element outside of a try/catch that produces JSX.
+ */
+function renderToHtml(latex:string,displayMode:boolean):string|null{
+  try{
+    return katex.renderToString(normalizeLatex(latex),{displayMode,throwOnError:true,strict:'ignore',trust:false,output:'html'});
+  }catch{
+    return null;
+  }
+}
+
+export function BlockMath({latex,label}:{latex:string;label?:string}){
+  const html=renderToHtml(latex,true);
+  if(html===null)
+    return <div className="math-fallback" role="alert"><span>公式渲染失败，降级显示：</span><code>{latex}</code></div>;
+  return <figure className="math-block" aria-label={label??`公式：${latex}`} dangerouslySetInnerHTML={{__html:html}}/>;
+}
+
+export function InlineMath({latex}:{latex:string}){
+  const html=renderToHtml(latex,false);
+  if(html===null) return <code className="math-inline-fallback" title="公式渲染失败">{latex}</code>;
+  return <span className="math-inline" dangerouslySetInnerHTML={{__html:html}}/>;
+}
+
 export function RichText({children}:{children:string}){const parts=children.split(/(\$[^$]+\$)/g);return <>{parts.map((part,index)=>part.startsWith('$')&&part.endsWith('$')?<InlineMath key={index} latex={part.slice(1,-1)}/>:part)}</>}

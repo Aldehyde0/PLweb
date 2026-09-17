@@ -2,7 +2,7 @@
 
 import { Activity, Gauge, RotateCcw } from 'lucide-react';
 import { useMemo,useState } from 'react';
-import { CartesianGrid,Legend,Line,LineChart,Tooltip,XAxis,YAxis } from 'recharts';
+import { CartesianGrid,Line,LineChart,Tooltip,XAxis,YAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { ChartContainer,type ChartConfig } from '@/components/ui/chart';
 import { Slider } from '@/components/ui/slider';

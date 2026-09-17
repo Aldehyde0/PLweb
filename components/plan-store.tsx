@@ -11,6 +11,7 @@ import {
 } from 'react';
 import {
   PLAN_STORAGE_KEY,
+  applyStageSelfAssessment,
   buildReminder,
   deletePlanFromState,
   localDate,
@@ -18,7 +19,9 @@ import {
   moveTask as moveTaskInPlan,
   recomputePlan,
   scoreStageTest,
+  substepsComplete,
   syncLearnedTasks,
+  taskMarksConceptLearned,
   updateSubstep,
   updateTask,
   type LearningActivity,
@@ -29,7 +32,9 @@ import {
   type StageTestStatus,
   type TaskStatus,
 } from '@/lib/plan-engine';
+import { writeStored } from '@/lib/browser-storage';
 import { useLearning } from '@/components/learning-store';
+import { usePersistence } from '@/components/persistence-store';
 
 type PlanContextValue = PlanState & {
   ready: boolean;
@@ -77,6 +82,11 @@ type PlanContextValue = PlanState & {
     answers: Record<string, string[]>,
     addWeakToReview: boolean,
   ) => void;
+  gradeStageSelfAssessment: (
+    planId: string,
+    phaseId: string,
+    selfAssessment: Record<string, boolean>,
+  ) => void;
   setPhaseMastered: (
     planId: string,
     phaseId: string,
@@ -89,17 +99,38 @@ const PlanContext = createContext<PlanContextValue | null>(null);
 
 export function PlanProvider({ children }: { children: React.ReactNode }) {
   const { learned, markLearned, ready: learningReady } = useLearning();
+  const { reportWrite, reportRead, registerSaver } = usePersistence();
   const [state, setState] = useState<PlanState>(() => migratePlanState(null));
   const [ready, setReady] = useState(false);
   const [reminderView, setReminderView] = useState<ReminderView | null>(null);
   const reminderChecked = useRef(false);
   const learningSyncInitialized = useRef(false);
+  // Set when the stored plan record could not be read at all, so the unreadable
+  // record is preserved instead of being overwritten by an empty default state.
+  const blocked = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
-      const loaded = migratePlanState(localStorage.getItem(PLAN_STORAGE_KEY));
+      let raw: string | null = null;
+      try {
+        raw = localStorage.getItem(PLAN_STORAGE_KEY);
+      } catch {
+        blocked.current = true;
+        reportRead('plans', { status: 'unavailable', value: null });
+      }
+      if (!blocked.current && raw !== null && raw !== '') {
+        try {
+          JSON.parse(raw);
+        } catch {
+          blocked.current = true;
+          reportRead('plans', { status: 'corrupt', value: null });
+        }
+      }
+      const loaded = blocked.current
+        ? migratePlanState(null)
+        : migratePlanState(raw);
       loaded.reminder.lastOpenedAt = new Date().toISOString();
       setState(loaded);
       setReady(true);
@@ -107,10 +138,25 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reportRead]);
+
+  const saveState = useCallback(
+    (value: PlanState) => {
+      if (blocked.current) return;
+      reportWrite('plans', writeStored('local', PLAN_STORAGE_KEY, value));
+    },
+    [reportWrite],
+  );
+
   useEffect(() => {
-    if (ready) localStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify(state));
-  }, [ready, state]);
+    if (ready) saveState(state);
+  }, [ready, state, saveState]);
+  useEffect(() => {
+    registerSaver('plans', () => {
+      blocked.current = false;
+      saveState(state);
+    });
+  }, [registerSaver, saveState, state]);
   useEffect(() => {
     if (!ready || !learningReady) return;
     const shouldRecordStudy = learningSyncInitialized.current;
@@ -244,12 +290,12 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
         .flatMap((phase) => phase.tasks)
         .find((item) => item.id === taskId);
       if (!plan || !task) return;
-      if (
-        status === 'completed' &&
-        task.conceptSlug &&
-        (task.type === 'concept-reading' || task.type === 'definition-reading')
-      )
-        markLearned(task.conceptSlug);
+      // Completing a comprehension card by hand and completing all of its
+      // substeps one by one must reach the same learning state, so both paths
+      // go through the same rule. Practice, review, exercise, project and
+      // resource tasks never mark a concept as learned.
+      if (status === 'completed' && taskMarksConceptLearned(task))
+        markLearned(task.conceptSlug!);
       mutatePlan(
         planId,
         (current) => updateTask(current, taskId, { status }),
@@ -280,17 +326,16 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
         .find((plan) => plan.id === planId)
         ?.phases.flatMap((phase) => phase.tasks)
         .find((item) => item.id === taskId);
+      const nextSubsteps =
+        task?.substeps.map((step) =>
+          step.id === substepId ? { ...step, status } : step,
+        ) ?? [];
+      // Same rule as completing the whole card directly: once the comprehension
+      // card is fully done, the concept counts as learned.
       const willComplete =
-        task?.substeps.every((step) => {
-          const next = step.id === substepId ? status : step.status;
-          return next === 'completed' || next === 'skipped';
-        }) ?? false;
-      if (
-        willComplete &&
-        task?.type === 'concept-understanding' &&
-        task.conceptSlug
-      )
-        markLearned(task.conceptSlug);
+        nextSubsteps.length > 0 && substepsComplete(nextSubsteps);
+      if (willComplete && task && taskMarksConceptLearned(task))
+        markLearned(task.conceptSlug!);
       mutatePlan(
         planId,
         (plan) => updateSubstep(plan, taskId, substepId, status),
@@ -429,6 +474,17 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
       ),
     [mutatePlan],
   );
+  const gradeStageSelfAssessment = useCallback(
+    (
+      planId: string,
+      phaseId: string,
+      selfAssessment: Record<string, boolean>,
+    ) =>
+      mutatePlan(planId, (plan) =>
+        applyStageSelfAssessment(plan, phaseId, selfAssessment),
+      ),
+    [mutatePlan],
+  );
   const setPhaseMastered = useCallback(
     (planId: string, phaseId: string, mastered: boolean) =>
       mutatePlan(planId, (plan) => ({
@@ -470,6 +526,7 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
       addCustomTask,
       setStageTestStatus,
       submitStageTest,
+      gradeStageSelfAssessment,
       setPhaseMastered,
       dismissReminder,
     }),
@@ -490,6 +547,7 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
       addCustomTask,
       setStageTestStatus,
       submitStageTest,
+      gradeStageSelfAssessment,
       setPhaseMastered,
       dismissReminder,
     ],

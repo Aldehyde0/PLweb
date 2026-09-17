@@ -60,11 +60,11 @@ function BreadcrumbLink({
 }
 
 function BreadcrumbPage({ className, ...props }: React.ComponentProps<'span'>) {
+  // The current page is not a link, so it carries only `aria-current`; a
+  // `role="link"` on a non-navigable element would mislead assistive tech.
   return (
     <span
       data-slot="breadcrumb-page"
-      role="link"
-      aria-disabled="true"
       aria-current="page"
       className={cn('text-foreground font-normal', className)}
       {...props}
