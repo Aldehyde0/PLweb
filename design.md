@@ -40,7 +40,8 @@ modern-minimal。产品界面优先，学习状态与下一步行动先于介绍
 - Dark accent：`oklch(64% 0.19 268)`
 - Accent footprint：每个视口不超过 5%。
 - 浅色输入表面：`oklch(99% 0.004 258)`；悬浮表面：`oklch(96.2% 0.01 258)`。
-- 浅色学习表面：`oklch(97% 0.015 85)`；次级学习表面：`oklch(94.5% 0.02 85)`。
+- 浅色学习表面：`oklch(96.5% 0.004 258)`；次级学习表面：`oklch(93.5% 0.007 258)`；学习边界：`oklch(83% 0.01 258)`；学习正文：`oklch(22% 0.018 258)`；次级正文：`oklch(40% 0.018 258)`。
+- 浅色阅读面为中性灰白，与冷白输入控件、深色代码区形成三层区分；深色主题沿用原冷色表面。
 
 ## Spacing
 
@@ -156,3 +157,8 @@ modern-minimal。产品界面优先，学习状态与下一步行动先于介绍
 - 不继承参考页的斜体标题强调。
 - 不使用无限滚动信息带，除非内容确实表达实时状态。
 - 不使用三张同构功能卡、AI 标准导航、四栏 SaaS 页脚或伪造指标。
+
+
+## 2026-09-18 · Neutral light learning surfaces
+
+Light mode uses cool gray-white reading panels, graphite copy and visible neutral borders. Knowledge-map selection uses an accent border and pale blue fill. Home directions use equal two-column tracks (one column on mobile), equal row heights and wrapping descriptions. AI/RL detail panels follow the same light palette; code examples retain a dedicated dark syntax surface. Dark theme retains its existing palette.

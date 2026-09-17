@@ -1,0 +1,465 @@
+/*
+ * Light-theme adaptation for components whose original CSS hard-codes the dark
+ * palette (hex values such as #1c1c1c / #202020 / #111). Dark mode keeps those
+ * files untouched: every rule here is scoped to [data-theme='light'].
+ *
+ * Rules for editing this file:
+ * 1. Never flatten a semantic state. good / warn / danger / muted, goal /
+ *    blocked / path, current / deprecated, active / done / hover must stay
+ *    visually distinguishable; map them onto the semantic tokens in tokens.css.
+ * 2. Keep code blocks dark. `code-figure` and the `.syntax-*` palette are an
+ *    intentional dark island; do not restyle them here.
+ * 3. Prefer tokens over literal colours, and keep body text at >= 4.5:1 against
+ *    the surface it sits on.
+ * Hallmark · genre: modern-minimal · macrostructure: Long Document · theme: studied-DNA
+ */
+
+/* ------------------------------------------------------------------ surfaces */
+
+[data-theme='light'] .step-row,
+[data-theme='light'] .source-card,
+[data-theme='light'] .formula-card,
+[data-theme='light'] .numerical-example,
+[data-theme='light'] .code-analysis,
+[data-theme='light'] .history-link,
+[data-theme='light'] .pdf-example,
+[data-theme='light'] .agent-network,
+[data-theme='light'] .grid-world > div,
+[data-theme='light'] .ai-info-card,
+[data-theme='light'] .select-control,
+[data-theme='light'] .sort-control select,
+[data-theme='light'] .memo-field select,
+[data-theme='light'] .doc-tag,
+[data-theme='light'] .pitfall-row {
+  background: var(--color-learning-surface);
+}
+
+[data-theme='light'] .definition-callout,
+[data-theme='light'] .related-link,
+[data-theme='light'] .reference-available,
+[data-theme='light'] .result-callout,
+[data-theme='light'] .demo-stage-index,
+[data-theme='light'] .important-toggle[aria-pressed='true'],
+[data-theme='light'] .concept-important-toggle[aria-pressed='true'],
+[data-theme='light'] .marked-sections button:hover,
+[data-theme='light'] table thead {
+  background: var(--color-learning-surface-raised);
+  color: var(--color-learning-ink);
+}
+
+[data-theme='light'] .doc-callout,
+[data-theme='light'] .extension-note,
+[data-theme='light'] .analysis-card,
+[data-theme='light'] .note-card,
+[data-theme='light'] .ai-directory-index,
+[data-theme='light'] .official-source-panel,
+[data-theme='light'] .ai-demo,
+[data-theme='light'] .demo-info,
+[data-theme='light'] .demo-status,
+[data-theme='light'] .algorithm-profile > div,
+[data-theme='light'] .rl-demo,
+[data-theme='light'] .rl-metric,
+[data-theme='light'] .rl-controls label,
+[data-theme='light'] .grid-world,
+[data-theme='light'] .rl-curve,
+[data-theme='light'] .preference-grid > div,
+[data-theme='light'] .learning-routes article,
+[data-theme='light'] .memo-empty {
+  border: var(--rule-hair) solid var(--color-learning-rule);
+  background: var(--color-learning-surface);
+  color: var(--color-learning-ink);
+}
+
+[data-theme='light'] .formula-context > div,
+[data-theme='light'] .rl-extra-fields > div {
+  border-left: var(--rule-fine) solid var(--color-learning-rule);
+  background: var(--color-learning-surface);
+}
+
+[data-theme='light'] .demo-stage,
+[data-theme='light'] .rl-stage,
+[data-theme='light'] .rl-note {
+  border-left: var(--rule-fine) solid var(--color-learning-rule);
+  background: var(--color-learning-surface-raised);
+  color: var(--color-learning-ink);
+}
+
+[data-theme='light'] .reference-missing,
+[data-theme='light'] .memo-empty {
+  border: var(--rule-hair) dashed var(--color-learning-rule);
+  background: var(--color-learning-surface);
+  color: var(--color-learning-ink-2);
+}
+
+[data-theme='light'] .important-section[data-important='true'],
+[data-theme='light'] .concept-header[data-important='true'] {
+  border-left: var(--rule-fine) solid var(--color-book-rule);
+}
+
+/* --------------------------------------------------------- text hierarchies */
+
+[data-theme='light'] .breadcrumbs,
+[data-theme='light'] .concept-header > p,
+[data-theme='light'] .doc-kind-badge,
+[data-theme='light'] .doc-section-body,
+[data-theme='light'] .source-card p span,
+[data-theme='light'] .source-card > code,
+[data-theme='light'] .formula-description,
+[data-theme='light'] .formula-context p,
+[data-theme='light'] .formula-context li,
+[data-theme='light'] .analysis-heading p,
+[data-theme='light'] .variable-grid dd,
+[data-theme='light'] .demo-status p,
+[data-theme='light'] table td,
+[data-theme='light'] .reference-missing small,
+[data-theme='light'] .memo-section > h3 span,
+[data-theme='light'] .memo-field,
+[data-theme='light'] .note-meta,
+[data-theme='light'] .note-card > p,
+[data-theme='light'] .history-link small,
+[data-theme='light'] .ai-directory-index > div:first-child > p:last-child,
+[data-theme='light'] .ai-group-heading span,
+[data-theme='light'] .ai-info-card li,
+[data-theme='light'] .official-source-panel p,
+[data-theme='light'] .ai-demo-heading > p:last-child,
+[data-theme='light'] .demo-stage p,
+[data-theme='light'] .demo-info code,
+[data-theme='light'] .demo-explanation,
+[data-theme='light'] .role-map button span,
+[data-theme='light'] .pdf-example span,
+[data-theme='light'] .agent-network span,
+[data-theme='light'] .rl-extra-fields dd,
+[data-theme='light'] .rl-demo-head > p:last-child,
+[data-theme='light'] .rl-controls label span,
+[data-theme='light'] .grid-world small,
+[data-theme='light'] .rl-compare p,
+[data-theme='light'] .rl-stage p,
+[data-theme='light'] .prob-bars > div > span,
+[data-theme='light'] .ppo-axis span,
+[data-theme='light'] .preference-grid label,
+[data-theme='light'] .learning-routes p,
+[data-theme='light'] .reference-available small {
+  color: var(--color-learning-ink-2);
+}
+
+[data-theme='light'] .doc-section-body strong,
+[data-theme='light'] .source-card p,
+[data-theme='light'] .math-block,
+[data-theme='light'] .math-inline,
+[data-theme='light'] .math-fallback code,
+[data-theme='light'] .formula-context h4,
+[data-theme='light'] .formula-context code,
+[data-theme='light'] .history-link strong,
+[data-theme='light'] .algorithm-profile strong,
+[data-theme='light'] .rl-metric strong,
+[data-theme='light'] .rl-controls label b,
+[data-theme='light'] .ai-info-card h3,
+[data-theme='light'] .demo-stage strong,
+[data-theme='light'] .learning-routes h3,
+[data-theme='light'] .preference-grid h3 {
+  color: var(--color-learning-ink);
+}
+
+[data-theme='light'] .variable-grid dt code,
+[data-theme='light'] .history-link em,
+[data-theme='light'] .ai-info-card h3 svg,
+[data-theme='light'] .ai-info-card li svg,
+[data-theme='light'] .demo-stage > svg,
+[data-theme='light'] .demo-info small,
+[data-theme='light'] .demo-explanation svg,
+[data-theme='light'] .pdf-example svg,
+[data-theme='light'] .agent-network svg,
+[data-theme='light'] .algorithm-profile small,
+[data-theme='light'] .rl-metric small,
+[data-theme='light'] .rl-extra-fields dt,
+[data-theme='light'] .rl-stage svg,
+[data-theme='light'] .preference-grid article code,
+[data-theme='light'] .important-section[data-important='true'] > .section-heading-row h2 {
+  color: var(--color-article-ink);
+}
+
+[data-theme='light'] .official-source-panel a,
+[data-theme='light'] .breadcrumbs a:hover {
+  color: var(--color-official-ink);
+}
+
+/* ------------------------------------------------- difficulty / category tags */
+
+[data-theme='light'] .difficulty-入门 {
+  background: var(--color-official-surface);
+  color: var(--color-official-ink);
+}
+
+[data-theme='light'] .difficulty-进阶 {
+  background: var(--color-research-surface);
+  color: var(--color-research-ink);
+}
+
+[data-theme='light'] .difficulty-挑战,
+[data-theme='light'] .concept-important-badge {
+  background: var(--color-book-surface);
+  color: var(--color-book-ink);
+}
+
+[data-theme='light'] .category-badge,
+[data-theme='light'] .step-row > span,
+[data-theme='light'] .analysis-card-icon {
+  background: var(--color-learning-surface-raised);
+  color: var(--color-article-ink);
+}
+
+/* ------------------------------------------------------ semantic demo states */
+/* Each tone keeps its own hue: flattening these would remove the meaning. */
+
+[data-theme='light'] .demo-status-good,
+[data-theme='light'] .preference-grid article.chosen {
+  border-color: var(--color-success);
+}
+
+[data-theme='light'] .demo-status-warn {
+  border-color: var(--color-warning);
+}
+
+[data-theme='light'] .demo-status-danger {
+  border-color: var(--color-error);
+}
+
+[data-theme='light'] .demo-status-muted {
+  border-color: var(--color-learning-rule);
+}
+
+[data-theme='light'] .demo-status-good p,
+[data-theme='light'] .preference-grid article.chosen code {
+  color: var(--color-success);
+}
+
+[data-theme='light'] .demo-status-warn p {
+  color: var(--color-warning);
+}
+
+[data-theme='light'] .demo-status-danger p {
+  color: var(--color-error);
+}
+
+[data-theme='light'] .math-fallback,
+[data-theme='light'] .pitfall-row svg,
+[data-theme='light'] .math-inline-fallback {
+  color: var(--color-error);
+}
+
+[data-theme='light'] .math-fallback {
+  border-color: var(--color-error);
+  background: var(--color-error-tint);
+}
+
+[data-theme='light'] .pitfall-row {
+  border-color: var(--color-error-tint);
+}
+
+/* ------------------------------------------------------- progress / transport */
+
+[data-theme='light'] .demo-progress button.done,
+[data-theme='light'] .demo-pipeline button.done,
+[data-theme='light'] .concept-list-link[data-learned='true'] > span:first-child,
+[data-theme='light'] .learned-directory-state,
+[data-theme='light'] .concept-list-link[data-learned='true']:hover > span:first-child,
+[data-theme='light'] .concept-list-link[data-learned='true'][aria-current='page'] > span:first-child {
+  color: var(--color-success);
+}
+
+[data-theme='light'] .transport-status span {
+  color: var(--color-learning-ink-2);
+}
+
+[data-theme='light'] .transport-status .current {
+  background: var(--color-success);
+  color: var(--color-accent-ink);
+}
+
+[data-theme='light'] .transport-status .deprecated {
+  background: var(--color-warning);
+  color: var(--color-accent-ink);
+}
+
+/* ------------------------------------------------------------- grid world map */
+/* goal / blocked / path must stay three different things. */
+
+[data-theme='light'] .grid-world {
+  background: var(--color-learning-surface-raised);
+}
+
+[data-theme='light'] .grid-world > div {
+  background: var(--color-learning-surface);
+  color: var(--color-learning-ink);
+}
+
+[data-theme='light'] .grid-world .blocked {
+  background: var(--color-learning-surface-raised);
+  color: var(--color-neutral);
+}
+
+[data-theme='light'] .grid-world .goal {
+  background: var(--color-success-tint);
+  color: var(--color-success);
+}
+
+[data-theme='light'] .grid-world .path {
+  box-shadow: inset 0 0 0 1px var(--color-article-rule);
+}
+
+[data-theme='light'] .rl-curve .q {
+  stroke: var(--color-article-ink);
+}
+
+[data-theme='light'] .rl-curve .sarsa {
+  stroke: var(--color-book-ink);
+}
+
+[data-theme='light'] .prob-bars i {
+  background: var(--color-learning-surface-raised);
+}
+
+[data-theme='light'] .prob-bars em {
+  background: var(--color-article-ink);
+}
+
+[data-theme='light'] .ppo-safe {
+  background: var(--color-success-tint);
+}
+
+[data-theme='light'] .ppo-axis {
+  border-bottom: var(--rule-fine) solid var(--color-learning-rule);
+}
+
+/* ------------------------------------------- interactive controls and selection */
+
+[data-theme='light'] .ai-runtime span,
+[data-theme='light'] .ai-directory-tabs button,
+[data-theme='light'] .demo-tabs button,
+[data-theme='light'] .demo-progress button,
+[data-theme='light'] .demo-pipeline button,
+[data-theme='light'] .mcp-flow button,
+[data-theme='light'] .dqn-flow button,
+[data-theme='light'] .role-map button,
+[data-theme='light'] .marked-sections button,
+[data-theme='light'] .important-toggle,
+[data-theme='light'] .concept-important-toggle,
+[data-theme='light'] .preference-grid article {
+  border: var(--rule-hair) solid var(--color-learning-rule);
+  background: var(--color-learning-surface);
+  color: var(--color-learning-ink-2);
+}
+
+[data-theme='light'] .demo-progress button span,
+[data-theme='light'] .dqn-flow button > span {
+  background: var(--color-learning-surface-raised);
+  color: var(--color-learning-ink-2);
+}
+
+/* Hover stays a neutral surface; selection uses the accent so the two are not
+   confused with each other. The two surfaces are close in lightness, so hover
+   also lifts the boundary and the text colour to stay clearly distinguishable
+   from the selected tab. */
+[data-theme='light'] .ai-directory-tabs button:hover,
+[data-theme='light'] .demo-tabs button:hover,
+[data-theme='light'] .demo-progress button:hover,
+[data-theme='light'] .demo-pipeline button:hover,
+[data-theme='light'] .mcp-flow button:hover,
+[data-theme='light'] .dqn-flow button:hover,
+[data-theme='light'] .role-map button:hover,
+[data-theme='light'] .important-toggle:hover,
+[data-theme='light'] .concept-important-toggle:hover,
+[data-theme='light'] .note-actions button:hover,
+[data-theme='light'] .reference-available:hover,
+[data-theme='light'] .history-link:hover:not(:disabled) {
+  border-color: var(--color-rule-2);
+  background: var(--color-learning-surface-raised);
+  color: var(--color-learning-ink);
+}
+
+[data-theme='light'] .ai-directory-tabs button.active,
+[data-theme='light'] .demo-tabs button.active,
+[data-theme='light'] .demo-progress button.active,
+[data-theme='light'] .demo-pipeline button.active,
+[data-theme='light'] .mcp-flow button.active,
+[data-theme='light'] .dqn-flow button.active,
+[data-theme='light'] .role-map button.active {
+  border-color: var(--color-accent);
+  /* A deeper accent fill than --color-accent-tint, so the selected tab is
+     clearly distinct from a hovered tab whose fill is nearly the same
+     lightness. */
+  background: color-mix(in oklab, var(--color-accent) 22%, var(--color-paper));
+  color: var(--color-focus);
+}
+
+[data-theme='light'] .concept-list-link {
+  color: var(--color-learning-ink-2);
+}
+
+[data-theme='light'] .concept-list-link:hover {
+  background: var(--color-learning-surface-raised);
+  color: var(--color-learning-ink);
+}
+
+[data-theme='light'] .concept-list-link[aria-current='page'] {
+  background: var(--color-accent-tint);
+  color: var(--color-focus);
+  box-shadow: inset 2px 0 0 var(--color-accent);
+}
+
+[data-theme='light'] .related-link:hover {
+  border-color: var(--color-learning-rule);
+  background: var(--color-learning-surface-raised);
+  color: var(--color-learning-ink);
+}
+
+[data-theme='light'] .rl-table {
+  border: var(--rule-hair) solid var(--color-learning-rule);
+}
+
+/* ------------------------------------- legacy Tailwind arbitrary-value surfaces */
+/* Components such as concept-memo, concept-directory and the demos used literal
+   dark hex values; without these rules those panels stay black in light mode. */
+
+[data-theme='light'] .concept-shell
+  :is(.bg-\[\#181818\], .bg-\[\#171717\], .bg-\[\#1c1c1c\], .bg-\[\#141414\], .bg-\[\#1d1d1d\], .bg-\[\#1e1e1e\]) {
+  background: var(--color-learning-surface);
+  color: var(--color-learning-ink);
+}
+
+[data-theme='light'] .concept-shell :is(.border-\[\#343434\]) {
+  border-color: var(--color-learning-rule);
+}
+
+[data-theme='light'] .concept-shell :is(.bg-\[\#555\]) {
+  background: var(--color-learning-rule);
+}
+
+[data-theme='light'] [data-slot='sheet-content'],
+[data-theme='light'] [data-slot='dialog-content'],
+[data-theme='light'] [data-slot='drawer-content'] {
+  background: var(--color-input-surface);
+  color: var(--color-ink);
+}
+
+[data-theme='light'] .concept-shell :is(.text-sky-300, .text-emerald-300) {
+  color: var(--color-official-ink);
+}
+
+/* ------------------------------------------------------------ wrapping guards */
+/* `hallmark-design.css` sets `white-space: nowrap` on every a/button, which made
+   link-shaped cards overflow instead of wrapping their description. */
+
+.reference-related,
+.official-source-panel a,
+.resource-card h3,
+.ai-info-card,
+.demo-info,
+.doc-section-body,
+.direction-card,
+.learning-routes article,
+.preference-grid article {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
