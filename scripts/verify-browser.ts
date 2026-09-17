@@ -10,9 +10,9 @@
  *   node --experimental-strip-types scripts/verify-browser.ts http://127.0.0.1:8788
  */
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import {
   generatePlan,
   PLAN_STATE_VERSION,
@@ -111,6 +111,22 @@ const profileDir = mkdtempSync(join(tmpdir(), 'dsh-cdp-'));
 const chromeProcesses: ChildProcess[] = [];
 const failures: string[] = [];
 const checks: string[] = [];
+
+/**
+ * Guards the temporary-profile removal: the generator must resolve to a path
+ * inside the OS temp directory, otherwise cleanup is skipped rather than
+ * deleting something unexpected. Returns false instead of throwing so the
+ * `finally` block can never mask a real failure.
+ */
+function isInsideTempDirectory(directory: string): boolean {
+  try {
+    const resolved = realpathSync(directory);
+    const tempRoot = realpathSync(tmpdir());
+    return resolved !== tempRoot && resolved.startsWith(tempRoot + sep);
+  } catch {
+    return false;
+  }
+}
 
 function check(name: string, condition: boolean, detail = '') {
   checks.push(`${condition ? 'PASS' : 'FAIL'} ${name}${detail ? ` — ${detail}` : ''}`);
@@ -324,12 +340,31 @@ async function main() {
   };
 
   const failedRequests: string[] = [];
+  const requestUrls = new Map<string, string>();
   const collectNetwork = () => {
     for (const event of page.events) {
+      if (event.method === 'Network.requestWillBeSent') {
+        const params = event.params as {
+          requestId?: string;
+          request?: { url?: string };
+        };
+        if (params.requestId && params.request?.url)
+          requestUrls.set(params.requestId, params.request.url);
+      }
       if (event.method === 'Network.loadingFailed') {
-        const params = event.params as { errorText?: string; type?: string };
-        if (params.type !== 'Font' || !/aborted/i.test(params.errorText ?? ''))
-          failedRequests.push(`${params.type}:${params.errorText}`);
+        const params = event.params as {
+          errorText?: string;
+          type?: string;
+          requestId?: string;
+        };
+        if (params.type !== 'Font' || !/aborted/i.test(params.errorText ?? '')) {
+          const url = params.requestId
+            ? (requestUrls.get(params.requestId) ?? 'unknown-url')
+            : 'unknown-url';
+          failedRequests.push(
+            `${params.type}:${params.errorText}:${url.replace(baseUrl, '')}`,
+          );
+        }
       }
       if (event.method === 'Runtime.consoleAPICalled') {
         const params = event.params as { type?: string; args?: Array<{ value?: unknown }> };
@@ -476,6 +511,312 @@ async function main() {
     `applied=${themeAfterReload} expected=${themeAfter}`,
   );
 
+  // ------------------------------------------------- theme / layout regressions
+  // These run against the built artifacts in the real browser: they measure
+  // computed layout and contrast rather than trusting the stylesheet source.
+  const REVIEW_DIR = 'outputs/ui-review';
+  mkdirSync(REVIEW_DIR, { recursive: true });
+
+  /** Switches the document to `theme` and waits for the attribute to settle. */
+  const applyTheme = async (theme: 'light' | 'dark') => {
+    await evaluate(
+      `(() => {
+        const next = ${JSON.stringify(theme)};
+        document.documentElement.dataset.theme = next;
+        document.documentElement.classList.toggle('dark', next === 'dark');
+        try { localStorage.setItem('how-to-learn-ai-theme', JSON.stringify(next)); } catch {}
+        return next;
+      })()`,
+    );
+    await waitFor(
+      `document.documentElement.dataset.theme === ${JSON.stringify(theme)}`,
+      5000,
+      `${theme} theme applied`,
+    );
+  };
+
+  /** Shared helpers injected into every measurement expression. */
+  const MEASURE_HELPERS = `
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 1;
+    const ctx = canvas.getContext('2d');
+    const rgb = (color) => {
+      ctx.clearRect(0, 0, 1, 1);
+      ctx.fillStyle = color;
+      ctx.fillRect(0, 0, 1, 1);
+      return [...ctx.getImageData(0, 0, 1, 1).data];
+    };
+    const lum = (c) => c.slice(0, 3).map((v) => v / 255)
+      .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
+      .reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0);
+    const background = (el) => {
+      while (el) {
+        const c = rgb(getComputedStyle(el).backgroundColor);
+        if (c[3] === 255) return c;
+        el = el.parentElement;
+      }
+      return rgb('white');
+    };
+    const contrast = (el) => {
+      const a = lum(rgb(getComputedStyle(el).color));
+      const b = lum(background(el));
+      return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    };
+    const visible = (el) => el.getClientRects().length > 0;
+  `;
+
+  const WIDTHS = [320, 375, 414, 768, 1440];
+
+  for (const theme of ['light', 'dark'] as const) {
+    for (const width of WIDTHS) {
+      await page.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height: 900,
+        deviceScaleFactor: 1,
+        mobile: width < 768,
+      });
+      await goto('/');
+      await applyTheme(theme);
+
+      // --- homepage: four equal cards whose text wraps inside the card
+      const cards = await evaluate<{
+        count: number;
+        equalWidth: boolean;
+        equalHeight: boolean;
+        noOverflow: boolean;
+        descriptionsWrap: boolean;
+        pageFits: boolean;
+      }>(`(() => {
+        ${MEASURE_HELPERS}
+        const nodes = [...document.querySelectorAll('.direction-card')];
+        const rects = nodes.map((c) => c.getBoundingClientRect());
+        const paragraphs = nodes.map((c) => c.querySelector('p')).filter(Boolean);
+        return {
+          count: nodes.length,
+          equalWidth: rects.length > 0 && rects.every((r) => Math.abs(r.width - rects[0].width) < 1),
+          equalHeight: rects.length > 0 && rects.every((r) => Math.abs(r.height - rects[0].height) < 1),
+          noOverflow: nodes.every((c) => c.scrollWidth <= c.clientWidth + 1 && c.scrollHeight <= c.clientHeight + 1),
+          descriptionsWrap: paragraphs.every((p) => {
+            const style = getComputedStyle(p);
+            return style.whiteSpace !== 'nowrap' && p.scrollWidth <= p.clientWidth + 1;
+          }),
+          pageFits: document.documentElement.scrollWidth <= window.innerWidth + 1,
+        };
+      })()`);
+      check(
+        `${theme} home has 4 equal cards with wrapped text at ${width}px`,
+        cards.count === 4 &&
+          cards.equalWidth &&
+          cards.equalHeight &&
+          cards.noOverflow &&
+          cards.descriptionsWrap &&
+          cards.pageFits,
+        JSON.stringify(cards),
+      );
+
+      for (const route of [
+        '/category/artificial-intelligence',
+        '/concept/ai-overview',
+        '/resources',
+      ]) {
+        await goto(route);
+        await applyTheme(theme);
+        const visuals = await evaluate<{
+          fits: boolean;
+          minContrast: number;
+          minContrastSelector: string;
+          darkPanels: string[];
+        }>(`(() => {
+          ${MEASURE_HELPERS}
+          const nodes = [...document.querySelectorAll(
+            '.ai-directory-index h2, .ai-directory-index p, .ai-directory-tabs button, ' +
+            '.ai-info-card h3, .ai-info-card li, .definition-callout, .definition-callout p, ' +
+            '.resource-card h3, .demo-status p, .demo-stage p'
+          )].filter(visible);
+          let minContrast = 21;
+          let minContrastSelector = '';
+          for (const el of nodes) {
+            const value = contrast(el);
+            if (value < minContrast) {
+              minContrast = value;
+              minContrastSelector = el.className || el.tagName;
+            }
+          }
+          // In light mode no content panel may stay dark.
+          const panels = [...document.querySelectorAll(
+            '.ai-directory-index, .ai-info-card, .definition-callout, .official-source-panel, ' +
+            '.demo-info, .demo-stage, .rl-stage, .edu-panel, main > section'
+          )].filter(visible);
+          const darkPanels = panels
+            .filter((el) => lum(background(el)) < 0.5)
+            .map((el) => el.className || el.tagName);
+          return {
+            fits: document.documentElement.scrollWidth <= window.innerWidth + 1,
+            minContrast,
+            minContrastSelector,
+            darkPanels: [...new Set(darkPanels)],
+          };
+        })()`);
+        check(
+          `${theme} ${route} readable at ${width}px`,
+          visuals.fits &&
+            visuals.minContrast >= 4.5 &&
+            (theme !== 'light' || visuals.darkPanels.length === 0),
+          `contrast=${visuals.minContrast.toFixed(2)} on ${visuals.minContrastSelector}; darkPanels=${JSON.stringify(visuals.darkPanels)}`,
+        );
+
+        if (theme === 'light' && (width === 375 || width === 1440)) {
+          const shot = await page.send<{ data: string }>('Page.captureScreenshot', {
+            format: 'png',
+            captureBeyondViewport: false,
+          });
+          writeFileSync(
+            join(REVIEW_DIR, `${route.replaceAll('/', '_')}-${width}.png`),
+            Buffer.from(shot.data, 'base64'),
+          );
+        }
+      }
+    }
+  }
+
+  // --- knowledge map: selection must be visible, and distinct from hover
+  await page.send('Emulation.setDeviceMetricsOverride', {
+    width: 1280,
+    height: 900,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+  await goto('/category/artificial-intelligence');
+  await applyTheme('light');
+  const mapState = await evaluate<{
+    tabCount: number;
+    hasActive: boolean;
+    activeBorderAccent: boolean;
+    activeTinted: boolean;
+    activeContrast: number;
+    activeBorderContrast: number;
+    idleContrast: number;
+    idleBorderContrast: number;
+    idleIsReadable: boolean;
+  }>(`(() => {
+    ${MEASURE_HELPERS}
+    const root = getComputedStyle(document.documentElement);
+    const accent = rgb(root.getPropertyValue('--color-accent').trim());
+    const tabs = [...document.querySelectorAll('.ai-directory-tabs button')].filter(visible);
+    const active = tabs.find((b) => b.classList.contains('active')) ?? null;
+    const idle = tabs.filter((b) => b !== active);
+    const contrastWith = (el, against) => {
+      const a = lum(rgb(getComputedStyle(el).borderTopColor));
+      const b = lum(against);
+      return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    };
+    return {
+      tabCount: tabs.length,
+      hasActive: Boolean(active),
+      activeBorderAccent: active
+        ? Math.abs(lum(rgb(getComputedStyle(active).borderTopColor)) - lum(accent)) < 0.02
+        : false,
+      activeTinted: active ? lum(background(active)) < 0.95 : false,
+      activeContrast: active ? contrast(active) : 0,
+      activeBorderContrast: active ? contrastWith(active, background(active)) : 0,
+      idleContrast: idle.length ? Math.min(...idle.map((b) => contrast(b))) : 0,
+      idleBorderContrast: idle.length ? Math.min(...idle.map((b) => contrastWith(b, background(b)))) : 0,
+      idleIsReadable: idle.every((b) => contrast(b) >= 4.5),
+    };
+  })()`);
+  check(
+    'light knowledge map marks the selected directory with an accent boundary',
+    mapState.tabCount > 1 &&
+      mapState.hasActive &&
+      mapState.activeBorderAccent &&
+      mapState.activeTinted &&
+      mapState.activeContrast >= 4.5 &&
+      mapState.idleIsReadable,
+    JSON.stringify(mapState),
+  );
+  // The reported complaint was low contrast in the light map: the idle label and
+  // the button boundary must both clear a readable threshold, not merely exist.
+  check(
+    'light knowledge map labels and boundaries are readable',
+    mapState.idleContrast >= 4.5 &&
+      mapState.activeContrast >= 4.5 &&
+      mapState.idleBorderContrast >= 1.5 &&
+      mapState.activeBorderContrast >= 3,
+    `idleText=${mapState.idleContrast.toFixed(2)} activeText=${mapState.activeContrast.toFixed(2)} idleBorder=${mapState.idleBorderContrast.toFixed(2)} activeBorder=${mapState.activeBorderContrast.toFixed(2)}`,
+  );
+
+  // Hover must not look like the selected state.
+  const hoverState = await evaluate<{ available: boolean }>(
+    `(() => {
+      const tabs = [...document.querySelectorAll('.ai-directory-tabs button')];
+      return { available: tabs.length > 1 };
+    })()`,
+  );
+  if (hoverState.available) {
+    const { root } = await page.send<{ root: { nodeId: number } }>('DOM.getDocument', {
+      depth: -1,
+    });
+    const { nodeId } = await page.send<{ nodeId: number }>('DOM.querySelector', {
+      nodeId: root.nodeId,
+      selector: '.ai-directory-tabs button:not(.active)',
+    });
+    await page.send('CSS.enable');
+    await page.send('CSS.forcePseudoState', {
+      nodeId,
+      forcedPseudoClasses: ['hover'],
+    });
+    await sleep(200);
+    const hover = await evaluate<{
+      hoverBackground: number;
+      activeBackground: number;
+      hoverIsNeutral: boolean;
+    }>(`(() => {
+      ${MEASURE_HELPERS}
+      const root = getComputedStyle(document.documentElement);
+      const neutral = rgb(root.getPropertyValue('--color-learning-surface-raised').trim());
+      const tabs = [...document.querySelectorAll('.ai-directory-tabs button')];
+      const idle = tabs.find((b) => !b.classList.contains('active'));
+      const active = tabs.find((b) => b.classList.contains('active'));
+      return {
+        hoverBackground: idle ? lum(background(idle)) : 0,
+        activeBackground: active ? lum(background(active)) : 0,
+        hoverIsNeutral: idle
+          ? Math.abs(lum(background(idle)) - lum(neutral)) < 0.02
+          : false,
+      };
+    })()`);
+    await page.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: [] });
+    check(
+      'hovered map tab stays neutral and differs from the selected tab',
+      hover.hoverIsNeutral &&
+        Math.abs(hover.hoverBackground - hover.activeBackground) > 0.02,
+      JSON.stringify(hover),
+    );
+  }
+
+  // --- keyboard focus must stay visible on the primary controls
+  await goto('/');
+  await applyTheme('light');
+  const focusVisible = await evaluate<{ focusRing: boolean; checked: number }>(`(() => {
+    const targets = [...document.querySelectorAll('a.direction-card, .theme-toggle, a[href="/resources"]')];
+    let focusRing = true;
+    let checked = 0;
+    for (const el of targets.slice(0, 6)) {
+      el.focus();
+      const style = getComputedStyle(el);
+      const hasOutline =
+        style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) > 0;
+      const hasRing = style.boxShadow !== 'none';
+      if (!hasOutline && !hasRing) focusRing = false;
+      checked += 1;
+    }
+    return { focusRing, checked };
+  })()`);
+  check(
+    'keyboard focus stays visible on links and the theme toggle',
+    focusVisible.checked > 0 && focusVisible.focusRing,
+    JSON.stringify(focusVisible),
+  );
   // ------------------------------------------------------------ learning state
   await goto('/concept/gradient-descent', 1400);
   const saved = await evaluate<string>(
@@ -745,10 +1086,28 @@ async function main() {
     realConsoleErrors.length === 0,
     `${realConsoleErrors.slice(0, 2).join(' | ') || 'none'}${realConsoleErrors.length ? ` :: rejections=${rejectionDetail}` : ''}`,
   );
+
+  // A `<link rel="modulepreload">` can report ERR_CACHE_MISS in headless Chrome
+  // even though the module is fetched right after by its own importer. Only
+  // count a failed request if the browser never obtained that resource.
+  const delivered = await evaluate<string[]>(
+    `performance.getEntriesByType('resource').map((entry) => entry.name)`,
+  );
+  const deliveredPaths = new Set(
+    delivered.map((url) => url.replace(baseUrl, '')),
+  );
+  const realFailures = failedRequests.filter((entry) => {
+    const path = entry.slice(entry.lastIndexOf(':') + 1);
+    const benign =
+      entry.includes('ERR_CACHE_MISS') &&
+      (path === 'unknown-url' || deliveredPaths.has(path));
+    if (benign) console.log(`  (ignored benign preload miss: ${entry})`);
+    return !benign;
+  });
   check(
     'no failed network requests during the run',
-    failedRequests.length === 0,
-    failedRequests.slice(0, 5).join(' | ') || 'none',
+    realFailures.length === 0,
+    realFailures.slice(0, 5).join(' | ') || 'none',
   );
 
   page.close();
@@ -762,10 +1121,18 @@ try {
   failures.push('crash');
 } finally {
   for (const process_ of chromeProcesses) process_.kill();
-  try {
-    rmSync(profileDir, { recursive: true, force: true });
-  } catch {
-    /* best effort */
+  // Never throw from `finally`: it would replace a real failure with a cleanup
+  // error. The boundary check stays, but an unsafe path only skips the removal.
+  if (isInsideTempDirectory(profileDir)) {
+    try {
+      rmSync(profileDir, { recursive: true, force: true });
+    } catch {
+      /* best effort: a leftover temp profile is harmless */
+    }
+  } else {
+    console.error(
+      `skipped profile cleanup: ${profileDir} is not inside the temporary directory`,
+    );
   }
 }
 
