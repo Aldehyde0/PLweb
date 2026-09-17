@@ -4,8 +4,8 @@
 
 ## 本地资料检查
 
-- 已检查 `D:\python_code\personal_learning_web`（排除构建产物和依赖）。
-- 已检查 `D:\python_code\meachine_learning`。
+- 已检查 `本仓库`（排除构建产物和依赖）。
+- 已检查 `学习资料`。
 - 关键词包括 reinforcement learning、reinforcement_learning、reinforcementlearning、reinforcement、RL、强化学习、policy gradient、value based、actor critic、PPO、GRPO、DPO。
 - 未找到可作为强化学习正文来源的本地 Markdown、PDF 或 DOCX。现有网站仅有 Agent/Environment、State/Action/Reward、MDP、Q-Learning、Policy Gradient 五个浅层条目。
 

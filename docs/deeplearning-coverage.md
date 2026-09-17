@@ -1,9 +1,9 @@
 # deeplearning 文档覆盖清单
 
-审计目录：`D:\python_code\meachine_learning\deeplearning`
+审计目录：`学习资料/deeplearning`
 
 - 实际存在：是
-- 相近路径 `D:\python_code\machine_learning\deeplearning`：不存在
+- 相近路径 `学习资料/machine_learning/deeplearning`：不存在
 - 文件总数：30
 - 文件格式：全部为 Markdown
 - 无 PDF、DOCX、图片扫描件或无法读取文件

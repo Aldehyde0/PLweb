@@ -1,6 +1,6 @@
 # learning_tech 文档概念覆盖清单
 
-审计范围：`D:\python_code\meachine_learning\learning_tech` 下全部 Markdown，包括 `README.md`、`00`–`13`、`practice_project_digits/README.md` 与 `REPORT_TEMPLATE.md`。
+审计范围：`学习资料/learning_tech` 下全部 Markdown，包括 `README.md`、`00`–`13`、`practice_project_digits/README.md` 与 `REPORT_TEMPLATE.md`。
 
 审计方式：逐份阅读正文、数学公式、表格、代码示例、检查题和项目验收要求；不是依据文件名或标题推断。
 

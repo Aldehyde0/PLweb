@@ -5,7 +5,7 @@ type Input = {
   principle:string[]; formulas?:FormulaEntry[]; variables?:VariableDefinition[]; numericalExample?:NumericalExample;
   steps:string[]; code:CodeExample[]; applications:string[]; pitfalls:string[]; prerequisites:string[]; related:string[]; sections:string[];
 };
-const source={path:'D:\\python_code\\meachine_learning\\learning_tech\\02_preprocessing_feature_engineering.md',title:'02｜数据预处理与特征工程',kind:'原始文档' as const};
+const source={path:'学习资料/learning_tech/02_preprocessing_feature_engineering.md',title:'02｜数据预处理与特征工程',kind:'原始文档' as const};
 function make(input:Input):LongFormConcept{return{id:input.slug,slug:input.slug,title:input.title,category:'machine-learning',difficulty:input.difficulty??'入门',summary:input.summary,definition:input.definition,background:input.background,intuition:input.intuition,corePrinciple:input.principle,formulas:input.formulas??[],variableDefinitions:input.variables??[],numericalExample:input.numericalExample,algorithmSteps:input.steps,codeExamples:input.code,codeExplanation:input.code.flatMap((item)=>item.explanation),applications:input.applications,pitfalls:input.pitfalls,prerequisites:input.prerequisites,relatedConcepts:input.related,sourceDocuments:[source],sourceSections:input.sections,extensionNotes:[]}}
 
 export const preprocessingLongForms:LongFormConcept[]=[

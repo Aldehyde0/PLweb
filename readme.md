@@ -10,8 +10,9 @@
 
 ## 运行方法
 
-```powershell
-cd D:\python_code\personal_learning_web
+在项目根目录（即本仓库的克隆位置）执行：
+
+```bash
 npm ci            # 按 package-lock.json 可复现安装
 npm run dev       # 开发服务器
 ```
@@ -59,14 +60,14 @@ npx wrangler login            # 交互式，推荐本地使用
 1. 构建时环境变量 `SITE_ORIGIN`（例如 `https://learn.example.com`）；
 2. 未设置时使用请求实际到达的域名（读取 `x-forwarded-host` / `x-forwarded-proto`）。
 
+```bash
+# bash / zsh
+SITE_ORIGIN=https://your-domain.example npm run build
+```
+
 ```powershell
 # Windows PowerShell
 $env:SITE_ORIGIN='https://your-domain.example'; npm run build
-```
-
-```bash
-# bash
-SITE_ORIGIN=https://your-domain.example npm run build
 ```
 
 ### 3. 构建与本地生产预览

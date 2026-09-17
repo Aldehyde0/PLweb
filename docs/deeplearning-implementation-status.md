@@ -1,6 +1,6 @@
 # deeplearning 实施状态
 
-- 实际目录：`D:\python_code\meachine_learning\deeplearning`
+- 实际目录：`学习资料/deeplearning`
 - 完整读取：`00`–`29` 共 30 份 Markdown
 - 无无法读取文件
 - 深度学习方向当前目录：54 个可点击概念
