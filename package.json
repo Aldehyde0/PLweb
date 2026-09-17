@@ -1,5 +1,5 @@
 {
-  "name": "sites-project",
+  "name": "plweb",
   "version": "0.1.0",
   "private": true,
   "engines": {
@@ -14,7 +14,10 @@
     "check:resources": "node --experimental-strip-types scripts/check-resource-links.ts",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "preview": "npm run build && wrangler dev --config dist/server/wrangler.json",
+    "deploy:dry-run": "npm run build && wrangler deploy --config dist/server/wrangler.json --dry-run",
     "deploy": "npm run build && wrangler deploy --config dist/server/wrangler.json",
+    "deployments": "wrangler deployments list --config dist/server/wrangler.json",
+    "rollback": "wrangler rollback --config dist/server/wrangler.json",
     "lint": "oxlint",
     "format": "oxfmt"
   },

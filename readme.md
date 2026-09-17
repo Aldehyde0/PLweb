@@ -34,13 +34,28 @@ npm run dev       # 开发服务器
 | `npm run build` | 生成 `dist/`（server + client），并先生成 KaTeX 字体样式 |
 | `npm start` | 用 `wrangler dev` 在本地 Workers 运行时跑**构建产物** |
 | `npm run preview` | `build` + `start` 一步完成 |
-| `npm run deploy` | `build` + `wrangler deploy`（正式发布，本次未执行） |
+| `npm run deploy:dry-run` | 构建后只做 dry-run，不发布（发布前检查用） |
+| `npm run deploy` | `build` + `wrangler deploy` 发布到现有 Worker `plweb` |
+| `npm run deployments` | 查看 `plweb` 的部署历史（拿到可回滚的 version id） |
+| `npm run rollback` | 回滚到上一个部署（交互式选择） |
 | `npm run generate:katex-fonts` | 从 `katex/dist/katex.min.css` 重新生成 `app/katex-fonts.css` |
 | `node --experimental-strip-types scripts/verify-browser.ts <url>` | 用本机 Chrome 做真实浏览器验收（见下） |
 
 ## 部署到 Cloudflare Workers
 
 目标平台是 **Cloudflare Workers**（不是 Pages，也不是静态托管）。
+
+线上对应关系（已核对）：
+
+| 项目 | 值 |
+| --- | --- |
+| Worker 名 | `plweb` |
+| 自定义域 | `https://ruliks.org` |
+| 账号内 Worker 数量 | 仅 `plweb`（不存在第二个同名或近似名的 Worker） |
+| 发布命令 | `npm run deploy` |
+
+Worker 名来自 `package.json` 的 `name` 字段，由 `@cloudflare/vite-plugin` 生成到
+`dist/server/wrangler.json`；改名字要改源文件后重新构建，不要手改 `dist`。
 
 ### 1. 认证与账号
 
@@ -82,14 +97,23 @@ npm run preview
 `dist/server/wrangler.json` 由 `@cloudflare/vite-plugin` 依据 `vite.config.ts` 在构建时生成。
 **不要手工修改 `dist` 中的配置**：请改源文件后重新构建。
 
-### 4. 发布（本次未执行）
+### 4. 发布
 
 ```bash
-npm run deploy
-# 等价于 npx wrangler deploy --config dist/server/wrangler.json
+npm run deploy:dry-run        # 先看将要上传的内容，不发布
+npm run deploy                # 发布到 Worker plweb；ruliks.org 立即生效
 ```
 
-> 本次交付**没有**执行任何正式发布，也没有配置 push 后自动部署。
+发布后先用 `npm run deployments` 记下本次 version id，便于回滚：
+
+```bash
+npm run deployments           # 列出部署历史
+npm run rollback              # 回滚到上一个部署
+```
+
+> 不要部署到 `dist` 里可能残留的其它 Worker 名。发布前请确认
+> `node -e "console.log(require('./dist/server/wrangler.json').name)"` 输出为 `plweb`；
+> 若输出其它名字，说明 `package.json` 的 `name` 被改过，应先改回再构建。
 
 ### 关于 Sites 插件
 
@@ -177,8 +201,25 @@ node --experimental-strip-types scripts/verify-browser.ts http://127.0.0.1:8788
 - **开发服务器依赖公告（不影响部署产物）**：`vite`、`ws`、`undici`、`sharp`、`miniflare`、
   `esbuild`、`wrangler`、`@cloudflare/vite-plugin` 的公告全部位于构建/开发链路，不进入
   Worker 运行时产物。未使用 `npm audit fix --force`。
-- **未验证项**：没有在真实 Cloudflare 账号上执行 `wrangler deploy`（本次不发布）；未在
-  `*.workers.dev` 或自定义域名上验证线上表现；未做跨浏览器（Safari / Firefox）手工验证。
+- **未验证项**：未做跨浏览器（Safari / Firefox）手工验证；线上只检查了 Chrome。浏览器对
+  `/favicon.ico` 的默认回退请求返回 404（站点声明的是 `/favicon.svg`），与本次改动无关。
+
+## 浅色主题的改动边界
+
+浅色模式的适配集中在 `app/light-theme.css`，所有规则都限定在 `[data-theme='light']` 下，
+深色主题沿用原有样式。修改这份文件时必须遵守三条：
+
+1. **不能抹平语义状态**：`demo-status` 的 good / warn / danger / muted、`grid-world` 的
+   goal / blocked / path、`transport-status` 的 current / deprecated、演示进度的
+   done / active 必须保持可区分，分别映射到 `--color-success` / `--color-warning` /
+   `--color-error` 等语义 token。
+2. **代码块保持深色**：`code-figure` 与 `.syntax-*` 是刻意的深色孤岛，不要在这里改。
+3. **选中态与 hover 不能用同一个填充**：选中用强调色描边加由强调色派生的更深填充，hover
+   保持中性面并提升边界与文字色。
+
+`tests/light-theme-surfaces.test.ts` 会对以上三点做静态断言（含“所有规则必须限定在浅色
+主题下”和“遗留深色任意值必须全部被覆盖”），`scripts/verify-browser.ts` 会在真实浏览器里
+测量对比度与面板亮度。
 
 ## 本次唯一的依赖升级
 
