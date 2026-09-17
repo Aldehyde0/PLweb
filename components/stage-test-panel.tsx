@@ -1,11 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { AlertCircle, ArrowLeft, CheckCircle2, RotateCcw } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  CircleHelp,
+  RotateCcw,
+} from 'lucide-react';
 import { useState } from 'react';
 import { conceptMap } from '@/lib/content';
 import { getConceptHref } from '@/lib/concept-utils';
-import type { LearningPlan, PlanPhase, StageQuestion } from '@/lib/plan-engine';
+import {
+  questionTypeLabel,
+  type LearningPlan,
+  type PlanPhase,
+  type StageQuestion,
+} from '@/lib/plan-engine';
 import { usePlans } from '@/components/plan-store';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -23,10 +34,12 @@ export function StageTestPanel({
   const store = usePlans();
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
   const [addReview, setAddReview] = useState(true);
-  const complete = phase.test.status === 'completed';
-  if (complete)
+  if (phase.test.notGradable || !phase.test.questions.length)
+    return <TestUnavailable phase={phase} onClose={onClose} />;
+  if (phase.test.status === 'completed')
     return (
       <TestResult
+        planId={plan.id}
         phase={phase}
         onClose={onClose}
         onRetry={() =>
@@ -51,8 +64,8 @@ export function StageTestPanel({
             <p className="eyebrow">不阻塞后续学习</p>
             <h1>{phase.test.title}</h1>
             <p>
-              共 {phase.test.questions.length}{' '}
-              题。测试完成、学习完成与重点掌握分别保存。
+              共 {phase.test.questions.length} 题。客观题由系统判分，
+              需要解释的题目在提交后由你自评；测试完成、学习完成与重点掌握分别保存。
             </p>
           </div>
           <Button variant="outline" onClick={onClose}>
@@ -102,6 +115,37 @@ export function StageTestPanel({
             <Button type="submit">提交并查看结果</Button>
           </div>
         </form>
+      </div>
+    </main>
+  );
+}
+
+function TestUnavailable({
+  phase,
+  onClose,
+}: {
+  phase: PlanPhase;
+  onClose: () => void;
+}) {
+  return (
+    <main className="plan-page">
+      <div className="plan-container plan-test-container">
+        <header className="plan-page-header">
+          <div>
+            <p className="eyebrow">题库覆盖不足</p>
+            <h1>暂无测试</h1>
+            <p>
+              {phase.title} 还没有可判分的题目，因此没有生成测试，也不会记录分数或薄弱概念。
+            </p>
+          </div>
+          <Button variant="outline" onClick={onClose}>
+            <ArrowLeft />
+            返回计划
+          </Button>
+        </header>
+        <p className="test-unavailable-note">
+          阶段学习进度仍然照常统计。等该阶段的题库补充完成后，可以再回来完成测试。
+        </p>
       </div>
     </main>
   );
@@ -164,25 +208,59 @@ function Question({
           aria-label={question.prompt}
           value={value[0] ?? ''}
           onChange={(event) => onChange([event.target.value])}
-          placeholder="用自己的话作答"
+          placeholder={
+            question.grading === 'self-assessed'
+              ? '用自己的话作答，提交后自评'
+              : '填写答案'
+          }
         />
+      )}
+      {question.grading === 'self-assessed' && (
+        <p className="stage-question-note">
+          此题没有可靠的自动判分，提交后请对照参考答案自评。
+        </p>
       )}
     </fieldset>
   );
 }
 
 function TestResult({
+  planId,
   phase,
   onClose,
   onRetry,
 }: {
+  planId: string;
   phase: PlanPhase;
   onClose: () => void;
   onRetry: () => void;
 }) {
-  const incorrect = phase.test.questions.filter((question) =>
-    phase.test.incorrectQuestionIds.includes(question.id),
+  const store = usePlans();
+  const [selfAssessment, setSelfAssessment] = useState<
+    Record<string, boolean>
+  >({});
+  const grades = phase.test.grades ?? [];
+  // A question is still pending only when its own grade row exists and has not
+  // been judged yet, so a coarse phase-level flag cannot mask real self-review.
+  const pending = phase.test.questions.filter(
+    (question) =>
+      grades.find((grade) => grade.questionId === question.id)?.correct == null,
   );
+  const judged = grades.filter((grade) => grade.correct !== null).length;
+  const pendingCount = pending.length;
+  const [prevPendingCount, setPrevPendingCount] = useState(pendingCount);
+  if (pendingCount !== prevPendingCount) {
+    // Re-sync only when the pending set actually changes size, which happens
+    // after a submit or retry rather than on every keystroke.
+    setPrevPendingCount(pendingCount);
+    setSelfAssessment({});
+  }
+  const gradeFor = (questionId: string) =>
+    grades.find((grade) => grade.questionId === questionId);
+  const incorrect = phase.test.questions.filter(
+    (question) => gradeFor(question.id)?.correct === false,
+  );
+  const score = phase.test.score;
   return (
     <main className="plan-page">
       <div className="plan-container plan-test-container">
@@ -190,12 +268,77 @@ function TestResult({
           <CheckCircle2 />
           <div>
             <p className="eyebrow">阶段测试结果</p>
-            <h1>{phase.test.score} 分</h1>
+            <h1>{score === null ? '待自评' : `${score} 分`}</h1>
             <p>
-              正确率 {phase.test.score}% · {incorrect.length} 道题需要复习
+              {score === null
+                ? `本阶段全部 ${phase.test.questions.length} 题都需要自评，提交自评后才会生成分数。`
+                : `已判定 ${judged} / ${phase.test.questions.length} 题 · ${incorrect.length} 道题需要复习`}
             </p>
           </div>
         </header>
+        {pending.length > 0 && (
+          <section className="stage-self-assessment">
+            <h2>
+              <CircleHelp />
+              需要你自己判断的题目（{pending.length}）
+            </h2>
+            <p>
+              这些是自由解释题，系统不会自动判分。请对照参考答案逐题自评，
+              自评结果会计入分数。
+            </p>
+            {pending.map((question) => (
+              <div key={question.id} className="stage-self-assessment__item">
+                <strong>{question.prompt}</strong>
+                {question.exampleAnswer && (
+                  <p className="stage-reference">
+                    参考答案：{question.exampleAnswer}
+                  </p>
+                )}
+                <p className="stage-explanation">{question.explanation}</p>
+                <div className="stage-self-assessment__actions">
+                  <Button
+                    size="sm"
+                    variant={
+                      selfAssessment[question.id] === true
+                        ? 'default'
+                        : 'outline'
+                    }
+                    aria-pressed={selfAssessment[question.id] === true}
+                    onClick={() => {
+                      const next = {
+                        ...selfAssessment,
+                        [question.id]: true,
+                      };
+                      setSelfAssessment(next);
+                      store.gradeStageSelfAssessment(planId, phase.id, next);
+                    }}
+                  >
+                    我答对了
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={
+                      selfAssessment[question.id] === false
+                        ? 'default'
+                        : 'outline'
+                    }
+                    aria-pressed={selfAssessment[question.id] === false}
+                    onClick={() => {
+                      const next = {
+                        ...selfAssessment,
+                        [question.id]: false,
+                      };
+                      setSelfAssessment(next);
+                      store.gradeStageSelfAssessment(planId, phase.id, next);
+                    }}
+                  >
+                    还需要复习
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
         <section className="test-result-grid">
           <article>
             <h2>错误题目</h2>
@@ -206,6 +349,14 @@ function TestResult({
                   <span>
                     <strong>{question.prompt}</strong>
                     <small>{question.explanation}</small>
+                    {question.grading !== 'self-assessed' && (
+                      <small>
+                        参考答案：{question.correctAnswers.join(' / ')}
+                      </small>
+                    )}
+                    {question.exampleAnswer && (
+                      <small>参考答案：{question.exampleAnswer}</small>
+                    )}
                   </span>
                 </div>
               ))
@@ -249,18 +400,4 @@ function TestResult({
       </div>
     </main>
   );
-}
-function questionTypeLabel(type: StageQuestion['type']) {
-  return (
-    {
-      'single-choice': '单选题',
-      'multiple-choice': '多选题',
-      'true-false': '判断题',
-      'concept-explanation': '概念解释题',
-      'formula-fill': '公式填写题',
-      'code-reading': '代码阅读题',
-      'code-output': '代码输出判断题',
-      calculation: '简单计算题',
-    } as const
-  )[type];
 }

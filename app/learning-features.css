@@ -1,3 +1,5 @@
+/* Hallmark · genre: modern-minimal · macrostructure: Long Document · theme: studied-DNA · design-system: design.md · designed-as-app */
+/* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V4 */
 /* Unified concept references */
 .reference-chip{display:inline-flex;align-items:center;gap:.45rem;border-radius:.5rem;padding:.4rem .7rem;font-size:.78rem}.reference-available{border:1px solid #46515a;background:#202427;color:#c5d1d8;cursor:pointer}.reference-available:hover{border-color:#718999;background:#252a2d;color:#e1e7ea}.reference-available:focus-visible{box-shadow:0 0 0 2px var(--ring)}.reference-missing{border:1px dashed #3a3a3a;background:#1b1b1b;color:#747474;cursor:default}.reference-missing small{display:inline-flex;align-items:center;gap:.25rem;color:#666;font-size:.62rem}.reference-missing small svg{width:.7rem}.reference-grid{display:grid;gap:.65rem;grid-template-columns:repeat(2,minmax(0,1fr))}.reference-related{display:flex;min-width:0;align-items:center;justify-content:space-between;border-radius:.6rem;padding:1rem;font-size:.85rem}.reference-related svg{width:15px;flex:none}.reference-related.reference-missing{flex-direction:column;align-items:flex-start;justify-content:center}
 
@@ -16,3 +18,97 @@
 @media(min-width:640px){.mobile-detail-tools{grid-template-columns:1fr 1fr}.history-navigation{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}.history-current{flex-direction:column;min-width:7rem}.history-current svg{display:none}.history-current small{display:block;max-width:9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.history-link-next{justify-content:flex-end}}
 @media(max-width:639px){.reference-grid{grid-template-columns:1fr}.sort-control{align-items:flex-start;flex-direction:column}.sort-control select{width:100%;min-width:0}}
 @media(min-width:1440px){.concept-shell{max-width:1600px;grid-template-columns:250px minmax(0,850px) 300px;gap:2rem}.concept-memo-desktop{display:block}.concept-memo-mobile{display:none}.concept-article{width:100%;max-width:850px}}
+
+/* Hallmark · learning tools · studied-DNA · warm reading surface */
+.reference-available,
+.reference-missing,
+.reference-related,
+.concept-card,
+.memo-empty,
+.marked-sections button,
+.note-card,
+.history-link {
+  border-color: var(--color-learning-rule);
+  background: var(--color-learning-surface);
+  color: var(--color-learning-ink);
+}
+
+.reference-missing,
+.reference-missing small,
+.memo-empty,
+.note-meta,
+.note-card > p,
+.history-link small,
+.history-current {
+  color: var(--color-learning-ink-2);
+}
+
+.marked-sections button {
+  border: var(--rule-hair) solid var(--color-learning-rule);
+}
+
+.history-link strong,
+.history-current strong,
+.concept-card h3 {
+  color: var(--color-learning-ink);
+}
+
+.concept-card .text-muted-foreground {
+  color: var(--color-learning-ink-2);
+}
+
+.important-toggle,
+.concept-important-toggle {
+  border-color: var(--color-learning-rule);
+  color: var(--color-learning-ink-2);
+}
+
+.important-toggle[aria-pressed='true'],
+.concept-important-toggle[aria-pressed='true'],
+.concept-important-badge {
+  border-color: var(--color-book-rule);
+  background: var(--color-warning-tint);
+  color: var(--color-book-ink);
+}
+
+.concept-important-badge {
+  border: var(--rule-hair) solid var(--color-book-rule);
+}
+
+.important-section[data-important='true'] > .section-heading-row h2 {
+  color: var(--color-learning-ink);
+}
+
+.sort-control,
+.memo-field {
+  color: var(--color-muted);
+}
+
+.sort-control select,
+.memo-field select {
+  border-color: var(--color-rule-2);
+  background: var(--color-input-surface);
+  color: var(--color-ink);
+}
+
+.sort-control select option,
+.memo-field select option {
+  background: var(--color-input-surface);
+  color: var(--color-ink);
+}
+
+.note-actions button {
+  color: var(--color-learning-ink-2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .reference-available:hover,
+  .concept-card:hover,
+  .marked-sections button:hover,
+  .history-link:hover:not(:disabled),
+  .note-actions button:hover {
+    border-color: var(--color-learning-rule);
+    background: var(--color-learning-surface-raised);
+    color: var(--color-learning-ink);
+  }
+}

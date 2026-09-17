@@ -7,7 +7,9 @@ import {
   deletePlanFromState,
   moveTask,
   scoreStageTest,
+  substepsComplete,
   syncLearnedTasks,
+  taskMarksConceptLearned,
   updateTask,
   updateSubstep,
   generatePlan,
@@ -287,8 +289,204 @@ void test('learned synchronization completes the understanding card but not the 
   );
 });
 
-void test('moving a task changes only the current plan and updates phase ownership', () => {
+void test('only comprehension tasks count as proof that a concept was learned', () => {
   const plan = generatePlan(
+    {
+      ...baseInput,
+      method: 'code-practice',
+      includeTests: false,
+      includeReview: false,
+      includeResources: true,
+    },
+    [
+      {
+        ...richConcept,
+        resources: [
+          {
+            id: 'article',
+            title: '基础文章',
+            type: '技术文章',
+            url: 'https://example.com/article',
+            summary: '文章摘要',
+            estimatedMinutes: 10,
+            recommendationLevel: 'A',
+          },
+        ],
+      },
+    ],
+    { learned: [], bookmarks: [] },
+    new Date('2026-08-31T08:00:00'),
+  );
+  const tasks = plan.phases.flatMap((phase) => phase.tasks);
+  const learnedTypes = new Set(
+    tasks.filter((task) => taskMarksConceptLearned(task)).map((task) => task.type),
+  );
+  assert.ok(learnedTypes.size > 0, 'some task must be able to mark a concept learned');
+  for (const type of learnedTypes)
+    assert.ok(
+      ['concept-understanding', 'concept-reading', 'definition-reading'].includes(type),
+      `${type} must not mark a concept as learned`,
+    );
+  // Practice, review, exercise, project and resource work must never imply mastery.
+  for (const type of [
+    'principle-practice',
+    'phase-review',
+    'review',
+    'exercise',
+    'project',
+    'resource-article',
+    'custom',
+  ]) {
+    const task = tasks.find((item) => item.type === type);
+    if (!task) continue;
+    assert.equal(
+      taskMarksConceptLearned(task),
+      false,
+      `${type} must not mark the concept as learned`,
+    );
+  }
+  assert.equal(
+    taskMarksConceptLearned({ ...tasks[0]!, conceptSlug: null }),
+    false,
+    'a task without a concept can never mark a concept as learned',
+  );
+});
+
+void test('legacy per-substep reading cards still count as comprehension tasks', () => {
+  const migrated = migratePlanState(
+    JSON.stringify({
+      plans: [
+        {
+          id: 'legacy',
+          title: '旧计划',
+          phases: [
+            {
+              id: 'phase-1',
+              tasks: [
+                {
+                  id: 'task-reading',
+                  title: '旧阅读任务',
+                  type: 'concept-reading',
+                  conceptSlug: 'intro',
+                  estimatedMinutes: 15,
+                  status: 'not-started',
+                },
+                {
+                  id: 'task-definition',
+                  title: '旧定义任务',
+                  type: 'definition-reading',
+                  conceptSlug: 'intro',
+                  estimatedMinutes: 10,
+                  status: 'not-started',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  const tasks = migrated.plans[0]!.phases[0]!.tasks;
+  for (const task of tasks)
+    assert.equal(
+      taskMarksConceptLearned(task),
+      true,
+      `${task.type} is a legacy comprehension card and must still count`,
+    );
+  const synced = syncLearnedTasks(
+    migrated.plans[0]!,
+    ['intro'],
+    new Date('2026-08-31T09:00:00'),
+  );
+  assert.ok(
+    synced.phases[0]!.tasks.every((task) => task.status === 'completed'),
+    'legacy reading cards must still sync from the learned list',
+  );
+});
+
+void test('substeps are terminal only when every substep is completed or skipped', () => {
+  const steps = (
+    statuses: Array<'not-started' | 'completed' | 'skipped' | 'paused'>,
+  ) =>
+    statuses.map((status, index) => ({
+      id: `s${index}`,
+      type: 'definition-reading' as const,
+      title: '步骤',
+      description: '',
+      estimatedMinutes: 5,
+      status,
+      completedAt: null,
+      targetSection: null,
+      dueDate: null,
+    }));
+  assert.equal(substepsComplete(steps(['completed'])), true);
+  assert.equal(substepsComplete(steps(['completed', 'skipped'])), true);
+  assert.equal(substepsComplete(steps(['completed', 'not-started'])), false);
+  assert.equal(substepsComplete(steps(['skipped', 'paused'])), false);
+  assert.equal(
+    substepsComplete([]),
+    false,
+    'a task with no substeps must not look complete',
+  );
+});
+
+void test('completing a comprehension card directly and by substeps share one rule', () => {
+  // Regression guard for the direct-completion vs step-by-step divergence:
+  // both paths must be judged by the same learned-task rule.
+  const plan = generatePlan(
+    {
+      ...baseInput,
+      method: 'deep-understanding',
+      includeCode: false,
+      includeReview: false,
+    },
+    concepts.slice(0, 1),
+    { learned: [], bookmarks: [] },
+    new Date('2026-08-31T08:00:00'),
+  );
+  const phase = plan.phases[0]!;
+  const card = phase.tasks.find((task) => task.type === 'concept-understanding')!;
+  assert.ok(card.conceptSlug, 'the comprehension card must carry a concept');
+  assert.equal(taskMarksConceptLearned(card), true);
+
+  const bySubsteps = card.substeps.reduce(
+    (current, step) =>
+      updateSubstep(
+        current,
+        card.id,
+        step.id,
+        'completed',
+        new Date('2026-08-31T09:00:00'),
+      ),
+    plan,
+  );
+  assert.equal(
+    substepsComplete(bySubsteps.phases[0]!.tasks[0]!.substeps),
+    true,
+    'step-by-step completion must satisfy the same rule as completing the card',
+  );
+
+  const practice = phase.tasks.find((task) => task.type === 'principle-practice')!;
+  assert.equal(taskMarksConceptLearned(practice), false);
+  const practiceDone = updateTask(
+    plan,
+    practice.id,
+    { status: 'completed' },
+    new Date('2026-08-31T09:00:00'),
+  );
+  const synced = syncLearnedTasks(
+    practiceDone,
+    [],
+    new Date('2026-08-31T09:00:00'),
+  );
+  assert.equal(
+    synced.phases[0]!.tasks.find((task) => task.id === practice.id)?.conceptSlug,
+    practice.conceptSlug,
+    'practice keeps its concept link without implying mastery',
+  );
+});
+
+void test('moving a task changes only the current plan and updates phase ownership', () => {  const plan = generatePlan(
     { ...baseInput, includeReview: false },
     concepts,
     { learned: [], bookmarks: [] },
@@ -315,15 +513,27 @@ void test('moving a task changes only the current plan and updates phase ownersh
 void test('stage-test score records weak concepts without completing learning or mastery', () => {
   const plan = generatePlan(
     { ...baseInput, includeReview: false },
-    concepts.slice(0, 1),
+    [richConcept],
     { learned: [], bookmarks: [] },
     new Date('2026-08-31T08:00:00'),
   );
   const phase = plan.phases[0]!;
+  assert.ok(phase.test.questions.length > 0, 'the phase needs real questions');
+  const first = phase.test.questions[0]!;
+  // Multiple-choice questions need every correct option; single-answer
+  // questions need exactly one.
+  const correctPayload = (question: (typeof phase.test.questions)[number]) =>
+    question.type === 'multiple-choice'
+      ? question.correctAnswers
+      : question.correctAnswers.slice(0, 1);
   const answers = Object.fromEntries(
-    phase.test.questions.map((question, index) => [
+    phase.test.questions.map((question) => [
       question.id,
-      index === 0 ? ['错误'] : ['正确'],
+      question.grading === 'self-assessed'
+        ? ['我的解释']
+        : question.id === first.id
+          ? ['这个答案肯定不对']
+          : correctPayload(question),
     ]),
   );
   const scored = scoreStageTest(
@@ -333,27 +543,28 @@ void test('stage-test score records weak concepts without completing learning or
     true,
     new Date('2026-08-31T10:00:00'),
   );
-  assert.equal(scored.phases[0]!.test.status, 'completed');
-  assert.ok((scored.phases[0]!.test.score ?? 100) < 100);
-  assert.equal(scored.phases[0]!.test.incorrectQuestionIds.length, 1);
-  assert.deepEqual(scored.phases[0]!.test.weakConcepts, ['intro']);
+  const result = scored.phases[0]!.test;
+  assert.equal(result.status, 'completed');
+  assert.equal(result.incorrectQuestionIds.length, 1);
+  assert.ok(result.score !== null && result.score < 100);
   assert.equal(scored.phases[0]!.mastered, false);
   assert.ok(
     scored.phases[0]!.tasks.some((task) => task.status !== 'completed'),
+    'a test must not complete the phase tasks',
   );
 });
 
 void test('stage-test can append a dedicated weak-concept review even when scheduled reviews exist', () => {
   const plan = generatePlan(
     baseInput,
-    concepts.slice(0, 1),
+    [richConcept],
     { learned: [], bookmarks: [] },
     new Date('2026-08-31T08:00:00'),
   );
   const phase = plan.phases[0]!;
   const before = phase.tasks.filter((task) => task.type === 'review').length;
   const answers = Object.fromEntries(
-    phase.test.questions.map((question) => [question.id, ['错误']]),
+    phase.test.questions.map((question) => [question.id, ['这个答案肯定不对']]),
   );
   const scored = scoreStageTest(
     plan,

@@ -1,4 +1,16 @@
 import type { CategorySlug, Difficulty } from './content-base';
+import { curatedQuestionsFor } from './stage-test-bank.ts';
+import {
+  gradingOf,
+  isAnswerAccepted,
+  isPlaceholderStageQuestion,
+  questionTypeLabel,
+  sameOptionSet,
+  type StageQuestionInput,
+} from './stage-test.ts';
+
+export { questionTypeLabel };
+export type { StageQuestionInput };
 
 export const PLAN_STORAGE_KEY = 'how-to-learn-ai-plans-v1';
 export const PLAN_STATE_VERSION = 1;
@@ -106,14 +118,34 @@ export interface PlanSubstep {
   dueDate: string | null;
 }
 
+export type StageQuestionGrading = 'objective' | 'self-assessed';
+
 export interface StageQuestion {
   id: string;
   type: TestQuestionType;
   prompt: string;
   options?: string[];
+  /** Accepted answers for objective questions; empty for self-assessed ones. */
   correctAnswers: string[];
   conceptSlug: string | null;
   explanation: string;
+  /** How the question is judged. Absent on legacy data, treated as objective. */
+  grading?: StageQuestionGrading;
+  /** Reference answer for self-assessed questions; never auto-compared. */
+  exampleAnswer?: string;
+}
+
+/**
+ * Per-question judging result.
+ * `correct` is null when the question cannot be auto-graded and the learner has
+ * not self-assessed it yet, so it is excluded from the score instead of being
+ * counted right or wrong.
+ */
+export interface StageTestGrade {
+  questionId: string;
+  correct: boolean | null;
+  autoGraded: boolean;
+  selfAssessed: boolean;
 }
 
 export interface StageTest {
@@ -127,6 +159,12 @@ export interface StageTest {
   weakConcepts: string[];
   incorrectQuestionIds: string[];
   addWeakToReview: boolean;
+  /** Absent on legacy data; recomputed on submit. */
+  grades?: StageTestGrade[];
+  /** True when some questions still await the learner's own judgement. */
+  hasUngradedQuestions?: boolean;
+  /** True when the phase has no gradable questions at all. */
+  notGradable?: boolean;
 }
 
 export interface PlanTask {
@@ -503,6 +541,52 @@ function migratePlan(value: unknown): LearningPlan {
   );
 }
 
+/**
+ * Removes the placeholder stage-test questions shipped by earlier builds.
+ * They all shared one generic prompt and the fixed answer "正确", so anyone
+ * scored 100 by answering "正确" everywhere. Keeping them would keep producing
+ * fake scores for existing local plans, so they are dropped, together with any
+ * score, weak-concept list or review task that was derived from them.
+ */
+function migrateStageTest(
+  value: Partial<StageTest> | undefined,
+  phaseId: string,
+): StageTest {
+  const rawQuestions = Array.isArray(value?.questions) ? value.questions : [];
+  const questions = rawQuestions.filter(
+    (question) => !isPlaceholderStageQuestion(question),
+  );
+  const removedPlaceholders = questions.length !== rawQuestions.length;
+  // Only a phase with no questions at all is "暂无测试"; a short but real test
+  // is kept as-is so the learner still gets a gradable stage test.
+  const notGradable = questions.length === 0;
+  const status: StageTestStatus = notGradable
+    ? 'skipped'
+    : (value?.status ?? 'not-started');
+  return {
+    id: value?.id ?? makeId('test'),
+    phaseId,
+    title: value?.title ?? '阶段练习',
+    questions,
+    status,
+    // A score computed from placeholders is not a real measurement.
+    score: removedPlaceholders ? null : (value?.score ?? null),
+    completedAt: removedPlaceholders ? null : (value?.completedAt ?? null),
+    weakConcepts: removedPlaceholders ? [] : (value?.weakConcepts ?? []),
+    incorrectQuestionIds: removedPlaceholders
+      ? []
+      : (value?.incorrectQuestionIds ?? []),
+    addWeakToReview: value?.addWeakToReview ?? false,
+    grades: Array.isArray(value?.grades)
+      ? value.grades.filter((grade) =>
+          questions.some((question) => question.id === grade.questionId),
+        )
+      : [],
+    hasUngradedQuestions: value?.hasUngradedQuestions ?? false,
+    notGradable,
+  };
+}
+
 function migratePhase(
   value: unknown,
   planId: string,
@@ -525,18 +609,7 @@ function migratePhase(
     completionRate: item.completionRate ?? 0,
     mastered: item.mastered ?? false,
     tasks,
-    test: {
-      id: item.test?.id ?? makeId('test'),
-      phaseId: id,
-      title: item.test?.title ?? '阶段练习',
-      questions: item.test?.questions ?? [],
-      status: item.test?.status ?? 'not-started',
-      score: item.test?.score ?? null,
-      completedAt: item.test?.completedAt ?? null,
-      weakConcepts: item.test?.weakConcepts ?? [],
-      incorrectQuestionIds: item.test?.incorrectQuestionIds ?? [],
-      addWeakToReview: item.test?.addWeakToReview ?? false,
-    },
+    test: migrateStageTest(item.test, id),
   };
 }
 
@@ -715,6 +788,15 @@ export function generatePlan(
     });
   }
   const flat = phases.flatMap((phase) => phase.tasks);
+  if (input.includeTests) {
+    const unavailable = phases.filter((phase) => phase.test.notGradable);
+    if (unavailable.length)
+      warnings.push(
+        `题库覆盖不足：${unavailable
+          .map((phase) => phase.title)
+          .join('、')}暂无测试，不计入分数。`,
+      );
+  }
   flat.forEach((task, index) => {
     task.order = index;
     if (
@@ -1392,67 +1474,241 @@ function tasksForConcept(
   return tasks;
 }
 
+/** Target number of questions per stage test; coverage is capped, never faked. */
+const STAGE_TEST_QUESTION_TARGET = 8;
+
+/** Minimum questions needed before a phase test is worth offering. */
+export const STAGE_TEST_MIN_QUESTIONS = 3;
+
+const CATEGORY_LABELS: Record<CategorySlug, string> = {
+  'artificial-intelligence': '人工智能',
+  'machine-learning': '机器学习',
+  'deep-learning': '深度学习',
+  'reinforcement-learning': '强化学习',
+};
+const CATEGORY_ORDER: CategorySlug[] = [
+  'artificial-intelligence',
+  'machine-learning',
+  'deep-learning',
+  'reinforcement-learning',
+];
+const DIFFICULTY_ORDER: Difficulty[] = ['入门', '进阶', '挑战'];
+
+function rotate<T>(items: T[], offset: number): T[] {
+  const size = items.length;
+  if (!size) return items;
+  const start = ((offset % size) + size) % size;
+  return [...items.slice(start), ...items.slice(0, start)];
+}
+
+function stableOffset(seed: string, modulo: number) {
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1)
+    hash = (hash * 31 + seed.charCodeAt(index)) % 1_000_003;
+  return modulo > 0 ? hash % modulo : 0;
+}
+
+/**
+ * Builds questions for concepts without a curated entry, using only text the
+ * concept itself stores: its real definition, its declared prerequisites, its
+ * category and its difficulty. Every answer is checkable, and nothing is
+ * invented, so an unbanked phase still gets a meaningful, gradable test.
+ */
+function conceptDerivedQuestions(concept: PlanConcept): StageQuestionInput[] {
+  const questions: StageQuestionInput[] = [];
+  const definition = (concept.definition ?? [])
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .join('')
+    .trim();
+  if (definition) {
+    questions.push({
+      id: `${concept.slug}-definition`,
+      type: 'single-choice',
+      prompt: `下列哪一项是“${concept.title}”的定义？`,
+      options: [definition, ...(concept.summary ? [concept.summary] : [])],
+      correctOptions: [definition],
+      conceptSlug: concept.slug,
+      explanation: `本项取自“${concept.title}”的定义原文。`,
+    });
+  }
+  const prerequisites = concept.prerequisites
+    .map((item) => item.trim())
+    .filter((item) => item && item !== concept.title)
+    .slice(0, 2);
+  if (prerequisites.length) {
+    questions.push({
+      id: `${concept.slug}-prerequisite`,
+      type:
+        prerequisites.length > 1 ? 'multiple-choice' : 'single-choice',
+      prompt: `学“${concept.title}”之前，本知识库为它声明了哪些直接前置知识？`,
+      options: rotate(
+        [
+          ...prerequisites,
+          ...CATEGORY_ORDER.map((slug) => CATEGORY_LABELS[slug]),
+        ],
+        stableOffset(concept.slug, CATEGORY_ORDER.length),
+      ),
+      correctOptions: prerequisites,
+      conceptSlug: concept.slug,
+      explanation: `该概念直接依赖：${prerequisites.join('、')}。`,
+    });
+  }
+  questions.push({
+    id: `${concept.slug}-category`,
+    type: 'single-choice',
+    prompt: `“${concept.title}”属于本知识库的哪个学习方向？`,
+    options: rotate(
+      CATEGORY_ORDER.map((slug) => CATEGORY_LABELS[slug]),
+      stableOffset(`${concept.slug}-category`, CATEGORY_ORDER.length),
+    ),
+    correctOptions: [CATEGORY_LABELS[concept.category]],
+    conceptSlug: concept.slug,
+    explanation: `本知识库把“${concept.title}”归入${CATEGORY_LABELS[concept.category]}。`,
+  });
+  questions.push({
+    id: `${concept.slug}-difficulty`,
+    type: 'single-choice',
+    prompt: `本知识库把“${concept.title}”标注为哪个难度？`,
+    options: rotate(
+      DIFFICULTY_ORDER,
+      stableOffset(`${concept.slug}-difficulty`, DIFFICULTY_ORDER.length),
+    ),
+    correctOptions: [concept.difficulty],
+    conceptSlug: concept.slug,
+    explanation: `该概念的难度标注为${concept.difficulty}。`,
+  });
+  return questions;
+}
+
+export function questionsForConcept(concept: PlanConcept): StageQuestionInput[] {
+  const curated = curatedQuestionsFor(concept.slug);
+  return curated.length ? curated : conceptDerivedQuestions(concept);
+}
+
+type ChoiceQuestionInput = Extract<
+  StageQuestionInput,
+  { type: 'single-choice' | 'multiple-choice' | 'true-false' }
+>;
+type TextQuestionInput = Extract<
+  StageQuestionInput,
+  { type: 'formula-fill' | 'code-output' | 'calculation' }
+>;
+type OpenQuestionInput = Extract<
+  StageQuestionInput,
+  { type: 'concept-explanation' | 'code-reading' }
+>;
+
+function isChoiceQuestion(
+  input: StageQuestionInput,
+): input is ChoiceQuestionInput {
+  return (
+    input.type === 'single-choice' ||
+    input.type === 'multiple-choice' ||
+    input.type === 'true-false'
+  );
+}
+
+function isOpenQuestion(input: StageQuestionInput): input is OpenQuestionInput {
+  return input.type === 'concept-explanation' || input.type === 'code-reading';
+}
+
+/** Converts an authored question into the shape stored on the plan. */
+function materializeQuestion(
+  input: StageQuestionInput,
+  concept: PlanConcept | undefined,
+): StageQuestion {
+  const grading = gradingOf(input);
+  const base = {
+    id: makeId(`q-${input.id}`),
+    type: input.type,
+    prompt: input.prompt,
+    conceptSlug: input.conceptSlug || concept?.slug || null,
+    explanation: input.explanation,
+    grading,
+  };
+  if (isOpenQuestion(input))
+    return {
+      ...base,
+      type: input.type,
+      correctAnswers: [],
+      exampleAnswer: input.referenceAnswer,
+    };
+  if (isChoiceQuestion(input))
+    return {
+      ...base,
+      type: input.type,
+      options: input.options,
+      correctAnswers: [...input.correctOptions],
+    };
+  const typed = input as TextQuestionInput;
+  return {
+    ...base,
+    type: typed.type,
+    correctAnswers: [...typed.accept],
+  };
+}
+
+/**
+ * Builds a phase test from the real question bank. Returns an empty question
+ * list when nothing gradable exists, so the plan reports "暂无测试" instead of
+ * generating placeholder items that everyone can pass.
+ */
+export function buildStageQuestions(
+  concepts: PlanConcept[],
+  target = STAGE_TEST_QUESTION_TARGET,
+): StageQuestion[] {
+  const pools = concepts.map((concept) => ({
+    concept,
+    inputs: questionsForConcept(concept),
+  }));
+  const selected: StageQuestion[] = [];
+  const used = new Set<string>();
+  // Round-robin across concepts so the test follows the phase order, passing
+  // over the same concept again only when it holds further distinct questions.
+  // Each pass must scan every concept: a concept with fewer questions than the
+  // current pass index simply contributes nothing this round.
+  for (let pass = 0; selected.length < target; pass += 1) {
+    let addedThisPass = 0;
+    for (const pool of pools) {
+      if (selected.length >= target) break;
+      const input = pool.inputs[pass];
+      if (!input || used.has(input.id)) continue;
+      used.add(input.id);
+      selected.push(materializeQuestion(input, pool.concept));
+      addedThisPass += 1;
+    }
+    if (!addedThisPass) break;
+  }
+  return selected;
+}
+
 function makeStageTest(
   phaseId: string,
   phaseTitle: string,
   concepts: PlanConcept[],
   enabled: boolean,
 ): StageTest {
-  const questionTypes: TestQuestionType[] = [
-    'single-choice',
-    'multiple-choice',
-    'true-false',
-    'concept-explanation',
-    'formula-fill',
-    'code-reading',
-    'code-output',
-    'calculation',
-  ];
-  const questions = enabled
-    ? questionTypes.map((type, index) => {
-        const concept = concepts[index % concepts.length]!;
-        return {
-          id: makeId('question'),
-          type,
-          prompt: `请完成关于“${concept.title}”的${testTypeLabel(type)}。`,
-          options:
-            type === 'single-choice' ||
-            type === 'multiple-choice' ||
-            type === 'true-false'
-              ? ['正确', '错误']
-              : undefined,
-          correctAnswers: ['正确'],
-          conceptSlug: concept.slug,
-          explanation: `回到“${concept.title}”的定义、公式或代码章节核对。`,
-        };
-      })
-    : [];
+  const questions =
+    enabled && concepts.length ? buildStageQuestions(concepts) : [];
+  // A phase without questions reports "暂无测试" and is never scored. A phase
+  // with fewer questions than the target still gets a real, gradable test.
+  const notGradable = enabled && questions.length === 0;
   return {
     id: makeId('test'),
     phaseId,
     title: `${phaseTitle} · 阶段练习`,
     questions,
-    status: enabled ? 'not-started' : 'skipped',
+    status: enabled && !notGradable ? 'not-started' : 'skipped',
     score: null,
     completedAt: null,
     weakConcepts: [],
     incorrectQuestionIds: [],
     addWeakToReview: false,
+    grades: [],
+    hasUngradedQuestions: false,
+    notGradable,
   };
-}
-function testTypeLabel(type: TestQuestionType) {
-  return (
-    {
-      'single-choice': '单选题',
-      'multiple-choice': '多选题',
-      'true-false': '判断题',
-      'concept-explanation': '概念解释题',
-      'formula-fill': '公式填写题',
-      'code-reading': '代码阅读题',
-      'code-output': '代码输出判断题',
-      calculation: '简单计算题',
-    } as const
-  )[type];
 }
 
 export function recomputePlan(
@@ -1719,6 +1975,33 @@ export function updateSubstep(
   return recomputePlan({ ...plan, phases, lastTaskId: taskId }, now);
 }
 
+/**
+ * Task types whose completion genuinely means "this concept is learned".
+ *
+ * `concept-understanding` is the composite comprehension card; the legacy
+ * routes also used per-substep cards named `concept-reading`/`definition-reading`.
+ * Practice, review, exercise, project and resource tasks must never be treated
+ * as proof that a concept was understood.
+ */
+export const CONCEPT_LEARNING_TASK_TYPES: ReadonlySet<TaskType> = new Set([
+  'concept-understanding',
+  'concept-reading',
+  'definition-reading',
+]);
+
+/** True only for tasks whose completion marks the concept as learned. */
+export function taskMarksConceptLearned(task: PlanTask): boolean {
+  return Boolean(task.conceptSlug) && CONCEPT_LEARNING_TASK_TYPES.has(task.type);
+}
+
+/** True when every substep has reached a terminal state. */
+export function substepsComplete(substeps: PlanSubstep[]): boolean {
+  return (
+    substeps.length > 0 &&
+    substeps.every((step) => step.status === 'completed' || step.status === 'skipped')
+  );
+}
+
 export function syncLearnedTasks(
   plan: LearningPlan,
   learned: string[],
@@ -1728,12 +2011,8 @@ export function syncLearnedTasks(
   const phases = plan.phases.map((phase) => ({
     ...phase,
     tasks: phase.tasks.map((task) => {
-      const reading =
-        task.type === 'concept-reading' ||
-        task.type === 'definition-reading' ||
-        task.type === 'concept-understanding';
       if (
-        !reading ||
+        !taskMarksConceptLearned(task) ||
         !task.conceptSlug ||
         !learned.includes(task.conceptSlug) ||
         task.status === 'completed'
@@ -1779,6 +2058,62 @@ export function moveTask(
   return recomputePlan({ ...plan, phases }, now);
 }
 
+/** Judges one submitted answer. Returns null when it awaits self-assessment. */
+function gradeQuestion(
+  question: StageQuestion,
+  answers: Record<string, string[]>,
+): StageTestGrade {
+  const submitted = answers[question.id] ?? [];
+  if (question.grading === 'self-assessed')
+    return {
+      questionId: question.id,
+      correct: null,
+      autoGraded: false,
+      selfAssessed: false,
+    };
+  const answered = submitted.some((item) => item.trim() !== '');
+  if (!answered)
+    return {
+      questionId: question.id,
+      correct: false,
+      autoGraded: true,
+      selfAssessed: false,
+    };
+  let correct: boolean;
+  if (question.type === 'single-choice' || question.type === 'multiple-choice')
+    correct = sameOptionSet(submitted, question.correctAnswers);
+  else if (question.type === 'true-false')
+    correct = sameOptionSet(submitted, question.correctAnswers);
+  else
+    correct =
+      submitted.length === 1 &&
+      isAnswerAccepted(submitted[0]!, question.correctAnswers);
+  return {
+    questionId: question.id,
+    correct,
+    autoGraded: true,
+    selfAssessed: false,
+  };
+}
+
+/**
+ * Score = share of questions judged correct.
+ * Only auto-graded questions and learner self-assessments count; a question that
+ * cannot be graded yet is excluded rather than silently marked wrong, and an
+ * empty test never yields a score.
+ */
+export function computeStageTestScore(grades: StageTestGrade[]) {
+  const judged = grades.filter((grade) => grade.correct !== null);
+  if (!judged.length) return { score: null as number | null, judged: 0, correct: 0, pending: grades.length };
+  const correct = judged.filter((grade) => grade.correct).length;
+  return {
+    score: Math.round((correct / judged.length) * 100),
+    judged: judged.length,
+    correct,
+    pending: grades.length - judged.length,
+  };
+}
+
 export function scoreStageTest(
   plan: LearningPlan,
   phaseId: string,
@@ -1786,16 +2121,16 @@ export function scoreStageTest(
   addWeakToReview: boolean,
   now = new Date(),
 ) {
-  const phases = plan.phases.map((phase) => {
-    if (phase.id !== phaseId) return phase;
-    const wrong = phase.test.questions.filter((question) => {
-      const actual = [...(answers[question.id] ?? [])].sort();
-      const expected = [...question.correctAnswers].sort();
-      return (
-        actual.length !== expected.length ||
-        actual.some((answer, index) => answer !== expected[index])
-      );
-    });
+  const phases = (plan.phases ?? []).map((phase) => {
+    const questions = phase.test?.questions ?? [];
+    if (phase.id !== phaseId || questions.length === 0) return phase;
+    const grades = questions.map((question) => gradeQuestion(question, answers));
+    const { score, pending } = computeStageTestScore(grades);
+    const wrong = questions.filter(
+      (question) =>
+        grades.find((grade) => grade.questionId === question.id)?.correct ===
+        false,
+    );
     const weakConcepts = [
       ...new Set(
         wrong
@@ -1803,14 +2138,7 @@ export function scoreStageTest(
           .filter((slug): slug is string => Boolean(slug)),
       ),
     ];
-    const score = phase.test.questions.length
-      ? Math.round(
-          ((phase.test.questions.length - wrong.length) /
-            phase.test.questions.length) *
-            100,
-        )
-      : 0;
-    let tasks = phase.tasks;
+    let tasks = phase.tasks ?? [];
     if (addWeakToReview) {
       const additions = weakConcepts
         .filter(
@@ -1874,6 +2202,56 @@ export function scoreStageTest(
         weakConcepts,
         incorrectQuestionIds: wrong.map((question) => question.id),
         addWeakToReview,
+        grades,
+        hasUngradedQuestions: pending > 0,
+      },
+    };
+  });
+  return recomputePlan({ ...plan, phases }, now);
+}
+
+/** Applies the learner's own judgement to questions that have no auto-grader. */
+export function applyStageSelfAssessment(
+  plan: LearningPlan,
+  phaseId: string,
+  selfAssessment: Record<string, boolean>,
+  now = new Date(),
+) {
+  const phases = (plan.phases ?? []).map((phase) => {
+    const questions = phase.test?.questions ?? [];
+    if (phase.id !== phaseId || questions.length === 0) return phase;
+    const grades = questions.map((question) => {
+      const existing = phase.test.grades?.find(
+        (grade) => grade.questionId === question.id,
+      );
+      const base: StageTestGrade = existing ?? {
+        questionId: question.id,
+        correct: null,
+        autoGraded: false,
+        selfAssessed: false,
+      };
+      if (base.autoGraded) return base;
+      const judged = selfAssessment[question.id];
+      if (judged === undefined)
+        return { ...base, correct: null, selfAssessed: false };
+      return { ...base, correct: judged, selfAssessed: true };
+    });
+    const { score, pending } = computeStageTestScore(grades);
+    const incorrectQuestionIds = questions
+      .filter(
+        (question) =>
+          grades.find((grade) => grade.questionId === question.id)?.correct ===
+          false,
+      )
+      .map((question) => question.id);
+    return {
+      ...phase,
+      test: {
+        ...phase.test,
+        score,
+        grades,
+        incorrectQuestionIds,
+        hasUngradedQuestions: pending > 0,
       },
     };
   });

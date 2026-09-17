@@ -2,6 +2,16 @@
   {
     "date": "2026-09-03",
     "scope": "app",
+    "macrostructure": "Long Document",
+    "theme": "studied-DNA",
+    "enrichment": "none",
+    "brief": "warm ivory content and concept cards in light mode",
+    "nav": "N5 Floating pill",
+    "footer": "Ft5 Statement"
+  },
+  {
+    "date": "2026-09-03",
+    "scope": "app",
     "macrostructure": "Workbench",
     "theme": "studied-DNA",
     "enrichment": "none",

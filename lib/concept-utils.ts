@@ -17,7 +17,7 @@ const aliases:Record<string,string>={
 };
 
 const normalizedTitleMap=new Map(concepts.map((concept)=>[normalize(concept.title),concept]));
-function normalize(value:string){return value.trim().toLowerCase().replace(/[、，,\/（）()\s·：:]/g,'')}
+function normalize(value:string){return value.trim().toLowerCase().replace(/[、，,/（）()\s·：:]/g,'')}
 
 export function getConceptBySlug(slug:string){return conceptMap[slug]??null}
 export function getConceptById(id:string){return concepts.find((concept)=>concept.id===id)??null}
@@ -30,7 +30,7 @@ export function resolveConceptLink(identifier:string){
 }
 export function hasConceptRoute(identifier:string){return resolveConceptLink(identifier).exists}
 
-export function getDifficultyRank(difficulty:Difficulty|string|undefined){return difficultyOrder[difficulty??'']??2}
+export function getDifficultyRank(difficulty:Difficulty|undefined){return difficultyOrder[difficulty??'']??2}
 export function sortConcepts(items:Concept[],bookmarks:string[],mode:ConceptSortMode='difficulty-asc'){
   const saved=new Set(bookmarks);const direction=mode==='difficulty-desc'?-1:1;
   return items.map((concept,index)=>({concept,index})).sort((a,b)=>{

@@ -337,7 +337,8 @@ export function PlanDetailView({
                     />
                   </summary>
                   {phase.completionRate === 100 &&
-                    phase.test.status === 'not-started' && (
+                    phase.test.status === 'not-started' &&
+                    phase.test.questions.length > 0 && (
                       <div className="phase-complete-prompt">
                         <CheckCircle2 />
                         <div>
@@ -381,10 +382,17 @@ export function PlanDetailView({
                       onClick={() => setTestPhaseId(phase.id)}
                       disabled={!phase.test.questions.length}
                     >
-                      {phase.test.status === 'completed'
-                        ? `阶段测试 ${phase.test.score} 分`
-                        : '进入阶段测试'}
+                      {!phase.test.questions.length
+                        ? '暂无测试'
+                        : phase.test.status === 'completed'
+                          ? `阶段测试 ${phase.test.score === null ? '待自评' : `${phase.test.score} 分`}`
+                          : '进入阶段测试'}
                     </Button>
+                    {!phase.test.questions.length && (
+                      <span className="plan-phase-test-note">
+                        题库覆盖不足，本阶段不计分
+                      </span>
+                    )}
                     <button
                       type="button"
                       className={phase.mastered ? 'mastered' : ''}

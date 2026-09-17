@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import type { ConceptSortMode } from '@/lib/concept-utils';
@@ -14,6 +15,13 @@ import {
   moveHistory,
   type VisitHistory,
 } from '@/lib/history-utils';
+import {
+  asRecordOfStringArrays,
+  asStringArray,
+  readStored,
+  writeStored,
+} from '@/lib/browser-storage';
+import { usePersistence } from '@/components/persistence-store';
 
 export type SectionNote = {
   id: string;
@@ -50,6 +58,11 @@ type LearningContextValue = Store &
     goHistory: (direction: -1 | 1) => string | null;
   };
 
+export const LEARNING_STORAGE_KEY = 'what-is-learning';
+export const HISTORY_STORAGE_KEY = 'how-to-learn-ai-history';
+
+const SORT_MODES: ConceptSortMode[] = ['difficulty-asc', 'difficulty-desc'];
+
 const initial: Store = {
   learned: [],
   bookmarks: [],
@@ -63,39 +76,149 @@ const initial: Store = {
 const initialHistory: VisitHistory = { items: [], index: -1 };
 const LearningContext = createContext<LearningContextValue | null>(null);
 
+function isSectionNote(value: unknown): value is SectionNote {
+  if (!value || typeof value !== 'object') return false;
+  const note = value as Record<string, unknown>;
+  return (
+    typeof note.id === 'string' &&
+    typeof note.conceptSlug === 'string' &&
+    typeof note.sectionId === 'string' &&
+    typeof note.text === 'string'
+  );
+}
+
+/**
+ * Rebuilds the store field by field. A single malformed field degrades to its
+ * default instead of discarding the learner's whole history, and the caller is
+ * told when anything had to be repaired.
+ */
+function validateStore(parsed: unknown): Store | { value: Store; recovered: true } {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+    throw new Error('learning store is not an object');
+  const source = parsed as Record<string, unknown>;
+  let recovered = false;
+  const list = (key: keyof Store): string[] => {
+    const value = asStringArray(source[key]);
+    if (value) return value;
+    if (source[key] !== undefined) recovered = true;
+    return [...(initial[key] as string[])];
+  };
+  const sections = asRecordOfStringArrays(source.importantSections);
+  if (!sections && source.importantSections !== undefined) recovered = true;
+  const rawNotes = source.notes;
+  let notes: SectionNote[] = [];
+  if (Array.isArray(rawNotes)) {
+    notes = rawNotes.filter(isSectionNote).map((note) => ({
+      id: note.id,
+      conceptSlug: note.conceptSlug,
+      sectionId: note.sectionId,
+      text: note.text,
+      isImportant: note.isImportant === true,
+      updatedAt:
+        typeof note.updatedAt === 'string'
+          ? note.updatedAt
+          : new Date().toISOString(),
+    }));
+    if (notes.length !== rawNotes.length) recovered = true;
+  } else if (rawNotes !== undefined) recovered = true;
+  const sortMode = SORT_MODES.includes(source.sortMode as ConceptSortMode)
+    ? (source.sortMode as ConceptSortMode)
+    : initial.sortMode;
+  if (source.sortMode !== undefined && sortMode !== source.sortMode)
+    recovered = true;
+  const value: Store = {
+    learned: list('learned'),
+    bookmarks: list('bookmarks'),
+    recent: list('recent'),
+    practiced: list('practiced'),
+    importantConcepts: list('importantConcepts'),
+    importantSections: sections ?? {},
+    notes,
+    sortMode,
+  };
+  return recovered ? { value, recovered: true } : value;
+}
+
+function validateHistory(
+  parsed: unknown,
+): VisitHistory | { value: VisitHistory; recovered: true } {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+    throw new Error('history is not an object');
+  const source = parsed as Record<string, unknown>;
+  let recovered = false;
+  let items: string[] = [];
+  if (Array.isArray(source.items))
+    items = source.items.filter(
+      (item): item is string => typeof item === 'string',
+    );
+  else if (source.items !== undefined) recovered = true;
+  if (items.length !== (Array.isArray(source.items) ? source.items.length : 0))
+    recovered = true;
+  const rawIndex = Number(source.index);
+  const index = Number.isInteger(rawIndex) ? rawIndex : -1;
+  if (source.index !== undefined && index !== rawIndex) recovered = true;
+  const value: VisitHistory = {
+    items,
+    index: index >= -1 && index < items.length ? index : items.length - 1,
+  };
+  return recovered ? { value, recovered: true } : value;
+}
+
 export function LearningProvider({ children }: { children: React.ReactNode }) {
+  const { reportWrite, reportRead, registerSaver } = usePersistence();
   const [store, setStore] = useState<Store>(initial);
   const [history, setHistory] = useState<VisitHistory>(initialHistory);
   const [ready, setReady] = useState(false);
+  // Set when the stored record could not be read at all. Automatic saving then
+  // stays off so an unreadable record is preserved rather than overwritten.
+  const blocked = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
-      try {
-        const saved = localStorage.getItem('what-is-learning');
-        if (saved) setStore({ ...initial, ...JSON.parse(saved) });
-        const session = sessionStorage.getItem('how-to-learn-ai-history');
-        if (session) setHistory({ ...initialHistory, ...JSON.parse(session) });
-      } catch {
-        /* Invalid browser state falls back to safe defaults. */
+      const loaded = readStored('local', LEARNING_STORAGE_KEY, validateStore);
+      if (loaded.value) setStore(loaded.value);
+      if (loaded.status === 'corrupt' || loaded.status === 'unavailable') {
+        blocked.current = true;
+        reportRead('learning', loaded);
       }
+      const session = readStored('session', HISTORY_STORAGE_KEY, validateHistory);
+      if (session.value) setHistory(session.value);
       setReady(true);
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reportRead]);
+
+  const saveStore = useCallback(
+    (value: Store) => {
+      if (blocked.current) return;
+      reportWrite('learning', writeStored('local', LEARNING_STORAGE_KEY, value));
+    },
+    [reportWrite],
+  );
+  const saveHistory = useCallback(
+    (value: VisitHistory) => {
+      writeStored('session', HISTORY_STORAGE_KEY, value);
+    },
+    [],
+  );
+
   useEffect(() => {
-    if (ready) localStorage.setItem('what-is-learning', JSON.stringify(store));
-  }, [ready, store]);
+    if (ready) saveStore(store);
+  }, [ready, store, saveStore]);
   useEffect(() => {
-    if (ready)
-      sessionStorage.setItem(
-        'how-to-learn-ai-history',
-        JSON.stringify(history),
-      );
-  }, [ready, history]);
+    if (ready) saveHistory(history);
+  }, [ready, history, saveHistory]);
+  useEffect(() => {
+    registerSaver('learning', () => {
+      blocked.current = false;
+      saveStore(store);
+      saveHistory(history);
+    });
+  }, [registerSaver, saveStore, saveHistory, store, history]);
 
   const toggle = useCallback(
     (

@@ -6,10 +6,18 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
+import {
+  asStringArray,
+  asStringRecord,
+  readStored,
+  writeStored,
+} from '@/lib/browser-storage';
+import { usePersistence } from '@/components/persistence-store';
 
-const RESOURCE_STORAGE_KEY = 'how-to-learn-ai-resources-v1';
+export const RESOURCE_STORAGE_KEY = 'how-to-learn-ai-resources-v1';
 interface ResourceState {
   version: 1;
   viewedIds: string[];
@@ -31,42 +39,76 @@ const initialState: ResourceState = {
 };
 const ResourceContext = createContext<ResourceContextValue | null>(null);
 
-function migrateResourceState(raw: string | null): ResourceState {
-  try {
-    const source = raw ? (JSON.parse(raw) as Partial<ResourceState>) : {};
-    return {
-      version: 1,
-      viewedIds: Array.isArray(source.viewedIds)
-        ? source.viewedIds.filter((id): id is string => typeof id === 'string')
-        : [],
-      bookmarkIds: Array.isArray(source.bookmarkIds)
-        ? source.bookmarkIds.filter(
-            (id): id is string => typeof id === 'string',
-          )
-        : [],
-      notes:
-        source.notes && typeof source.notes === 'object' ? source.notes : {},
-    };
-  } catch {
-    return initialState;
-  }
+function migrateResourceState(
+  parsed: unknown,
+): ResourceState | { value: ResourceState; recovered: true } {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+    throw new Error('resource state is not an object');
+  const source = parsed as Record<string, unknown>;
+  let recovered = false;
+  const viewedIds = asStringArray(source.viewedIds);
+  const bookmarkIds = asStringArray(source.bookmarkIds);
+  const notes = asStringRecord(source.notes);
+  if (!viewedIds && source.viewedIds !== undefined) recovered = true;
+  if (!bookmarkIds && source.bookmarkIds !== undefined) recovered = true;
+  if (!notes && source.notes !== undefined) recovered = true;
+  const value: ResourceState = {
+    version: 1,
+    viewedIds: viewedIds ?? [],
+    bookmarkIds: bookmarkIds ?? [],
+    notes: notes ?? {},
+  };
+  return recovered ? { value, recovered: true } : value;
 }
 
 export function ResourceProvider({ children }: { children: React.ReactNode }) {
+  const { reportWrite, reportRead, registerSaver } = usePersistence();
   const [state, setState] = useState<ResourceState>(initialState);
   const [ready, setReady] = useState(false);
+  const blocked = useRef(false);
+
   useEffect(() => {
+    let cancelled = false;
     queueMicrotask(() => {
-      setState(
-        migrateResourceState(localStorage.getItem(RESOURCE_STORAGE_KEY)),
+      if (cancelled) return;
+      const loaded = readStored(
+        'local',
+        RESOURCE_STORAGE_KEY,
+        migrateResourceState,
       );
+      if (loaded.value) setState(loaded.value);
+      if (loaded.status === 'corrupt' || loaded.status === 'unavailable') {
+        blocked.current = true;
+        reportRead('resources', loaded);
+      }
       setReady(true);
     });
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [reportRead]);
+
+  const save = useCallback(
+    (value: ResourceState) => {
+      if (blocked.current) return;
+      reportWrite(
+        'resources',
+        writeStored('local', RESOURCE_STORAGE_KEY, value),
+      );
+    },
+    [reportWrite],
+  );
+
   useEffect(() => {
-    if (ready)
-      localStorage.setItem(RESOURCE_STORAGE_KEY, JSON.stringify(state));
-  }, [ready, state]);
+    if (ready) save(state);
+  }, [ready, state, save]);
+  useEffect(() => {
+    registerSaver('resources', () => {
+      blocked.current = false;
+      save(state);
+    });
+  }, [registerSaver, save, state]);
+
   const toggle = useCallback(
     (key: 'viewedIds' | 'bookmarkIds', id: string) =>
       setState((current) => ({

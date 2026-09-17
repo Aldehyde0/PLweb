@@ -263,3 +263,90 @@
     background: var(--color-input-hover);
   }
 }
+
+/* Hallmark · honest stage-test states · studied-DNA · warm ivory surfaces */
+.stage-question-note,
+.test-unavailable-note,
+.plan-phase-test-note {
+  color: var(--color-learning-ink-2);
+  font-size: 0.72rem;
+  line-height: 1.65;
+}
+
+.stage-question-note {
+  margin-top: 0.6rem;
+}
+
+.test-unavailable-note {
+  margin-top: 1.25rem;
+  padding: 0.9rem 1rem;
+  border: var(--rule-hair) solid var(--color-learning-rule);
+  border-radius: var(--radius-input);
+  background: var(--color-learning-surface);
+}
+
+.plan-phase-test-note {
+  align-self: center;
+}
+
+.stage-self-assessment {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 1.15rem;
+  border: var(--rule-hair) solid var(--color-learning-rule);
+  border-radius: var(--radius-lg);
+  background: var(--color-learning-surface);
+  color: var(--color-learning-ink);
+}
+
+.stage-self-assessment > h2 {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.stage-self-assessment > h2 svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--color-accent);
+}
+
+.stage-self-assessment > p {
+  font-size: 0.76rem;
+  line-height: 1.65;
+  color: var(--color-learning-ink-2);
+}
+
+.stage-self-assessment__item {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.9rem 1rem;
+  border: var(--rule-hair) solid var(--color-learning-rule);
+  border-radius: var(--radius-input);
+  background: var(--color-learning-surface-raised);
+}
+
+.stage-self-assessment__item > strong {
+  font-size: 0.82rem;
+  color: var(--color-learning-ink);
+}
+
+.stage-self-assessment .stage-reference,
+.stage-self-assessment .stage-explanation {
+  font-size: 0.74rem;
+  line-height: 1.7;
+  color: var(--color-learning-ink-2);
+}
+
+.stage-self-assessment .stage-explanation {
+  opacity: 0.85;
+}
+
+.stage-self-assessment__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+

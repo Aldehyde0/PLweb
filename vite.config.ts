@@ -1,4 +1,3 @@
-import { sites } from '@openai/sites-vite-plugin';
 import tailwindcss from '@tailwindcss/postcss';
 import vinext from 'vinext';
 import { defineConfig } from 'vite';
@@ -11,6 +10,27 @@ const { d1, r2 } = hostingConfig;
 
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === 'seatbelt';
+
+/**
+ * The Sites plugin only adds a local sign-in shim for the Sites preview shell and
+ * copies `.openai/hosting.json` into `dist/.openai`. Neither is used by the app or
+ * by the Cloudflare Workers deployment, and it is imported lazily so a Workers
+ * build never depends on the package being installed. Set `SITES_PLUGIN=1` to
+ * re-enable it when building inside the Sites pipeline.
+ */
+const useSitesPlugin = process.env.SITES_PLUGIN === '1';
+
+async function sitesPlugins() {
+  if (!useSitesPlugin) return [];
+  try {
+    const { sites } = await import('@openai/sites-vite-plugin');
+    return [sites()];
+  } catch {
+    throw new Error(
+      'SITES_PLUGIN=1 was set but @openai/sites-vite-plugin is not installed.',
+    );
+  }
+}
 
 const localBindingConfig = {
   main: 'vinext/server/fetch-handler',
@@ -41,17 +61,26 @@ export default defineConfig(async () => {
   process.env.WRANGLER_LOG_PATH ??= '.wrangler/logs';
   process.env.MINIFLARE_REGISTRY_PATH ??= '.wrangler/registry';
 
-  // Wrangler snapshots its log path while the Cloudflare plugin is imported.
+  // Keep Wrangler's log path snapshot while the Cloudflare plugin is imported.
   const { cloudflare } = await import('@cloudflare/vite-plugin');
+
+  // `SITE_ORIGIN` is read from the environment at build time so share metadata
+  // points at the domain this build is deployed to, instead of a host baked into
+  // the source. It is left undefined when unset, and the app then falls back to
+  // the origin the request actually arrived on.
+  const siteOrigin = process.env.SITE_ORIGIN?.trim();
 
   return {
     css: { postcss: { plugins: [tailwindcss()] } },
+    define: {
+      'process.env.SITE_ORIGIN': JSON.stringify(siteOrigin ?? ''),
+    },
     server: isCodexSeatbeltSandbox
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,
     plugins: [
       vinext(),
-      sites(),
+      ...(await sitesPlugins()),
       cloudflare({
         viteEnvironment: { name: 'rsc', childEnvironments: ['ssr'] },
         config: localBindingConfig,

@@ -116,6 +116,23 @@ ${colorConfig
 
 const ChartTooltip = RechartsPrimitive.Tooltip;
 
+/**
+ * Resolves the label used to look a payload entry up in the chart config.
+ * `dataKey` may itself be a function in recharts, so only string-ish values are
+ * used; anything else falls back instead of stringifying a function's source.
+ */
+function payloadEntryKey(
+  item: { dataKey?: unknown; name?: unknown } | undefined,
+  nameKey: string | undefined,
+) {
+  const candidates = [nameKey, item?.dataKey, item?.name];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate) return candidate;
+    if (typeof candidate === 'number') return String(candidate);
+  }
+  return 'value';
+}
+
 function ChartTooltipContent({
   active,
   payload,
@@ -152,7 +169,7 @@ function ChartTooltipContent({
     }
 
     const [item] = payload;
-    const key = `${labelKey ?? item?.dataKey ?? item?.name ?? 'value'}`;
+    const key = payloadEntryKey(item, labelKey);
     const itemConfig = getPayloadConfigFromPayload(config, item, key);
     const value =
       !labelKey && typeof label === 'string'
@@ -200,7 +217,7 @@ function ChartTooltipContent({
         {payload
           .filter((item) => item.type !== 'none')
           .map((item, index) => {
-            const key = `${nameKey ?? item.name ?? item.dataKey ?? 'value'}`;
+            const key = payloadEntryKey(item, nameKey);
             const itemConfig = getPayloadConfigFromPayload(config, item, key);
             const indicatorColor = color ?? item.payload?.fill ?? item.color;
 
@@ -299,7 +316,7 @@ function ChartLegendContent({
       {payload
         .filter((item) => item.type !== 'none')
         .map((item, index) => {
-          const key = `${nameKey ?? item.dataKey ?? 'value'}`;
+          const key = payloadEntryKey(item, nameKey);
           const itemConfig = getPayloadConfigFromPayload(config, item, key);
 
           return (

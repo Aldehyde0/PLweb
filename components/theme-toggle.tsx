@@ -1,18 +1,27 @@
 'use client';
 
 import { Moon, Sun } from 'lucide-react';
-import { getNextTheme, type Theme, THEME_STORAGE_KEY } from '@/lib/theme';
-
-function readCurrentTheme(): Theme {
-  return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
-}
+import { useState } from 'react';
+import {
+  getNextTheme,
+  readThemePreference,
+  saveThemePreference,
+  type Theme,
+} from '@/lib/theme';
+import { usePersistence } from '@/components/persistence-store';
 
 export function ThemeToggle() {
+  const { reportWrite } = usePersistence();
+  const [theme, setTheme] = useState<Theme>(() => readThemePreference());
+
   function toggleTheme() {
-    const nextTheme = getNextTheme(readCurrentTheme());
+    const nextTheme = getNextTheme(theme);
     document.documentElement.dataset.theme = nextTheme;
     document.documentElement.classList.toggle('dark', nextTheme === 'dark');
-    localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+    setTheme(nextTheme);
+    // The theme still switches when storage is unavailable; the learner is told
+    // that the choice will not be remembered instead of losing the visual change.
+    reportWrite('theme', saveThemePreference(nextTheme));
   }
 
   return (
