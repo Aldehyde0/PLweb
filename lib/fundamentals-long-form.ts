@@ -1,27 +1,680 @@
 import type { CodeLanguage, LongFormConcept } from './long-form-content';
 
-type Input={slug:string;title:string;summary:string;definition:string;background:string;intuition:string;principle:string;formula?:string;formulaNote?:string;steps:string[];language?:CodeLanguage;code:string;output:string;applications:string[];pitfalls:string[];prerequisites:string[];related:string[];doc:string;docTitle:string;sections:string[];difficulty?:'入门'|'进阶'|'挑战'};
-function make(i:Input):LongFormConcept{return{id:i.slug,slug:i.slug,title:i.title,category:'machine-learning',difficulty:i.difficulty??'入门',summary:i.summary,definition:[i.definition],background:[i.background],intuition:[i.intuition],corePrinciple:[i.principle],formulas:i.formula?[{label:'核心表达',expression:i.formula,description:i.formulaNote??i.principle}]:[],variableDefinitions:[],algorithmSteps:i.steps,codeExamples:[{title:`${i.title}：最小可验证示例`,language:i.language??'Python',purpose:'把正文原理映射为可检查的代码行为。',source:i.code,explanation:['先确认输入形状和数据边界。','把输出与公式或定义逐项对照。'],expectedOutput:i.output}],codeExplanation:['代码用于验证概念，不在网页中直接执行。'],applications:i.applications,pitfalls:i.pitfalls,prerequisites:i.prerequisites,relatedConcepts:i.related,sourceDocuments:[{path:`学习资料/learning_tech/${i.doc}`,title:i.docTitle,kind:'原始文档'}],sourceSections:i.sections,extensionNotes:[]}}
+type Input = {
+  slug: string;
+  title: string;
+  summary: string;
+  definition: string;
+  background: string;
+  intuition: string;
+  principle: string;
+  formula?: string;
+  formulaNote?: string;
+  steps: string[];
+  language?: CodeLanguage;
+  code: string;
+  output: string;
+  applications: string[];
+  pitfalls: string[];
+  prerequisites: string[];
+  related: string[];
+  doc: string;
+  docTitle: string;
+  sections: string[];
+  difficulty?: '入门' | '进阶' | '挑战';
+};
+function make(i: Input): LongFormConcept {
+  return {
+    id: i.slug,
+    slug: i.slug,
+    title: i.title,
+    category: 'machine-learning',
+    difficulty: i.difficulty ?? '入门',
+    summary: i.summary,
+    definition: [i.definition],
+    background: [i.background],
+    intuition: [i.intuition],
+    corePrinciple: [i.principle],
+    formulas: i.formula
+      ? [
+          {
+            label: '核心表达',
+            expression: i.formula,
+            description: i.formulaNote ?? i.principle,
+          },
+        ]
+      : [],
+    variableDefinitions: [],
+    algorithmSteps: i.steps,
+    codeExamples: [
+      {
+        title: `${i.title}：最小可验证示例`,
+        language: i.language ?? 'Python',
+        purpose: '把正文原理映射为可检查的代码行为。',
+        source: i.code,
+        explanation: [
+          '先确认输入形状和数据边界。',
+          '把输出与公式或定义逐项对照。',
+        ],
+        expectedOutput: i.output,
+      },
+    ],
+    codeExplanation: ['代码用于验证概念，不在网页中直接执行。'],
+    applications: i.applications,
+    pitfalls: i.pitfalls,
+    prerequisites: i.prerequisites,
+    relatedConcepts: i.related,
+    sourceDocuments: [
+      {
+        path: `学习资料/learning_tech/${i.doc}`,
+        title: i.docTitle,
+        kind: '原始文档',
+      },
+    ],
+    sourceSections: i.sections,
+    extensionNotes: [],
+  };
+}
 
-export const fundamentalsLongForms:LongFormConcept[]=[
-make({slug:'machine-learning-overview',title:'机器学习是什么',summary:'机器学习从历史数据中学习参数或规则，再对未见数据产生可评价预测。',definition:'普通程序由人写规则，机器学习由算法根据数据与训练目标寻找参数；模型学到的是统计关系，不等同于人的理解。',background:'当规则难以穷举、存在足够历史数据、结果可客观评价时，机器学习比手写规则更合适；数据少、标签不可信或错误无法审核时则应谨慎。',intuition:'把算法看作调参过程：历史题目和答案决定一组数学参数，新题只使用已确定的参数作答。',principle:'任务必须明确输入、输出、标签定义、评价指标和真实使用条件；只有未见数据上的表现才能反映泛化。',formula:'历史数据 + 训练目标 → 参数 θ；fθ(Xnew) → 预测',steps:['定义业务问题与错误成本','确认数据和标签可用','划分数据并建立基线','训练、验证、测试','保存、部署和监控'],code:`model.fit(X_train, y_train)\ny_pred = model.predict(X_test)\nprint(model.score(X_test, y_test))`,output:'输出模型在未参与训练的测试数据上的评价分数。',applications:['分类','回归','聚类与异常检测'],pitfalls:['把拟合当真正理解','无法评价结果仍强行建模','只看训练分数'],prerequisites:['基本 Python','数据表概念'],related:['supervised-learning','unsupervised-learning','ml-project-lifecycle'],doc:'00_introduction.md',docTitle:'00｜机器学习导论',sections:['§1 机器学习是什么','§2 为什么需要机器学习','§10 初学者容易产生的误解']}),
-make({slug:'classification-vs-regression',title:'分类与回归',summary:'分类预测离散类别或类别概率，回归预测连续数值。',definition:'监督学习中，目标 y 的语义决定任务类型：有限离散标签对应分类，具有数值距离意义的连续目标对应回归。',background:'任务类型影响输出、损失、指标和模型接口。把类别编号误当连续数值会引入不存在的大小关系。',intuition:'“是什么”通常是分类，“多少”通常是回归；但点击率若表示概率数值可以是回归，是否点击则是分类。',principle:'先根据业务输出定义任务，再选择损失与指标。分类关注混淆和概率，回归关注误差大小与单位。',formula:'分类：ŷ∈{C₁…Cₖ}；回归：ŷ∈ℝ',steps:['明确预测对象','判断标签是否离散','确定错误代价','选择模型与指标','检查输出形状'],code:`from sklearn.linear_model import LogisticRegression, LinearRegression\nclassifier = LogisticRegression()\nregressor = LinearRegression()`,output:'得到两个不同接口语义的估计器：一个输出类别，一个输出连续值。',applications:['垃圾邮件分类','房价回归'],pitfalls:['把类别编码当连续目标','只按模型名字判断任务'],prerequisites:['监督学习'],related:['supervised-learning','classification-metrics','regression-metrics'],doc:'00_introduction.md',docTitle:'00｜机器学习导论',sections:['§3.1 监督学习 / 分类','§3.1 监督学习 / 回归']}),
-make({slug:'semi-and-self-supervised-learning',title:'半监督与自监督学习',summary:'半监督结合少量标签和大量无标签数据，自监督从数据本身构造训练目标。',definition:'半监督的监督信号部分来自人工标签；自监督通过遮盖、预测上下文或数据变换自动生成目标，再迁移到下游任务。',background:'高质量标签通常昂贵，而原始文本、图像和传感器数据较易收集。两类方法都试图利用无标签数据中的结构。',intuition:'半监督像少量带答案题带动大量未标注题；自监督像把题目的一部分遮住，让数据自己提供答案。',principle:'预训练目标与下游任务不同，表示是否有用仍需在独立下游评价中验证。伪标签错误也可能被循环放大。',formula:'少量 (X,y) + 大量 Xu；自监督目标 yself=g(X)',steps:['准备无标签数据','设计预训练或伪标签策略','避免评价数据参与训练','在下游训练/验证','比较纯监督基线'],code:`# 自监督思想示意：遮住一个位置并预测原值\nmasked = sample.copy()\ntarget = masked[position]\nmasked[position] = mask_token`,output:'产生一条由原始样本自身构造的输入与训练目标。',applications:['语言模型预训练','有限标签图像分类'],pitfalls:['把无标签数据等同无风险数据','伪标签无验证地循环使用'],prerequisites:['监督学习','无监督学习'],related:['supervised-learning','unsupervised-learning','generative-ai'],doc:'00_introduction.md',docTitle:'00｜机器学习导论',sections:['§3.3 半监督与自监督学习']}),
-make({slug:'dataset-shapes',title:'X、y 与数据形状',summary:'X 的行对应样本、列对应特征，y 的第 i 项必须与 X 的第 i 行保持配对。',definition:'sklearn 表格输入通常为 X.shape=(n_samples,n_features)，分类/回归目标常为 y.shape=(n_samples,)。',background:'形状错误、样本标签错位和把单样本降成一维，是传统机器学习最常见的接口与语义错误。',intuition:'X 是题目表，每行一道题；y 是答案列，行号必须一一对应。',principle:'任何筛选、打乱和划分都必须对 X 与 y 使用相同索引；单条预测也通常保留二维形状 (1,d)。',formula:'X∈ℝⁿˣᵈ，y∈ℝⁿ 或 {1…K}ⁿ',steps:['打印 X/y shape','验证第一维相等','随机检查样本标签对应','划分时同时传入 X/y','预测单条时保留二维'],language:'NumPy',code:`import numpy as np\nX = np.arange(12).reshape(3, 4)\ny = np.array([0, 1, 0])\nassert X.shape[0] == y.shape[0]\nprint(X[1], y[1])\nprint(X[1:2].shape)`,output:'打印第二条样本与标签，单条切片形状为 (1,4)。',applications:['sklearn 输入检查','批量预测'],pitfalls:['分别打乱 X 和 y','用 X[i] 代替需要二维的 X[i:i+1]'],prerequisites:['NumPy 数组'],related:['scalars-vectors-matrices','inference-input-contract'],doc:'00_introduction.md',docTitle:'00｜机器学习导论',sections:['§4 数据在程序中的形式']}),
-make({slug:'training-prediction-generalization',title:'训练、预测与泛化',summary:'fit 学习状态，predict 使用已学状态；泛化衡量模型对未见数据的有效性。',definition:'训练改变模型内部参数或保存训练样本；预测通常不继续学习；泛化是新数据表现而非训练记忆。',background:'不同模型的 fit 学习内容不同：逻辑回归学习权重，树学习结构，朴素贝叶斯学习统计量，KNN 保存样本。',intuition:'训练像整理笔记，预测像闭卷答题；考试成绩而不是抄笔记速度决定学习是否有效。',principle:'预测阶段必须冻结训练状态。只有明确支持增量学习的 partial_fit 才会更新；任何评价都需确认样本未参与相应 fit。',formula:'θ*=fit(Xtrain,ytrain)，ŷtest=predict(Xtest;θ*)',steps:['明确模型学习状态','仅在训练集 fit','检查训练完成标志','对新数据 predict','使用合适指标评估','监控分布变化'],code:`model.fit(X_train, y_train)\nstate_before = model.get_params()\ny_pred = model.predict(X_test)\nassert len(y_pred) == len(X_test)`,output:'产生与测试样本数一致的预测；predict 不重新拟合模型。',applications:['所有监督模型','部署推理'],pitfalls:['在测试集 fit','以为 predict 自动学习','训练高分等同泛化好'],prerequisites:['训练测试划分'],related:['train-validation-test-split','underfitting-overfitting'],doc:'00_introduction.md',docTitle:'00｜机器学习导论',sections:['§5 训练与预测']}),
-make({slug:'train-validation-test-split',title:'训练集、验证集与测试集',summary:'训练集学习参数，验证过程选择方案，测试集只在选择完成后评价一次。',definition:'三个数据角色由用途而非文件名决定。任何用于选择模型、特征、阈值或停止时机的数据都属于验证过程。',background:'反复查看测试结果并调整方案会使测试集间接参与训练，最终分数过于乐观。',intuition:'训练集是练习，验证集是模拟考试，测试集是最终考试；不能看着最终答案不断改方案。',principle:'划分应模拟真实使用：时间预测按过去/未来，重复实体按群组隔离，分类常分层。',formula:'D = Dtrain ⊔ Dvalidation ⊔ Dtest',steps:['定义未来预测对象','选择时间/群组/随机策略','保留测试集','在训练部分交叉验证','锁定方案','测试一次并报告'],code:`from sklearn.model_selection import train_test_split\nX_train, X_test, y_train, y_test = train_test_split(\n    X, y, test_size=0.2, random_state=42, stratify=y\n)`,output:'得到互不重叠的训练和测试分块，并保持分类比例。',applications:['模型选择','可靠实验'],pitfalls:['测试集调参','随机划分时间数据','同一用户跨分块'],prerequisites:['任务定义'],related:['cross-validation','evaluation-design','data-leakage'],doc:'00_introduction.md',docTitle:'00｜机器学习导论',sections:['§6 数据集为什么需要划分']}),
-make({slug:'ml-project-lifecycle',title:'机器学习项目生命周期',summary:'从问题与数据到训练、评价、保存、部署和漂移监控的完整闭环。',definition:'项目生命周期是一组有顺序的可验收阶段，不是单次 model.fit。',background:'优秀离线分数可能因目标定义错误、输入契约不一致或上线漂移而失效。',intuition:'模型只是流水线中间的一环；前面决定学什么，后面决定能否稳定使用。',principle:'每阶段都要记录输入、输出、版本与决策：问题→数据→划分→预处理→基线→比较→测试→交付→监控。',formula:'业务问题 → 数据 → Pipeline → 验证 → 测试 → 部署 → 监控',steps:['定义目标和指标','数据审计','设计划分','预处理与基线','模型比较与调参','最终测试','保存与输入验证','监控漂移和真实效果'],code:`stages = ["problem", "data", "split", "pipeline", "cv", "test", "deploy", "monitor"]\nfor stage in stages:\n    print(stage)`,output:'按顺序打印项目的八个核心阶段。',applications:['端到端建模','项目审查'],pitfalls:['跳过基线','只保存分类器','上线后不监控'],prerequisites:['机器学习概述'],related:['end-to-end-ml-project','model-monitoring-and-drift'],doc:'00_introduction.md',docTitle:'00｜机器学习导论',sections:['§7 机器学习项目的完整流程']}),
-make({slug:'underfitting-overfitting',title:'欠拟合、过拟合与合适拟合',summary:'训练与验证表现共同决定模型是能力不足、记住噪声还是具备合理泛化。',definition:'欠拟合时训练和验证都差；过拟合时训练很好但验证明显下降；合适拟合时两者均好且差距与波动合理。',background:'单个分数无法区分问题类型。模型复杂度、数据量、特征质量、正则化和划分设计共同影响结果。',intuition:'不会做练习是欠拟合，只会背原题是过拟合，能解决新题才是合适学习。',principle:'同时报告训练/验证指标、泛化差距和多折波动，并先排除数据泄漏与分布变化。',formula:'G = Eval - Etrain（误差形式）',steps:['建立简单基线','同时测训练/验证','计算差距','查看多折波动','检查泄漏和分布','按模型调整复杂度'],code:`from sklearn.model_selection import cross_validate\nresult = cross_validate(model, X, y, cv=5, return_train_score=True)\nprint(result["train_score"].mean(), result["test_score"].mean())`,output:'输出平均训练分数与验证分数，用于判断能力和差距。',applications:['模型诊断','正则化选择'],pitfalls:['训练 100% 就断言过拟合','只追求最小差距','正则化越强越好'],prerequisites:['训练验证测试'],related:['overfitting-diagnosis','bias-variance-learning-curves'],doc:'00_introduction.md',docTitle:'00｜机器学习导论',sections:['§8 欠拟合、过拟合与恰当拟合']}),
-make({slug:'scalars-vectors-matrices',title:'标量、向量与矩阵',summary:'标量表示单值，向量表示一个样本或参数集合，矩阵按行组织多个样本。',definition:'标量是单个数；d 维向量是有序数列；n×d 矩阵有 n 行样本和 d 列特征。',background:'模型公式和代码错误常来自对维度与轴理解不足。',intuition:'一格是标量，一行是样本向量，整张表是特征矩阵。',principle:'矩阵形状携带语义。运算前必须确认样本轴、特征轴和内维是否匹配。',formula:'X=[xᵢⱼ]∈ℝⁿˣᵈ',steps:['识别对象维度','标注每个轴语义','检查 shape','执行运算','核对输出 shape'],language:'NumPy',code:`import numpy as np\nx = np.array([14.23, 1.71, 1065.0])\nX = np.stack([x, x + 1])\nprint(x.shape, X.shape)`,output:'向量形状 (3,)，矩阵形状 (2,3)。',applications:['特征矩阵','权重向量','批量预测'],pitfalls:['混淆行列','一维广播产生意外结果'],prerequisites:['基础代数'],related:['dataset-shapes','dot-product-weighted-sum'],doc:'01_math_data_foundations.md',docTitle:'01｜数学与数据基础',sections:['§1 标量、向量和矩阵']}),
-make({slug:'dot-product-weighted-sum',title:'点积与加权求和',summary:'线性模型用特征与权重的点积加偏置计算分数。',definition:'点积把两个同维向量逐项相乘后求和；权重决定每个特征对线性分数的方向和大小。',background:'线性回归、逻辑回归和人工神经元都以 wᵀx+b 为核心。',intuition:'每项证据乘上重要性后汇总，再用偏置移动整体门槛。',principle:'输入维度必须与权重一致；批量矩阵 Xw 会同时计算所有样本。',formula:'z=wᵀx+b=Σⱼwⱼxⱼ+b',steps:['确认 x/w 同维','逐项相乘','求和','加偏置','批量化为矩阵乘法'],language:'NumPy',code:`import numpy as np\nx = np.array([14.23, 1.71, 1065.0])\nw = np.array([0.8, -0.2, 0.003])\nb = -5.0\nprint(np.dot(w, x) + b)`,output:'输出当前样本的一个线性分数。',applications:['线性模型','神经元'],pitfalls:['维度不匹配','未标准化时直接比较权重大小'],prerequisites:['向量'],related:['linear-regression','logistic-regression','artificial-neuron'],doc:'01_math_data_foundations.md',docTitle:'01｜数学与数据基础',sections:['§2 点积与加权求和']}),
-make({slug:'mean-variance-standard-deviation',title:'均值、方差与标准差',summary:'均值描述中心，方差和标准差描述围绕中心的分散程度。',definition:'总体方差用平均平方偏差，样本方差常用 n-1 自由度修正；标准差是方差平方根并保留原单位。',background:'这些统计量用于标准化、高斯朴素贝叶斯、异常分析和低方差特征检查。',intuition:'均值回答“通常在哪”，标准差回答“通常离中心多远”。',principle:'必须区分总体/样本约定与计算轴；极端值会同时影响均值和标准差。',formula:'μ=(1/n)Σxᵢ；σ²=(1/n)Σ(xᵢ-μ)²；σ=√σ²',steps:['计算均值','求每项偏差','平方并平均','开平方','结合单位解释'],language:'NumPy',code:`import numpy as np\nx = np.array([50., 60., 70.])\nprint(x.mean(), x.var(), x.std())`,output:'60.0、66.666...、8.1649...。',applications:['Z-score','分布描述'],pitfalls:['混淆 n 与 n-1','方差单位误解','异常值影响被忽略'],prerequisites:['求和与平方根'],related:['numerical-standardization','robust-scaling-and-outliers'],doc:'01_math_data_foundations.md',docTitle:'01｜数学与数据基础',sections:['§3 均值、方差和标准差']}),
-make({slug:'probability-and-thresholds',title:'分类概率与决策阈值',summary:'模型概率表示类别倾向，最终类别由 argmax 或阈值规则产生。',definition:'多分类通常选择最大概率类别；二分类可把正类概率与阈值 τ 比较。',background:'默认 0.5 不一定符合业务成本。降低阈值通常提高召回并增加误报。',intuition:'概率是排序和置信信号，阈值是行动规则；两者应分开评价。',principle:'概率最大不保证正确或校准。阈值必须在验证数据上依据误报/漏报成本选择。',formula:'ŷ=1[p(y=1|x)≥τ]；多分类 ŷ=argmaxₖP(Cₖ|x)',steps:['获得 predict_proba','检查概率列顺序','定义错误成本','在验证集比较阈值','锁定后测试'],language:'NumPy',code:`prob = model.predict_proba(X_valid)[:, 1]\nthreshold = 0.3\ny_pred = (prob >= threshold).astype(int)`,output:'得到使用 0.3 阈值的二分类预测数组。',applications:['欺诈和筛查','拒绝策略'],pitfalls:['把概率当事实','测试集调阈值','忽略概率校准'],prerequisites:['概率基础','混淆矩阵'],related:['classification-metrics','class-imbalance'],doc:'01_math_data_foundations.md',docTitle:'01｜数学与数据基础',sections:['§4.1 概率','如何用代码查看分类概率']}),
-make({slug:'conditional-probability-bayes',title:'条件概率与贝叶斯公式',summary:'条件概率在已知信息后更新事件可能性，贝叶斯公式结合先验与似然得到后验。',definition:'P(A|B) 把观察范围限制在 B 已发生的样本；贝叶斯公式把 P(x|C)P(C) 归一化为 P(C|x)。',background:'朴素贝叶斯以此为分类基础，概率推理还要求清楚分母所代表的条件总体。',intuition:'先考虑类别本来多常见，再看当前特征与该类别有多匹配。',principle:'比较类别时证据 P(x) 相同，可比较未归一化先验×似然；实际中常在对数空间计算。',formula:'P(Cₖ|x)=P(x|Cₖ)P(Cₖ)/P(x)',steps:['定义条件总体','估计先验','估计似然','计算未归一化分数','归一化','选择最大后验'],language:'NumPy',code:`import numpy as np\npriors = np.array([0.4, 0.6])\nlikelihoods = np.array([0.3, 0.1])\nposterior = priors * likelihoods\nposterior /= posterior.sum()\nprint(posterior)`,output:'[0.667,0.333] 左右，预测类别 0。',applications:['朴素贝叶斯','风险更新'],pitfalls:['条件概率分母用全部样本','把相关特征当独立'],prerequisites:['概率'],related:['naive-bayes','probability-and-thresholds'],doc:'01_math_data_foundations.md',docTitle:'01｜数学与数据基础',sections:['§4.2 条件概率','§4.3 贝叶斯公式的直觉']}),
-make({slug:'euclidean-distance',title:'欧氏距离与尺度',summary:'欧氏距离度量坐标差平方和的平方根，对特征尺度与高维无关特征敏感。',definition:'两个 d 维向量的 L2 距离是各维差值平方和的平方根。',background:'KNN、K-Means 等直接依赖距离；数值范围大的特征会主导结果。',intuition:'距离像用尺子量两点，但每个坐标轴若单位不同，就不能直接合成。',principle:'计算前通常标准化连续特征，并检查异常值、无关维度和高维距离集中问题。',formula:'d(x,y)=√Σⱼ(xⱼ-yⱼ)²',steps:['确认同维','统一尺度','逐维求差','平方求和','开平方','解释距离'],language:'NumPy',code:`import numpy as np\nx = np.array([1., 2., 3.])\ny = np.array([4., 6., 3.])\nprint(np.linalg.norm(x - y))`,output:'5.0。',applications:['KNN','K-Means','相似搜索'],pitfalls:['未标准化','把类别编码纳入欧氏距离','高维无关特征过多'],prerequisites:['向量','平方根'],related:['numerical-standardization','knn','kmeans-and-silhouette'],doc:'01_math_data_foundations.md',docTitle:'01｜数学与数据基础',sections:['§5 距离','§5.2 为什么距离模型需要标准化']}),
-make({slug:'gradient-descent',title:'导数、梯度与梯度下降',summary:'梯度汇集损失对所有参数的局部变化率，梯度下降沿反方向更新参数。',definition:'一元导数描述瞬时变化率，多参数偏导数组成梯度。梯度指向损失上升最快方向。',background:'线性模型和神经网络常通过迭代优化参数；树模型通常通过候选划分搜索而非梯度。',intuition:'梯度像坡度箭头，反方向是局部下坡；学习率决定步长。',principle:'梯度是局部信息，不保证一次到达全局最优；尺度、学习率和数值稳定性决定轨迹。',formula:'θ⁽ᵗ⁺¹⁾=θ⁽ᵗ⁾-η∇θL(θ⁽ᵗ⁾)',steps:['初始化参数','前向预测','计算损失','计算梯度','按学习率更新','检查收敛'],language:'NumPy',code:`w = 0.0\nlearning_rate = 0.1\nfor _ in range(20):\n    gradient = 2 * (w - 3)\n    w -= learning_rate * gradient\nprint(round(w, 3))`,output:'w 接近使 (w-3)² 最小的 3。',applications:['线性回归','神经网络'],pitfalls:['学习率过大','未检查梯度/损失有限性','收敛等同泛化'],prerequisites:['导数','损失函数'],related:['learning-rate-selection','gradient-descent-convergence','backpropagation'],doc:'01_math_data_foundations.md',docTitle:'01｜数学与数据基础',sections:['§6 导数与梯度']}),
-make({slug:'mse-rmse',title:'MSE 与 RMSE',summary:'MSE 平均平方误差并强调大错误，RMSE 开方后恢复目标原单位。',definition:'MSE 是预测误差平方的平均；RMSE 是其平方根。二者越小越好，但必须结合目标尺度和基线解释。',background:'平方使少数大错误可能主导指标。MSE 单位是目标单位平方，RMSE 更便于业务解释。',intuition:'MSE 像把大错误放大后平均，RMSE 再把结果拉回原来的量纲。',principle:'只在相同数据、目标单位和评价协议下比较；异常值多时同时查看 MAE。',formula:'MSE=(1/n)Σ(yᵢ-ŷᵢ)²；RMSE=√MSE',steps:['计算每条误差','平方','求平均','需要时开方','与基线和 CV 比较'],language:'NumPy',code:`import numpy as np\ny = np.array([3.,5.,8.])\np = np.array([2.,5.,10.])\nmse = np.mean((y-p)**2)\nprint(mse, np.sqrt(mse))`,output:'MSE≈1.667，RMSE≈1.291。',applications:['回归损失','模型评价'],pitfalls:['跨任务直接比较 MSE','忽略大异常误差影响'],prerequisites:['均值','平方根'],related:['regression-metrics','linear-regression'],doc:'01_math_data_foundations.md',docTitle:'01｜数学与数据基础',sections:['§7.1 均方误差']}),
-make({slug:'cross-entropy',title:'交叉熵与概率分类',summary:'交叉熵惩罚模型给真实类别分配过低概率，尤其惩罚自信但错误的预测。',definition:'多分类交叉熵对每条样本取真实类别预测概率的负对数并平均。',background:'准确率相同的模型可能概率质量不同；交叉熵利用了完整概率而不只看最终类别。',intuition:'答对但犹豫会有少量损失，自信答错会受到很大惩罚。',principle:'概率必须有效且类别顺序一致；低交叉熵不自动证明概率完全校准。',formula:'LCE=-(1/n)ΣᵢΣₖ yᵢₖlog p̂ᵢₖ',steps:['获得类别概率','定位真实类别概率','取负对数','批次平均','与准确率和校准共同评价'],language:'Python',code:`from sklearn.metrics import log_loss\ny_true = [0, 2]\ny_prob = [[0.9,0.08,0.02],[0.1,0.2,0.7]]\nprint(log_loss(y_true, y_prob, labels=[0,1,2]))`,output:'输出一个较小的正交叉熵数值。',applications:['逻辑回归训练','概率模型评价'],pitfalls:['把 logits 当概率传入 sklearn log_loss','类别列顺序错位'],prerequisites:['对数','概率'],related:['logistic-regression','probability-and-thresholds'],doc:'01_math_data_foundations.md',docTitle:'01｜数学与数据基础',sections:['§7.2 交叉熵']}),
-make({slug:'gini-impurity',title:'基尼不纯度与划分增益',summary:'基尼不纯度衡量节点类别混杂，决策树选择降低加权不纯度最多的划分。',definition:'Gini=1-类别比例平方和；纯节点为 0。左右子节点的不纯度按样本数加权。',background:'树不能只看某个子节点是否纯，还要评估整个划分对父节点的总体改善。',intuition:'好问题应让两边都更“单一”，且不能靠把极少样本分出去制造假象。',principle:'枚举特征和候选阈值，计算 Gain=父 Gini-子节点加权 Gini，贪心选择最大增益。',formula:'Gini(S)=1-Σₖpₖ²；Gain=Gini(S)-Σc(nc/n)Gini(Sc)',steps:['统计父类别比例','生成候选阈值','分左右','计算加权 Gini','选择最大 Gain','递归'],language:'NumPy',code:`import numpy as np\ndef gini(y):\n    _, counts = np.unique(y, return_counts=True)\n    p = counts / len(y)\n    return 1 - np.sum(p**2)\nprint(gini(np.array([0,0,1,1])))`,output:'0.5。',applications:['分类树分裂','树结构解释'],pitfalls:['把 Gini 当最终测试指标','忽略子节点样本权重'],prerequisites:['概率','决策树'],related:['decision-trees','tree-feature-importance'],doc:'01_math_data_foundations.md',docTitle:'01｜数学与数据基础',sections:['§7.3 基尼不纯度']}),
-make({slug:'bias-variance-learning-curves',title:'偏差、方差与学习曲线',summary:'高偏差表现为训练验证都差，高方差表现为训练好而验证落后；学习曲线观察数据量增加时二者变化。',definition:'偏差是模型系统性不足，方差是对训练样本变化过于敏感，不可消除噪声构成误差下限。',background:'一次训练无法精确拆分偏差方差，但训练/验证差距、多折波动和学习曲线提供诊断信号。',intuition:'偏差是总用过于简单的答案，方差是换一套练习题就完全改变解法。',principle:'两曲线都低且靠近提示高偏差；训练高验证低且差距随数据缩小，更多代表性数据可能有效。',formula:'E[(y-f̂(x))²]=Bias²+Variance+σ²ε',steps:['计算训练/验证分数','观察差距','多折检查波动','绘制不同训练量曲线','结合基线诊断','选择模型/数据策略'],code:`from sklearn.model_selection import learning_curve\nsizes, train, valid = learning_curve(model, X, y, cv=5)\nprint(train.mean(1), valid.mean(1))`,output:'输出不同训练样本量对应的平均训练和验证分数。',applications:['复杂度诊断','判断增加数据是否有益'],pitfalls:['差距小就说模型好','只看一折','数据分布变化被误判为方差'],prerequisites:['训练验证','过拟合'],related:['underfitting-overfitting','overfitting-diagnosis'],doc:'01_math_data_foundations.md',docTitle:'01｜数学与数据基础',sections:['§8 偏差与方差','用学习曲线进一步判断']}),
-make({slug:'numpy-data-operations',title:'机器学习必备 NumPy 操作',summary:'掌握形状、切片、按列统计、布尔筛选和广播，才能可靠检查模型输入。',definition:'NumPy 用 ndarray 表示同类型多维数据；axis=0 沿样本聚合，axis=1 沿特征聚合。',background:'标准化、距离、损失和手写算法都依赖正确的索引与广播。',intuition:'先把数组每个轴标上含义，再读每次切片和统计。',principle:'shape 是接口契约；布尔 mask 必须与被筛选轴长度一致；广播前要确认结果形状。',formula:'X.mean(axis=0) → 每列统计',steps:['查看 shape/dtype','使用行列切片','按正确 axis 统计','构造布尔 mask','检查广播结果'],language:'NumPy',code:`import numpy as np\nX=np.array([[1.,10.],[2.,20.],[3.,30.]])\nprint(X.shape, X[0], X[:,0])\nprint(X.mean(0), X.std(0))\nprint(X[X[:,0] <= 2])`,output:'输出形状、第一行、第一列、逐列均值/标准差和前两行。',applications:['数据审计','手写算法'],pitfalls:['axis 理解反','mask 长度错','无意改变维度'],prerequisites:['矩阵'],related:['dataset-shapes','numerical-standardization'],doc:'01_math_data_foundations.md',docTitle:'01｜数学与数据基础',sections:['§9 必备 Python 与 NumPy 操作']}),
+export const fundamentalsLongForms: LongFormConcept[] = [
+  make({
+    slug: 'machine-learning-overview',
+    title: '机器学习是什么',
+    summary: '机器学习从历史数据中学习参数或规则，再对未见数据产生可评价预测。',
+    definition:
+      '普通程序由人写规则，机器学习由算法根据数据与训练目标寻找参数；模型学到的是统计关系，不等同于人的理解。',
+    background:
+      '当规则难以穷举、存在足够历史数据、结果可客观评价时，机器学习比手写规则更合适；数据少、标签不可信或错误无法审核时则应谨慎。',
+    intuition:
+      '把算法看作调参过程：历史题目和答案决定一组数学参数，新题只使用已确定的参数作答。',
+    principle:
+      '任务必须明确输入、输出、标签定义、评价指标和真实使用条件；只有未见数据上的表现才能反映泛化。',
+    formula: '历史数据 + 训练目标 → 参数 θ；fθ(Xnew) → 预测',
+    steps: [
+      '定义业务问题与错误成本',
+      '确认数据和标签可用',
+      '划分数据并建立基线',
+      '训练、验证、测试',
+      '保存、部署和监控',
+    ],
+    code: `model.fit(X_train, y_train)\ny_pred = model.predict(X_test)\nprint(model.score(X_test, y_test))`,
+    output: '输出模型在未参与训练的测试数据上的评价分数。',
+    applications: ['分类', '回归', '聚类与异常检测'],
+    pitfalls: ['把拟合当真正理解', '无法评价结果仍强行建模', '只看训练分数'],
+    prerequisites: ['基本 Python', '数据表概念'],
+    related: [
+      'supervised-learning',
+      'unsupervised-learning',
+      'ml-project-lifecycle',
+    ],
+    doc: '00_introduction.md',
+    docTitle: '00｜机器学习导论',
+    sections: [
+      '§1 机器学习是什么',
+      '§2 为什么需要机器学习',
+      '§10 初学者容易产生的误解',
+    ],
+  }),
+  make({
+    slug: 'classification-vs-regression',
+    title: '分类与回归',
+    summary: '分类预测离散类别或类别概率，回归预测连续数值。',
+    definition:
+      '监督学习中，目标 y 的语义决定任务类型：有限离散标签对应分类，具有数值距离意义的连续目标对应回归。',
+    background:
+      '任务类型影响输出、损失、指标和模型接口。把类别编号误当连续数值会引入不存在的大小关系。',
+    intuition:
+      '“是什么”通常是分类，“多少”通常是回归；但点击率若表示概率数值可以是回归，是否点击则是分类。',
+    principle:
+      '先根据业务输出定义任务，再选择损失与指标。分类关注混淆和概率，回归关注误差大小与单位。',
+    formula: '分类：ŷ∈{C₁…Cₖ}；回归：ŷ∈ℝ',
+    steps: [
+      '明确预测对象',
+      '判断标签是否离散',
+      '确定错误代价',
+      '选择模型与指标',
+      '检查输出形状',
+    ],
+    code: `from sklearn.linear_model import LogisticRegression, LinearRegression\nclassifier = LogisticRegression()\nregressor = LinearRegression()`,
+    output: '得到两个不同接口语义的估计器：一个输出类别，一个输出连续值。',
+    applications: ['垃圾邮件分类', '房价回归'],
+    pitfalls: ['把类别编码当连续目标', '只按模型名字判断任务'],
+    prerequisites: ['监督学习'],
+    related: [
+      'supervised-learning',
+      'classification-metrics',
+      'regression-metrics',
+    ],
+    doc: '00_introduction.md',
+    docTitle: '00｜机器学习导论',
+    sections: ['§3.1 监督学习 / 分类', '§3.1 监督学习 / 回归'],
+  }),
+  make({
+    slug: 'semi-and-self-supervised-learning',
+    title: '半监督与自监督学习',
+    summary:
+      '半监督结合少量标签和大量无标签数据，自监督从数据本身构造训练目标。',
+    definition:
+      '半监督的监督信号部分来自人工标签；自监督通过遮盖、预测上下文或数据变换自动生成目标，再迁移到下游任务。',
+    background:
+      '高质量标签通常昂贵，而原始文本、图像和传感器数据较易收集。两类方法都试图利用无标签数据中的结构。',
+    intuition:
+      '半监督像少量带答案题带动大量未标注题；自监督像把题目的一部分遮住，让数据自己提供答案。',
+    principle:
+      '预训练目标与下游任务不同，表示是否有用仍需在独立下游评价中验证。伪标签错误也可能被循环放大。',
+    formula: '少量 (X,y) + 大量 Xu；自监督目标 yself=g(X)',
+    steps: [
+      '准备无标签数据',
+      '设计预训练或伪标签策略',
+      '避免评价数据参与训练',
+      '在下游训练/验证',
+      '比较纯监督基线',
+    ],
+    code: `# 自监督思想示意：遮住一个位置并预测原值\nmasked = sample.copy()\ntarget = masked[position]\nmasked[position] = mask_token`,
+    output: '产生一条由原始样本自身构造的输入与训练目标。',
+    applications: ['语言模型预训练', '有限标签图像分类'],
+    pitfalls: ['把无标签数据等同无风险数据', '伪标签无验证地循环使用'],
+    prerequisites: ['监督学习', '无监督学习'],
+    related: ['supervised-learning', 'unsupervised-learning', 'generative-ai'],
+    doc: '00_introduction.md',
+    docTitle: '00｜机器学习导论',
+    sections: ['§3.3 半监督与自监督学习'],
+  }),
+  make({
+    slug: 'dataset-shapes',
+    title: 'X、y 与数据形状',
+    summary:
+      'X 的行对应样本、列对应特征，y 的第 i 项必须与 X 的第 i 行保持配对。',
+    definition:
+      'sklearn 表格输入通常为 X.shape=(n_samples,n_features)，分类/回归目标常为 y.shape=(n_samples,)。',
+    background:
+      '形状错误、样本标签错位和把单样本降成一维，是传统机器学习最常见的接口与语义错误。',
+    intuition: 'X 是题目表，每行一道题；y 是答案列，行号必须一一对应。',
+    principle:
+      '任何筛选、打乱和划分都必须对 X 与 y 使用相同索引；单条预测也通常保留二维形状 (1,d)。',
+    formula: 'X∈ℝⁿˣᵈ，y∈ℝⁿ 或 {1…K}ⁿ',
+    steps: [
+      '打印 X/y shape',
+      '验证第一维相等',
+      '随机检查样本标签对应',
+      '划分时同时传入 X/y',
+      '预测单条时保留二维',
+    ],
+    language: 'NumPy',
+    code: `import numpy as np\nX = np.arange(12).reshape(3, 4)\ny = np.array([0, 1, 0])\nassert X.shape[0] == y.shape[0]\nprint(X[1], y[1])\nprint(X[1:2].shape)`,
+    output: '打印第二条样本与标签，单条切片形状为 (1,4)。',
+    applications: ['sklearn 输入检查', '批量预测'],
+    pitfalls: ['分别打乱 X 和 y', '用 X[i] 代替需要二维的 X[i:i+1]'],
+    prerequisites: ['NumPy 数组'],
+    related: ['scalars-vectors-matrices', 'inference-input-contract'],
+    doc: '00_introduction.md',
+    docTitle: '00｜机器学习导论',
+    sections: ['§4 数据在程序中的形式'],
+  }),
+  make({
+    slug: 'training-prediction-generalization',
+    title: '训练、预测与泛化',
+    summary:
+      'fit 学习状态，predict 使用已学状态；泛化衡量模型对未见数据的有效性。',
+    definition:
+      '训练改变模型内部参数或保存训练样本；预测通常不继续学习；泛化是新数据表现而非训练记忆。',
+    background:
+      '不同模型的 fit 学习内容不同：逻辑回归学习权重，树学习结构，朴素贝叶斯学习统计量，KNN 保存样本。',
+    intuition:
+      '训练像整理笔记，预测像闭卷答题；考试成绩而不是抄笔记速度决定学习是否有效。',
+    principle:
+      '预测阶段必须冻结训练状态。只有明确支持增量学习的 partial_fit 才会更新；任何评价都需确认样本未参与相应 fit。',
+    formula: 'θ*=fit(Xtrain,ytrain)，ŷtest=predict(Xtest;θ*)',
+    steps: [
+      '明确模型学习状态',
+      '仅在训练集 fit',
+      '检查训练完成标志',
+      '对新数据 predict',
+      '使用合适指标评估',
+      '监控分布变化',
+    ],
+    code: `model.fit(X_train, y_train)\nstate_before = model.get_params()\ny_pred = model.predict(X_test)\nassert len(y_pred) == len(X_test)`,
+    output: '产生与测试样本数一致的预测；predict 不重新拟合模型。',
+    applications: ['所有监督模型', '部署推理'],
+    pitfalls: ['在测试集 fit', '以为 predict 自动学习', '训练高分等同泛化好'],
+    prerequisites: ['训练测试划分'],
+    related: ['train-validation-test-split', 'underfitting-overfitting'],
+    doc: '00_introduction.md',
+    docTitle: '00｜机器学习导论',
+    sections: ['§5 训练与预测'],
+  }),
+  make({
+    slug: 'train-validation-test-split',
+    title: '训练集、验证集与测试集',
+    summary: '训练集学习参数，验证过程选择方案，测试集只在选择完成后评价一次。',
+    definition:
+      '三个数据角色由用途而非文件名决定。任何用于选择模型、特征、阈值或停止时机的数据都属于验证过程。',
+    background:
+      '反复查看测试结果并调整方案会使测试集间接参与训练，最终分数过于乐观。',
+    intuition:
+      '训练集是练习，验证集是模拟考试，测试集是最终考试；不能看着最终答案不断改方案。',
+    principle:
+      '划分应模拟真实使用：时间预测按过去/未来，重复实体按群组隔离，分类常分层。',
+    formula: 'D = Dtrain ⊔ Dvalidation ⊔ Dtest',
+    steps: [
+      '定义未来预测对象',
+      '选择时间/群组/随机策略',
+      '保留测试集',
+      '在训练部分交叉验证',
+      '锁定方案',
+      '测试一次并报告',
+    ],
+    code: `from sklearn.model_selection import train_test_split\nX_train, X_test, y_train, y_test = train_test_split(\n    X, y, test_size=0.2, random_state=42, stratify=y\n)`,
+    output: '得到互不重叠的训练和测试分块，并保持分类比例。',
+    applications: ['模型选择', '可靠实验'],
+    pitfalls: ['测试集调参', '随机划分时间数据', '同一用户跨分块'],
+    prerequisites: ['任务定义'],
+    related: ['cross-validation', 'evaluation-design', 'data-leakage'],
+    doc: '00_introduction.md',
+    docTitle: '00｜机器学习导论',
+    sections: ['§6 数据集为什么需要划分'],
+  }),
+  make({
+    slug: 'ml-project-lifecycle',
+    title: '机器学习项目生命周期',
+    summary: '从问题与数据到训练、评价、保存、部署和漂移监控的完整闭环。',
+    definition: '项目生命周期是一组有顺序的可验收阶段，不是单次 model.fit。',
+    background:
+      '优秀离线分数可能因目标定义错误、输入契约不一致或上线漂移而失效。',
+    intuition:
+      '模型只是流水线中间的一环；前面决定学什么，后面决定能否稳定使用。',
+    principle:
+      '每阶段都要记录输入、输出、版本与决策：问题→数据→划分→预处理→基线→比较→测试→交付→监控。',
+    formula: '业务问题 → 数据 → Pipeline → 验证 → 测试 → 部署 → 监控',
+    steps: [
+      '定义目标和指标',
+      '数据审计',
+      '设计划分',
+      '预处理与基线',
+      '模型比较与调参',
+      '最终测试',
+      '保存与输入验证',
+      '监控漂移和真实效果',
+    ],
+    code: `stages = ["problem", "data", "split", "pipeline", "cv", "test", "deploy", "monitor"]\nfor stage in stages:\n    print(stage)`,
+    output: '按顺序打印项目的八个核心阶段。',
+    applications: ['端到端建模', '项目审查'],
+    pitfalls: ['跳过基线', '只保存分类器', '上线后不监控'],
+    prerequisites: ['机器学习概述'],
+    related: ['end-to-end-ml-project', 'model-monitoring-and-drift'],
+    doc: '00_introduction.md',
+    docTitle: '00｜机器学习导论',
+    sections: ['§7 机器学习项目的完整流程'],
+  }),
+  make({
+    slug: 'underfitting-overfitting',
+    title: '欠拟合、过拟合与合适拟合',
+    summary: '训练与验证表现共同决定模型是能力不足、记住噪声还是具备合理泛化。',
+    definition:
+      '欠拟合时训练和验证都差；过拟合时训练很好但验证明显下降；合适拟合时两者均好且差距与波动合理。',
+    background:
+      '单个分数无法区分问题类型。模型复杂度、数据量、特征质量、正则化和划分设计共同影响结果。',
+    intuition:
+      '不会做练习是欠拟合，只会背原题是过拟合，能解决新题才是合适学习。',
+    principle:
+      '同时报告训练/验证指标、泛化差距和多折波动，并先排除数据泄漏与分布变化。',
+    formula: 'G = Eval - Etrain（误差形式）',
+    steps: [
+      '建立简单基线',
+      '同时测训练/验证',
+      '计算差距',
+      '查看多折波动',
+      '检查泄漏和分布',
+      '按模型调整复杂度',
+    ],
+    code: `from sklearn.model_selection import cross_validate\nresult = cross_validate(model, X, y, cv=5, return_train_score=True)\nprint(result["train_score"].mean(), result["test_score"].mean())`,
+    output: '输出平均训练分数与验证分数，用于判断能力和差距。',
+    applications: ['模型诊断', '正则化选择'],
+    pitfalls: ['训练 100% 就断言过拟合', '只追求最小差距', '正则化越强越好'],
+    prerequisites: ['训练验证测试'],
+    related: ['overfitting-diagnosis', 'bias-variance-learning-curves'],
+    doc: '00_introduction.md',
+    docTitle: '00｜机器学习导论',
+    sections: ['§8 欠拟合、过拟合与恰当拟合'],
+  }),
+  make({
+    slug: 'scalars-vectors-matrices',
+    title: '标量、向量与矩阵',
+    summary: '标量表示单值，向量表示一个样本或参数集合，矩阵按行组织多个样本。',
+    definition:
+      '标量是单个数；d 维向量是有序数列；n×d 矩阵有 n 行样本和 d 列特征。',
+    background: '模型公式和代码错误常来自对维度与轴理解不足。',
+    intuition: '一格是标量，一行是样本向量，整张表是特征矩阵。',
+    principle: '矩阵形状携带语义。运算前必须确认样本轴、特征轴和内维是否匹配。',
+    formula: 'X=[xᵢⱼ]∈ℝⁿˣᵈ',
+    steps: [
+      '识别对象维度',
+      '标注每个轴语义',
+      '检查 shape',
+      '执行运算',
+      '核对输出 shape',
+    ],
+    language: 'NumPy',
+    code: `import numpy as np\nx = np.array([14.23, 1.71, 1065.0])\nX = np.stack([x, x + 1])\nprint(x.shape, X.shape)`,
+    output: '向量形状 (3,)，矩阵形状 (2,3)。',
+    applications: ['特征矩阵', '权重向量', '批量预测'],
+    pitfalls: ['混淆行列', '一维广播产生意外结果'],
+    prerequisites: ['基础代数'],
+    related: ['dataset-shapes', 'dot-product-weighted-sum'],
+    doc: '01_math_data_foundations.md',
+    docTitle: '01｜数学与数据基础',
+    sections: ['§1 标量、向量和矩阵'],
+  }),
+  make({
+    slug: 'dot-product-weighted-sum',
+    title: '点积与加权求和',
+    summary: '线性模型用特征与权重的点积加偏置计算分数。',
+    definition:
+      '点积把两个同维向量逐项相乘后求和；权重决定每个特征对线性分数的方向和大小。',
+    background: '线性回归、逻辑回归和人工神经元都以 wᵀx+b 为核心。',
+    intuition: '每项证据乘上重要性后汇总，再用偏置移动整体门槛。',
+    principle: '输入维度必须与权重一致；批量矩阵 Xw 会同时计算所有样本。',
+    formula: 'z=wᵀx+b=Σⱼwⱼxⱼ+b',
+    steps: ['确认 x/w 同维', '逐项相乘', '求和', '加偏置', '批量化为矩阵乘法'],
+    language: 'NumPy',
+    code: `import numpy as np\nx = np.array([14.23, 1.71, 1065.0])\nw = np.array([0.8, -0.2, 0.003])\nb = -5.0\nprint(np.dot(w, x) + b)`,
+    output: '输出当前样本的一个线性分数。',
+    applications: ['线性模型', '神经元'],
+    pitfalls: ['维度不匹配', '未标准化时直接比较权重大小'],
+    prerequisites: ['向量'],
+    related: ['linear-regression', 'logistic-regression', 'artificial-neuron'],
+    doc: '01_math_data_foundations.md',
+    docTitle: '01｜数学与数据基础',
+    sections: ['§2 点积与加权求和'],
+  }),
+  make({
+    slug: 'mean-variance-standard-deviation',
+    title: '均值、方差与标准差',
+    summary: '均值描述中心，方差和标准差描述围绕中心的分散程度。',
+    definition:
+      '总体方差用平均平方偏差，样本方差常用 n-1 自由度修正；标准差是方差平方根并保留原单位。',
+    background:
+      '这些统计量用于标准化、高斯朴素贝叶斯、异常分析和低方差特征检查。',
+    intuition: '均值回答“通常在哪”，标准差回答“通常离中心多远”。',
+    principle: '必须区分总体/样本约定与计算轴；极端值会同时影响均值和标准差。',
+    formula: 'μ=(1/n)Σxᵢ；σ²=(1/n)Σ(xᵢ-μ)²；σ=√σ²',
+    steps: ['计算均值', '求每项偏差', '平方并平均', '开平方', '结合单位解释'],
+    language: 'NumPy',
+    code: `import numpy as np\nx = np.array([50., 60., 70.])\nprint(x.mean(), x.var(), x.std())`,
+    output: '60.0、66.666...、8.1649...。',
+    applications: ['Z-score', '分布描述'],
+    pitfalls: ['混淆 n 与 n-1', '方差单位误解', '异常值影响被忽略'],
+    prerequisites: ['求和与平方根'],
+    related: ['numerical-standardization', 'robust-scaling-and-outliers'],
+    doc: '01_math_data_foundations.md',
+    docTitle: '01｜数学与数据基础',
+    sections: ['§3 均值、方差和标准差'],
+  }),
+  make({
+    slug: 'probability-and-thresholds',
+    title: '分类概率与决策阈值',
+    summary: '模型概率表示类别倾向，最终类别由 argmax 或阈值规则产生。',
+    definition: '多分类通常选择最大概率类别；二分类可把正类概率与阈值 τ 比较。',
+    background: '默认 0.5 不一定符合业务成本。降低阈值通常提高召回并增加误报。',
+    intuition: '概率是排序和置信信号，阈值是行动规则；两者应分开评价。',
+    principle:
+      '概率最大不保证正确或校准。阈值必须在验证数据上依据误报/漏报成本选择。',
+    formula: 'ŷ=1[p(y=1|x)≥τ]；多分类 ŷ=argmaxₖP(Cₖ|x)',
+    steps: [
+      '获得 predict_proba',
+      '检查概率列顺序',
+      '定义错误成本',
+      '在验证集比较阈值',
+      '锁定后测试',
+    ],
+    language: 'NumPy',
+    code: `prob = model.predict_proba(X_valid)[:, 1]\nthreshold = 0.3\ny_pred = (prob >= threshold).astype(int)`,
+    output: '得到使用 0.3 阈值的二分类预测数组。',
+    applications: ['欺诈和筛查', '拒绝策略'],
+    pitfalls: ['把概率当事实', '测试集调阈值', '忽略概率校准'],
+    prerequisites: ['概率基础', '混淆矩阵'],
+    related: ['classification-metrics', 'class-imbalance'],
+    doc: '01_math_data_foundations.md',
+    docTitle: '01｜数学与数据基础',
+    sections: ['§4.1 概率', '如何用代码查看分类概率'],
+  }),
+  make({
+    slug: 'conditional-probability-bayes',
+    title: '条件概率与贝叶斯公式',
+    summary:
+      '条件概率在已知信息后更新事件可能性，贝叶斯公式结合先验与似然得到后验。',
+    definition:
+      'P(A|B) 把观察范围限制在 B 已发生的样本；贝叶斯公式把 P(x|C)P(C) 归一化为 P(C|x)。',
+    background:
+      '朴素贝叶斯以此为分类基础，概率推理还要求清楚分母所代表的条件总体。',
+    intuition: '先考虑类别本来多常见，再看当前特征与该类别有多匹配。',
+    principle:
+      '比较类别时证据 P(x) 相同，可比较未归一化先验×似然；实际中常在对数空间计算。',
+    formula: 'P(Cₖ|x)=P(x|Cₖ)P(Cₖ)/P(x)',
+    steps: [
+      '定义条件总体',
+      '估计先验',
+      '估计似然',
+      '计算未归一化分数',
+      '归一化',
+      '选择最大后验',
+    ],
+    language: 'NumPy',
+    code: `import numpy as np\npriors = np.array([0.4, 0.6])\nlikelihoods = np.array([0.3, 0.1])\nposterior = priors * likelihoods\nposterior /= posterior.sum()\nprint(posterior)`,
+    output: '[0.667,0.333] 左右，预测类别 0。',
+    applications: ['朴素贝叶斯', '风险更新'],
+    pitfalls: ['条件概率分母用全部样本', '把相关特征当独立'],
+    prerequisites: ['概率'],
+    related: ['naive-bayes', 'probability-and-thresholds'],
+    doc: '01_math_data_foundations.md',
+    docTitle: '01｜数学与数据基础',
+    sections: ['§4.2 条件概率', '§4.3 贝叶斯公式的直觉'],
+  }),
+  make({
+    slug: 'euclidean-distance',
+    title: '欧氏距离与尺度',
+    summary: '欧氏距离度量坐标差平方和的平方根，对特征尺度与高维无关特征敏感。',
+    definition: '两个 d 维向量的 L2 距离是各维差值平方和的平方根。',
+    background: 'KNN、K-Means 等直接依赖距离；数值范围大的特征会主导结果。',
+    intuition: '距离像用尺子量两点，但每个坐标轴若单位不同，就不能直接合成。',
+    principle:
+      '计算前通常标准化连续特征，并检查异常值、无关维度和高维距离集中问题。',
+    formula: 'd(x,y)=√Σⱼ(xⱼ-yⱼ)²',
+    steps: [
+      '确认同维',
+      '统一尺度',
+      '逐维求差',
+      '平方求和',
+      '开平方',
+      '解释距离',
+    ],
+    language: 'NumPy',
+    code: `import numpy as np\nx = np.array([1., 2., 3.])\ny = np.array([4., 6., 3.])\nprint(np.linalg.norm(x - y))`,
+    output: '5.0。',
+    applications: ['KNN', 'K-Means', '相似搜索'],
+    pitfalls: ['未标准化', '把类别编码纳入欧氏距离', '高维无关特征过多'],
+    prerequisites: ['向量', '平方根'],
+    related: ['numerical-standardization', 'knn', 'kmeans-and-silhouette'],
+    doc: '01_math_data_foundations.md',
+    docTitle: '01｜数学与数据基础',
+    sections: ['§5 距离', '§5.2 为什么距离模型需要标准化'],
+  }),
+  make({
+    slug: 'gradient-descent',
+    title: '导数、梯度与梯度下降',
+    summary: '梯度汇集损失对所有参数的局部变化率，梯度下降沿反方向更新参数。',
+    definition:
+      '一元导数描述瞬时变化率，多参数偏导数组成梯度。梯度指向损失上升最快方向。',
+    background:
+      '线性模型和神经网络常通过迭代优化参数；树模型通常通过候选划分搜索而非梯度。',
+    intuition: '梯度像坡度箭头，反方向是局部下坡；学习率决定步长。',
+    principle:
+      '梯度是局部信息，不保证一次到达全局最优；尺度、学习率和数值稳定性决定轨迹。',
+    formula: 'θ⁽ᵗ⁺¹⁾=θ⁽ᵗ⁾-η∇θL(θ⁽ᵗ⁾)',
+    steps: [
+      '初始化参数',
+      '前向预测',
+      '计算损失',
+      '计算梯度',
+      '按学习率更新',
+      '检查收敛',
+    ],
+    language: 'NumPy',
+    code: `w = 0.0\nlearning_rate = 0.1\nfor _ in range(20):\n    gradient = 2 * (w - 3)\n    w -= learning_rate * gradient\nprint(round(w, 3))`,
+    output: 'w 接近使 (w-3)² 最小的 3。',
+    applications: ['线性回归', '神经网络'],
+    pitfalls: ['学习率过大', '未检查梯度/损失有限性', '收敛等同泛化'],
+    prerequisites: ['导数', '损失函数'],
+    related: [
+      'learning-rate-selection',
+      'gradient-descent-convergence',
+      'backpropagation',
+    ],
+    doc: '01_math_data_foundations.md',
+    docTitle: '01｜数学与数据基础',
+    sections: ['§6 导数与梯度'],
+  }),
+  make({
+    slug: 'mse-rmse',
+    title: 'MSE 与 RMSE',
+    summary: 'MSE 平均平方误差并强调大错误，RMSE 开方后恢复目标原单位。',
+    definition:
+      'MSE 是预测误差平方的平均；RMSE 是其平方根。二者越小越好，但必须结合目标尺度和基线解释。',
+    background:
+      '平方使少数大错误可能主导指标。MSE 单位是目标单位平方，RMSE 更便于业务解释。',
+    intuition: 'MSE 像把大错误放大后平均，RMSE 再把结果拉回原来的量纲。',
+    principle:
+      '只在相同数据、目标单位和评价协议下比较；异常值多时同时查看 MAE。',
+    formula: 'MSE=(1/n)Σ(yᵢ-ŷᵢ)²；RMSE=√MSE',
+    steps: ['计算每条误差', '平方', '求平均', '需要时开方', '与基线和 CV 比较'],
+    language: 'NumPy',
+    code: `import numpy as np\ny = np.array([3.,5.,8.])\np = np.array([2.,5.,10.])\nmse = np.mean((y-p)**2)\nprint(mse, np.sqrt(mse))`,
+    output: 'MSE≈1.667，RMSE≈1.291。',
+    applications: ['回归损失', '模型评价'],
+    pitfalls: ['跨任务直接比较 MSE', '忽略大异常误差影响'],
+    prerequisites: ['均值', '平方根'],
+    related: ['regression-metrics', 'linear-regression'],
+    doc: '01_math_data_foundations.md',
+    docTitle: '01｜数学与数据基础',
+    sections: ['§7.1 均方误差'],
+  }),
+  make({
+    slug: 'cross-entropy',
+    title: '交叉熵与概率分类',
+    summary: '交叉熵惩罚模型给真实类别分配过低概率，尤其惩罚自信但错误的预测。',
+    definition: '多分类交叉熵对每条样本取真实类别预测概率的负对数并平均。',
+    background:
+      '准确率相同的模型可能概率质量不同；交叉熵利用了完整概率而不只看最终类别。',
+    intuition: '答对但犹豫会有少量损失，自信答错会受到很大惩罚。',
+    principle: '概率必须有效且类别顺序一致；低交叉熵不自动证明概率完全校准。',
+    formula: 'LCE=-(1/n)ΣᵢΣₖ yᵢₖlog p̂ᵢₖ',
+    steps: [
+      '获得类别概率',
+      '定位真实类别概率',
+      '取负对数',
+      '批次平均',
+      '与准确率和校准共同评价',
+    ],
+    language: 'Python',
+    code: `from sklearn.metrics import log_loss\ny_true = [0, 2]\ny_prob = [[0.9,0.08,0.02],[0.1,0.2,0.7]]\nprint(log_loss(y_true, y_prob, labels=[0,1,2]))`,
+    output: '输出一个较小的正交叉熵数值。',
+    applications: ['逻辑回归训练', '概率模型评价'],
+    pitfalls: ['把 logits 当概率传入 sklearn log_loss', '类别列顺序错位'],
+    prerequisites: ['对数', '概率'],
+    related: ['logistic-regression', 'probability-and-thresholds'],
+    doc: '01_math_data_foundations.md',
+    docTitle: '01｜数学与数据基础',
+    sections: ['§7.2 交叉熵'],
+  }),
+  make({
+    slug: 'gini-impurity',
+    title: '基尼不纯度与划分增益',
+    summary: '基尼不纯度衡量节点类别混杂，决策树选择降低加权不纯度最多的划分。',
+    definition:
+      'Gini=1-类别比例平方和；纯节点为 0。左右子节点的不纯度按样本数加权。',
+    background:
+      '树不能只看某个子节点是否纯，还要评估整个划分对父节点的总体改善。',
+    intuition: '好问题应让两边都更“单一”，且不能靠把极少样本分出去制造假象。',
+    principle:
+      '枚举特征和候选阈值，计算 Gain=父 Gini-子节点加权 Gini，贪心选择最大增益。',
+    formula: 'Gini(S)=1-Σₖpₖ²；Gain=Gini(S)-Σc(nc/n)Gini(Sc)',
+    steps: [
+      '统计父类别比例',
+      '生成候选阈值',
+      '分左右',
+      '计算加权 Gini',
+      '选择最大 Gain',
+      '递归',
+    ],
+    language: 'NumPy',
+    code: `import numpy as np\ndef gini(y):\n    _, counts = np.unique(y, return_counts=True)\n    p = counts / len(y)\n    return 1 - np.sum(p**2)\nprint(gini(np.array([0,0,1,1])))`,
+    output: '0.5。',
+    applications: ['分类树分裂', '树结构解释'],
+    pitfalls: ['把 Gini 当最终测试指标', '忽略子节点样本权重'],
+    prerequisites: ['概率', '决策树'],
+    related: ['decision-trees', 'tree-feature-importance'],
+    doc: '01_math_data_foundations.md',
+    docTitle: '01｜数学与数据基础',
+    sections: ['§7.3 基尼不纯度'],
+  }),
+  make({
+    slug: 'bias-variance-learning-curves',
+    title: '偏差、方差与学习曲线',
+    summary:
+      '高偏差表现为训练验证都差，高方差表现为训练好而验证落后；学习曲线观察数据量增加时二者变化。',
+    definition:
+      '偏差是模型系统性不足，方差是对训练样本变化过于敏感，不可消除噪声构成误差下限。',
+    background:
+      '一次训练无法精确拆分偏差方差，但训练/验证差距、多折波动和学习曲线提供诊断信号。',
+    intuition: '偏差是总用过于简单的答案，方差是换一套练习题就完全改变解法。',
+    principle:
+      '两曲线都低且靠近提示高偏差；训练高验证低且差距随数据缩小，更多代表性数据可能有效。',
+    formula: 'E[(y-f̂(x))²]=Bias²+Variance+σ²ε',
+    steps: [
+      '计算训练/验证分数',
+      '观察差距',
+      '多折检查波动',
+      '绘制不同训练量曲线',
+      '结合基线诊断',
+      '选择模型/数据策略',
+    ],
+    code: `from sklearn.model_selection import learning_curve\nsizes, train, valid = learning_curve(model, X, y, cv=5)\nprint(train.mean(1), valid.mean(1))`,
+    output: '输出不同训练样本量对应的平均训练和验证分数。',
+    applications: ['复杂度诊断', '判断增加数据是否有益'],
+    pitfalls: ['差距小就说模型好', '只看一折', '数据分布变化被误判为方差'],
+    prerequisites: ['训练验证', '过拟合'],
+    related: ['underfitting-overfitting', 'overfitting-diagnosis'],
+    doc: '01_math_data_foundations.md',
+    docTitle: '01｜数学与数据基础',
+    sections: ['§8 偏差与方差', '用学习曲线进一步判断'],
+  }),
+  make({
+    slug: 'numpy-data-operations',
+    title: '机器学习必备 NumPy 操作',
+    summary: '掌握形状、切片、按列统计、布尔筛选和广播，才能可靠检查模型输入。',
+    definition:
+      'NumPy 用 ndarray 表示同类型多维数据；axis=0 沿样本聚合，axis=1 沿特征聚合。',
+    background: '标准化、距离、损失和手写算法都依赖正确的索引与广播。',
+    intuition: '先把数组每个轴标上含义，再读每次切片和统计。',
+    principle:
+      'shape 是接口契约；布尔 mask 必须与被筛选轴长度一致；广播前要确认结果形状。',
+    formula: 'X.mean(axis=0) → 每列统计',
+    steps: [
+      '查看 shape/dtype',
+      '使用行列切片',
+      '按正确 axis 统计',
+      '构造布尔 mask',
+      '检查广播结果',
+    ],
+    language: 'NumPy',
+    code: `import numpy as np\nX=np.array([[1.,10.],[2.,20.],[3.,30.]])\nprint(X.shape, X[0], X[:,0])\nprint(X.mean(0), X.std(0))\nprint(X[X[:,0] <= 2])`,
+    output: '输出形状、第一行、第一列、逐列均值/标准差和前两行。',
+    applications: ['数据审计', '手写算法'],
+    pitfalls: ['axis 理解反', 'mask 长度错', '无意改变维度'],
+    prerequisites: ['矩阵'],
+    related: ['dataset-shapes', 'numerical-standardization'],
+    doc: '01_math_data_foundations.md',
+    docTitle: '01｜数学与数据基础',
+    sections: ['§9 必备 Python 与 NumPy 操作'],
+  }),
 ];

@@ -1,52 +1,598 @@
 import type { CategorySlug, Concept, Difficulty } from './content';
 
 type LessonInput = {
-  slug:string; title:string; category:CategorySlug; difficulty:Difficulty; summary:string; explanation:string;
-  principle:string; formula:string; formulaDescription:string; code:string; language:'Python'|'NumPy'|'PyTorch';
-  codeExplanation:string; prerequisites?:string[]; workflow?:string[]; applications?:string[]; pitfalls?:string[]; related?:string[];
+  slug: string;
+  title: string;
+  category: CategorySlug;
+  difficulty: Difficulty;
+  summary: string;
+  explanation: string;
+  principle: string;
+  formula: string;
+  formulaDescription: string;
+  code: string;
+  language: 'Python' | 'NumPy' | 'PyTorch';
+  codeExplanation: string;
+  prerequisites?: string[];
+  workflow?: string[];
+  applications?: string[];
+  pitfalls?: string[];
+  related?: string[];
 };
 
-function lesson(input:LessonInput):Concept {
+function lesson(input: LessonInput): Concept {
   return {
-    id:input.slug, slug:input.slug, title:input.title, category:input.category, difficulty:input.difficulty,
-    summary:input.summary, prerequisites:input.prerequisites??['Python 基础','基础数学'], explanation:input.explanation,
-    principle:input.principle, formula:{expression:input.formula,description:input.formulaDescription},
-    workflow:input.workflow??['明确输入、输出与评价方式','建立简单基线','实现并检查关键中间量','在验证数据上诊断和迭代'],
-    code:{language:input.language,source:input.code,highlights:['先检查数据和张量形状','把会学习参数的步骤限制在训练数据内']},
-    codeExplanation:input.codeExplanation, applications:input.applications??['建立可靠训练流程','诊断模型行为'],
-    pitfalls:input.pitfalls??['只记接口而不检查数据边界','只看单次分数而忽略泛化'], relatedConcepts:input.related??[],
+    id: input.slug,
+    slug: input.slug,
+    title: input.title,
+    category: input.category,
+    difficulty: input.difficulty,
+    summary: input.summary,
+    prerequisites: input.prerequisites ?? ['Python 基础', '基础数学'],
+    explanation: input.explanation,
+    principle: input.principle,
+    formula: {
+      expression: input.formula,
+      description: input.formulaDescription,
+    },
+    workflow: input.workflow ?? [
+      '明确输入、输出与评价方式',
+      '建立简单基线',
+      '实现并检查关键中间量',
+      '在验证数据上诊断和迭代',
+    ],
+    code: {
+      language: input.language,
+      source: input.code,
+      highlights: [
+        '先检查数据和张量形状',
+        '把会学习参数的步骤限制在训练数据内',
+      ],
+    },
+    codeExplanation: input.codeExplanation,
+    applications: input.applications ?? ['建立可靠训练流程', '诊断模型行为'],
+    pitfalls: input.pitfalls ?? [
+      '只记接口而不检查数据边界',
+      '只看单次分数而忽略泛化',
+    ],
+    relatedConcepts: input.related ?? [],
   };
 }
 
-export const expandedConcepts:Concept[] = [
-  lesson({slug:'math-data-foundations',title:'数学与数据基础',category:'machine-learning',difficulty:'入门',summary:'用向量、矩阵、统计量、概率、距离和梯度描述数据与学习过程。',explanation:'机器学习中的一行数据通常是一个向量，多行组成矩阵；模型通过距离、概率或梯度从这些数字中寻找规律。',principle:'特征矩阵 X 的行对应样本、列对应特征；统计量描述分布，梯度指出损失增大的最快方向。',formula:'X ∈ ℝⁿˣᵈ，wᵀx = Σⱼwⱼxⱼ',formulaDescription:'n 是样本数，d 是特征数；点积是线性模型和神经元的核心运算。',language:'NumPy',code:`import numpy as np\n\nX = np.array([[1., 2.], [3., 6.], [5., 10.]])\nprint(X.shape)\nprint(X.mean(axis=0))\nprint(X.std(axis=0))`,codeExplanation:'shape 明确样本与特征维度；axis=0 表示沿样本方向统计每个特征。',related:['linear-regression','pytorch-tensors-modules']}),
-  lesson({slug:'data-preprocessing',title:'数据预处理与泄漏边界',category:'machine-learning',difficulty:'入门',summary:'先划分数据，再只用训练集拟合填补、缩放和编码参数。',explanation:'预处理器也会“学习”。如果让它看到测试集均值，相当于考试前偷看了试卷整体分布。',principle:'训练数据拟合 preprocessing 参数，验证、测试与线上数据只调用 transform。Pipeline 能让交叉验证中的每一折独立执行这一规则。',formula:"x' = (x - μtrain) / σtrain",formulaDescription:'均值和标准差必须只来自当前训练数据。',language:'Python',code:`from sklearn.pipeline import make_pipeline\nfrom sklearn.impute import SimpleImputer\nfrom sklearn.preprocessing import StandardScaler\nfrom sklearn.linear_model import LogisticRegression\n\nmodel = make_pipeline(\n    SimpleImputer(strategy="median"),\n    StandardScaler(),\n    LogisticRegression(),\n)`,codeExplanation:'Pipeline 把缺失值填补、标准化和模型绑成一个整体，降低交叉验证时的数据泄漏风险。',applications:['缺失值处理','特征缩放','可靠交叉验证'],pitfalls:['先对全数据标准化再划分','验证和测试阶段重新拟合预处理器'],related:['feature-engineering','cross-validation']}),
-  lesson({slug:'feature-engineering',title:'特征工程与 Pipeline',category:'machine-learning',difficulty:'进阶',summary:'把原始字段转换为更能表达任务规律、且预测时确实可获得的特征。',explanation:'模型只看到数字。好的特征像给它一张清晰地图，泄漏特征则像把答案直接写在地图上。',principle:'特征构造应来自领域关系，并在相同验证协议下比较；数值与类别列应通过 ColumnTransformer 分别处理。',formula:'新特征 = 可解释变换(原始可用信息)',formulaDescription:'特征必须在真实预测时可获得，不能含未来信息。',language:'Python',code:`from sklearn.compose import ColumnTransformer\nfrom sklearn.preprocessing import OneHotEncoder, StandardScaler\n\nprep = ColumnTransformer([\n    ("num", StandardScaler(), ["age", "income"]),\n    ("cat", OneHotEncoder(handle_unknown="ignore"), ["city"]),\n])`,codeExplanation:'不同列使用适合自己的变换，并由统一预处理器保持训练和预测一致。',related:['data-preprocessing','model-evaluation']}),
-  lesson({slug:'logistic-regression',title:'逻辑回归',category:'machine-learning',difficulty:'入门',summary:'逻辑回归把线性得分映射为类别概率，是可靠的分类基线。',explanation:'先计算特征加权总分，再用 S 形函数把它压到 0～1，最后按阈值分类。',principle:'二分类中对数几率是特征的线性组合，训练通常最小化对数损失。',formula:'p(y=1|x)=σ(wᵀx+b)',formulaDescription:'σ 是 Sigmoid，输出可解释为模型概率估计。',language:'Python',code:`from sklearn.linear_model import LogisticRegression\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.preprocessing import StandardScaler\n\nmodel = make_pipeline(StandardScaler(), LogisticRegression(C=1.0))\nmodel.fit(X_train, y_train)\nprob = model.predict_proba(X_test)[:, 1]`,codeExplanation:'标准化让正则化更公平；C 越小通常正则越强。',related:['supervised-learning','model-evaluation']}),
-  lesson({slug:'knn',title:'K 近邻',category:'machine-learning',difficulty:'入门',summary:'KNN 根据训练集中距离最近的 K 个样本进行投票或平均。',explanation:'判断新样本时，先看看它最像哪些已知样本，再参考这些邻居的答案。',principle:'KNN 几乎不做参数训练，计算主要发生在预测阶段；距离对特征尺度非常敏感。',formula:'ŷ = mode{yᵢ | xᵢ ∈ Nₖ(x)}',formulaDescription:'分类预测由最近 K 个邻居的多数类别决定。',language:'Python',code:`from sklearn.neighbors import KNeighborsClassifier\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.preprocessing import StandardScaler\n\nmodel = make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=5))\nmodel.fit(X_train, y_train)`,codeExplanation:'StandardScaler 防止数值范围大的特征主导欧氏距离。',applications:['小规模分类','相似样本检索'],pitfalls:['忘记标准化','K 太小易过拟合、太大易欠拟合'],related:['math-data-foundations','cross-validation']}),
-  lesson({slug:'naive-bayes',title:'朴素贝叶斯',category:'machine-learning',difficulty:'进阶',summary:'朴素贝叶斯结合先验与特征似然，计算类别的后验概率。',explanation:'先考虑每个类别本来有多常见，再看当前特征在各类别中有多常见。',principle:'“朴素”假设特征在给定类别后条件独立，使高维联合概率可以拆成乘积。',formula:'P(y|x) ∝ P(y)∏ⱼP(xⱼ|y)',formulaDescription:'比较各类别未归一化后验分数即可完成分类。',language:'Python',code:`from sklearn.naive_bayes import GaussianNB\n\nmodel = GaussianNB().fit(X_train, y_train)\nprint(model.predict_proba(X_test[:2]))`,codeExplanation:'GaussianNB 用每个类别内各特征的高斯分布估计似然。',related:['math-data-foundations','supervised-learning']}),
-  lesson({slug:'support-vector-machines',title:'支持向量机',category:'machine-learning',difficulty:'进阶',summary:'SVM 寻找间隔最大的决策边界，并可借助核函数表达非线性。',explanation:'不仅要把两类分开，还希望边界离最近的两侧样本都尽可能远。',principle:'真正决定边界的是靠近间隔的支持向量；C 控制间隔宽度与误分类惩罚，gamma 控制 RBF 影响范围。',formula:'min ½||w||² + CΣξᵢ',formulaDescription:'第一项鼓励大间隔，第二项惩罚违反间隔的样本。',language:'Python',code:`from sklearn.svm import SVC\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.preprocessing import StandardScaler\n\nmodel = make_pipeline(StandardScaler(), SVC(C=1.0, gamma="scale", probability=True))`,codeExplanation:'SVM 对尺度敏感，因此通常与标准化组合在 Pipeline 中。',related:['overfitting-regularization','cross-validation']}),
-  lesson({slug:'decision-trees',title:'决策树',category:'machine-learning',difficulty:'入门',summary:'决策树反复选择特征与阈值，把样本划分到更纯的叶节点。',explanation:'像连续提问：“某特征是否大于阈值？”每次回答都把可能类别缩小。',principle:'训练在候选划分中选择不纯度下降最大的方案；树越深，越容易记住噪声。',formula:'Gain = I(parent) - Σₖ(nₖ/n)I(childₖ)',formulaDescription:'划分增益等于父节点不纯度减去子节点加权不纯度。',language:'Python',code:`from sklearn.tree import DecisionTreeClassifier\n\nmodel = DecisionTreeClassifier(max_depth=3, min_samples_leaf=5, random_state=42)\nmodel.fit(X_train, y_train)`,codeExplanation:'max_depth 和 min_samples_leaf 约束树复杂度，帮助控制过拟合。',related:['random-forest-boosting','overfitting-regularization']}),
-  lesson({slug:'random-forest-boosting',title:'随机森林与梯度提升',category:'machine-learning',difficulty:'进阶',summary:'集成学习组合多棵树，利用差异降低方差或逐步修正错误。',explanation:'随机森林让许多不同的树投票；Boosting 则让后一棵树重点修正前面的残差。',principle:'Bagging 并行训练多模型以降低方差；Boosting 串行添加弱模型以降低当前误差。',formula:'Fₘ(x)=Fₘ₋₁(x)+ηhₘ(x)',formulaDescription:'梯度提升以学习率 η 逐步加入新树。',language:'Python',code:`from sklearn.ensemble import RandomForestClassifier, HistGradientBoostingClassifier\n\nforest = RandomForestClassifier(n_estimators=300, min_samples_leaf=2, random_state=42)\nboost = HistGradientBoostingClassifier(learning_rate=0.05, max_iter=200)`,codeExplanation:'两种方法都基于树，但训练关系、主要超参数和误差特性不同。',related:['decision-trees','model-evaluation']}),
-  lesson({slug:'pca-clustering',title:'PCA 与聚类解释',category:'machine-learning',difficulty:'进阶',summary:'PCA 寻找方差最大的正交方向，常用于压缩和观察聚类结构。',explanation:'把高维数据投影到最能保留变化的几条轴上，方便观察但不保证类别分得最好。',principle:'第一主成分使投影方差最大，后续主成分与之前方向正交；聚类编号本身没有类别语义。',formula:'v₁ = argmax||v||=1 Var(Xv)',formulaDescription:'第一主成分是在单位方向中投影方差最大的方向。',language:'Python',code:`from sklearn.decomposition import PCA\nfrom sklearn.preprocessing import StandardScaler\n\nX_scaled = StandardScaler().fit_transform(X)\nX_2d = PCA(n_components=2).fit_transform(X_scaled)\nprint(X_2d.shape)`,codeExplanation:'先标准化再做 PCA，避免大尺度特征主导方差方向。',related:['unsupervised-learning','model-evaluation']}),
-  lesson({slug:'model-evaluation',title:'模型评估与错误代价',category:'machine-learning',difficulty:'进阶',summary:'评价指标必须匹配真实使用方式、类别分布和错误成本。',explanation:'准确率只回答“总体对了多少”，却可能掩盖少数类漏报；指标要围绕真正关心的错误选择。',principle:'混淆矩阵拆分 TP、FP、FN、TN；精确率关注误报，召回率关注漏报，F1 平衡二者。',formula:'Precision=TP/(TP+FP)，Recall=TP/(TP+FN)',formulaDescription:'误报成本高看精确率，漏报成本高看召回率。',language:'Python',code:`from sklearn.metrics import classification_report, confusion_matrix\n\nprint(confusion_matrix(y_test, y_pred))\nprint(classification_report(y_test, y_pred))`,codeExplanation:'不要只报告单一准确率；同时查看每类指标和具体错误样本。',related:['cross-validation','overfitting-regularization']}),
-  lesson({slug:'cross-validation',title:'交叉验证与可靠调参',category:'machine-learning',difficulty:'进阶',summary:'交叉验证让每条训练数据轮流参与验证，得到更稳定的模型比较。',explanation:'一次划分可能碰巧简单或困难；多折验证像进行多次小考试，再观察平均表现和波动。',principle:'预处理必须在每个训练折内拟合；时间、用户或设备存在依赖时，应使用时间或分组划分而非普通随机折。',formula:'CV score = mean(s₁,…,sₖ) ± std(s₁,…,sₖ)',formulaDescription:'平均值衡量总体表现，标准差反映对数据划分的敏感度。',language:'Python',code:`from sklearn.model_selection import StratifiedKFold, cross_validate\n\ncv = StratifiedKFold(5, shuffle=True, random_state=42)\nresult = cross_validate(model, X_train, y_train, cv=cv, scoring=["accuracy", "f1_macro"])`,codeExplanation:'分层折让各折类别比例接近总体；最终测试集仍应保持未使用。',related:['data-preprocessing','model-evaluation']}),
-  lesson({slug:'end-to-end-ml-project',title:'端到端机器学习项目',category:'machine-learning',difficulty:'挑战',summary:'从任务定义、数据检查到保存推理，建立可复现的完整机器学习闭环。',explanation:'真正的项目不是只调用 fit，而是确保每一步的数据边界、比较协议和推理输入都一致。',principle:'先保留最终测试集；用 Pipeline 和交叉验证比较候选模型；调参后只做一次最终测试，并保存模型与预处理。',formula:'任务契约 → 数据 → Pipeline → CV → 调参 → 测试 → 保存/推理',formulaDescription:'每一步都应有可检查的输入、输出与验收条件。',language:'Python',code:`import joblib\n\nbest_model.fit(X_train, y_train)\nprint(best_model.score(X_test, y_test))\njoblib.dump(best_model, "model.joblib")\nloaded = joblib.load("model.joblib")`,codeExplanation:'保存整个 Pipeline，才能让未来输入复用相同预处理和模型参数。',applications:['Wine 分类项目','生产推理闭环'],related:['cross-validation','model-evaluation']}),
-  lesson({slug:'artificial-neuron',title:'人工神经元',category:'deep-learning',difficulty:'入门',summary:'人工神经元对输入加权求和、加偏置，再经过激活函数。',explanation:'每个输入像一条证据，权重表示证据重要性，偏置调整触发门槛，激活函数决定输出方式。',principle:'单个神经元是仿射变换与非线性的组合；多个神经元组成层，多层堆叠形成网络。',formula:'y=f(wᵀx+b)',formulaDescription:'w 和 b 是学习参数，f 是激活函数。',language:'PyTorch',code:`import torch\nfrom torch import nn\n\nneuron = nn.Linear(2, 1)\nx = torch.tensor([[0.4, 0.8]])\ny = torch.sigmoid(neuron(x))\nprint(y.shape)`,codeExplanation:'Linear 学习权重和偏置，Sigmoid 把输出压缩到 0～1。',related:['neural-networks','activation-functions']}),
-  lesson({slug:'pytorch-tensors-modules',title:'PyTorch 张量与 nn.Module',category:'deep-learning',difficulty:'入门',summary:'张量承载数据，nn.Module 组织可学习参数、子模块与前向计算。',explanation:'Tensor 是带形状和 dtype 的多维数组；Module 像模型的结构化容器，会自动登记需要优化的参数。',principle:'每个操作都应先明确 batch 维、特征维、设备和 dtype；Module 的 forward 描述从输入到输出的变换。',formula:'[N,din] @ [din,dout] → [N,dout]',formulaDescription:'矩阵乘法的内维必须一致。',language:'PyTorch',code:`import torch\nfrom torch import nn\n\nlayer = nn.Linear(5, 3)\nx = torch.randn(8, 5)\ny = layer(x)\nprint(y.shape, sum(p.numel() for p in layer.parameters()))`,codeExplanation:'8 个 5 维样本映射为 3 维；参数量为 5×3+3。',related:['artificial-neuron','data-pipeline']}),
-  lesson({slug:'epoch-batch-iteration',title:'Epoch、Batch 与 Iteration',category:'deep-learning',difficulty:'入门',summary:'Batch 是一批样本，Iteration 是一次参数更新，Epoch 是完整遍历一次训练集。',explanation:'大数据不能一次装入显存，因此分批学习；内层循环处理 batch，外层循环重复 epoch。',principle:'保留最后一个不完整 batch 时，每个 epoch 的 iteration 数是样本数除以 batch size 后向上取整。',formula:'iterations/epoch = ⌈N/B⌉',formulaDescription:'若 drop_last=True，则不完整的最后一批会被丢弃。',language:'PyTorch',code:`for epoch in range(num_epochs):\n    for x, target in train_loader:\n        optimizer.zero_grad()\n        loss = criterion(model(x), target)\n        loss.backward()\n        optimizer.step()`,codeExplanation:'每次内层循环通常完成一次前向、反向和参数更新。',related:['data-pipeline','optimizers-schedulers']}),
-  lesson({slug:'data-pipeline',title:'Dataset、DataLoader 与预处理',category:'deep-learning',difficulty:'进阶',summary:'Dataset 定义单个样本，DataLoader 负责抽样、分批、打乱和并行读取。',explanation:'Dataset 回答“第 i 个样本是什么”，DataLoader 回答“怎样把样本组织成训练批次”。',principle:'划分应先于有学习参数的预处理；训练集可使用随机增强，验证与测试使用确定性变换。',formula:'Dataset[i] → sample，collate(samples) → batch',formulaDescription:'batch 维通常由 DataLoader 添加。',language:'PyTorch',code:`from torch.utils.data import DataLoader, TensorDataset\n\ndataset = TensorDataset(x, y)\nloader = DataLoader(dataset, batch_size=16, shuffle=True, drop_last=False)\nbatch_x, batch_y = next(iter(loader))`,codeExplanation:'训练集通常 shuffle=True；先从 num_workers=0 开始确认正确性。',related:['epoch-batch-iteration','data-preprocessing']}),
-  lesson({slug:'gradient-initialization',title:'梯度问题与权重初始化',category:'deep-learning',difficulty:'进阶',summary:'深层网络可能出现梯度消失或爆炸，初始化决定信号和梯度的初始尺度。',explanation:'信号逐层相乘，若每层都稍小会快速消失，稍大则可能爆炸。',principle:'ReLU 网络常用 He 初始化；饱和激活、过深链路与不当尺度会让梯度难以传播。',formula:'Var(w) ≈ 2/fan_in',formulaDescription:'Kaiming/He 初始化为 ReLU 网络保持合适方差。',language:'PyTorch',code:`from torch import nn\n\nlayer = nn.Linear(128, 64)\nnn.init.kaiming_normal_(layer.weight, nonlinearity="relu")\nnn.init.zeros_(layer.bias)`,codeExplanation:'初始化应与激活函数和层结构匹配，并通过梯度统计验证。',related:['backpropagation','normalization']}),
-  lesson({slug:'normalization',title:'BatchNorm 与 LayerNorm',category:'deep-learning',difficulty:'进阶',summary:'归一化层控制中间特征尺度，但统计轴和训练/评估行为不同。',explanation:'BatchNorm 借助同批样本统计每个通道；LayerNorm 在每个样本内部统计特征，更适合序列模型。',principle:'BatchNorm 训练时使用当前 batch 并更新运行统计，eval 时使用累计统计；LayerNorm 不依赖 batch 组成。',formula:'x̂=(x-μS)/√(σ²S+ε)，y=γx̂+β',formulaDescription:'方法差异主要在统计集合 S 包含哪些轴。',language:'PyTorch',code:`import torch\nfrom torch import nn\n\nx = torch.randn(8, 20, 64)\nln = nn.LayerNorm(64)\nprint(ln(x).shape)`,codeExplanation:'LayerNorm 对最后 64 个特征归一化，输出形状保持不变。',pitfalls:['混淆输入标准化与网络归一化','推理前忘记 model.eval()'],related:['gradient-initialization','transformer']}),
-  lesson({slug:'optimizers-schedulers',title:'优化器与学习率调度',category:'deep-learning',difficulty:'进阶',summary:'优化器根据梯度更新参数，调度器随训练阶段调整步长。',explanation:'梯度指出方向，学习率决定一步走多远，动量和自适应统计帮助减少震荡。',principle:'SGD+momentum 与 AdamW 是常见基线；scheduler.step 的时机必须与其设计一致，不能机械放置。',formula:'θₜ₊₁ = θₜ - ηₜ · update(gₜ)',formulaDescription:'学习率 ηₜ 可以由调度器按 epoch 或 iteration 改变。',language:'PyTorch',code:`from torch.optim import AdamW\nfrom torch.optim.lr_scheduler import CosineAnnealingLR\n\noptimizer = AdamW(model.parameters(), lr=3e-4, weight_decay=1e-2)\nscheduler = CosineAnnealingLR(optimizer, T_max=20)`,codeExplanation:'AdamW 将权重衰减与梯度更新解耦；调度器通常在完成规定粒度的更新后调用。',related:['epoch-batch-iteration','training-engineering']}),
-  lesson({slug:'dl-evaluation-imbalance',title:'深度学习评估与类别不平衡',category:'deep-learning',difficulty:'进阶',summary:'评估阶段要固定模型行为、关闭梯度，并使用适合类别分布的指标。',explanation:'总体准确率可能很好，却完全漏掉少数类；需要同时看每类召回、宏平均 F1 和错误样本。',principle:'model.eval 控制 Dropout/BatchNorm，inference_mode 关闭 autograd；二者职责不同，评估时通常同时使用。',formula:'F1macro=(1/C)Σc F1c',formulaDescription:'宏平均让每个类别权重相同，更能暴露少数类问题。',language:'PyTorch',code:`model.eval()\ncorrect = total = 0\nwith torch.inference_mode():\n    for x, y in val_loader:\n        pred = model(x).argmax(1)\n        correct += (pred == y).sum().item()\n        total += y.numel()`,codeExplanation:'验证不更新参数；还应累计混淆矩阵并按类别分析。',related:['model-evaluation','normalization']}),
-  lesson({slug:'embeddings-sequences',title:'Embedding 与序列数据',category:'deep-learning',difficulty:'进阶',summary:'Embedding 把离散 token id 映射为可学习的稠密向量，并配合 padding mask 处理变长序列。',explanation:'词编号本身没有大小意义；Embedding 像一张可学习查找表，把每个编号变成语义向量。',principle:'输入通常是 [N,L] 的整数 id，输出为 [N,L,D]；padding 位置必须从注意力、损失和池化中排除。',formula:'E[token_ids] → ℝᴺˣᴸˣᴰ',formulaDescription:'词表大小决定行数，embedding 维度 D 决定每个 token 的表示宽度。',language:'PyTorch',code:`import torch\nfrom torch import nn\n\nids = torch.tensor([[2, 7, 4, 0]])\nembedding = nn.Embedding(1000, 64, padding_idx=0)\nx = embedding(ids)\nprint(x.shape)`,codeExplanation:'输出形状为 [1,4,64]；padding_idx=0 让补齐项使用固定零向量。',related:['rnn-lstm-gru','transformer']}),
-  lesson({slug:'rnn-lstm-gru',title:'RNN、LSTM 与 GRU',category:'deep-learning',difficulty:'进阶',summary:'循环网络用隐藏状态传递历史信息，门控结构帮助保留长期依赖。',explanation:'模型从左到右阅读序列，每一步更新“记忆”；LSTM 和 GRU 用门决定保留或写入什么。',principle:'双向模型能看未来上下文，不适合严格在线或自回归任务；变长序列需 packing 或正确 mask。',formula:'hₜ=f(xₜ,hₜ₋₁)',formulaDescription:'当前隐藏状态由当前输入和上一时刻状态共同决定。',language:'PyTorch',code:`import torch\nfrom torch import nn\n\nlstm = nn.LSTM(64, 128, batch_first=True, bidirectional=True)\nx = torch.randn(8, 20, 64)\noutput, (h, c) = lstm(x)\nprint(output.shape, h.shape)`,codeExplanation:'双向输出为 [8,20,256]，最终隐藏状态第一维包含层数×方向数。',related:['embeddings-sequences','transformer']}),
-  lesson({slug:'residual-networks',title:'残差连接与现代 CNN',category:'deep-learning',difficulty:'进阶',summary:'残差块学习对输入的修正，让深层网络更容易优化。',explanation:'与其每层重新构造全部表示，不如学习“在原结果上改多少”，并保留一条直达路径。',principle:'相加前主分支与 shortcut 的形状必须一致；通道或空间尺寸变化时使用投影 shortcut。',formula:'y = F(x) + shortcut(x)',formulaDescription:'当形状相同 shortcut 可为恒等映射，否则用 1×1 卷积匹配。',language:'PyTorch',code:`from torch import nn\n\nshortcut = nn.Conv2d(64, 128, kernel_size=1, stride=2)\n# 将 [N,64,32,32] 映射为 [N,128,16,16]`,codeExplanation:'1×1、stride=2 同时调整通道与空间尺寸，使两条分支能够相加。',related:['convolutional-neural-networks','transfer-learning']}),
-  lesson({slug:'transfer-learning',title:'迁移学习与微调',category:'deep-learning',difficulty:'进阶',summary:'复用预训练模型表示，替换任务头并按阶段解冻参数。',explanation:'预训练骨干已经学会通用特征，新任务先学习小分类头，再视数据量逐步微调更深层。',principle:'冻结参数与设置 eval 是不同操作；预处理必须使用权重对应的 transforms，小 batch 微调还要谨慎处理 BatchNorm。',formula:'新模型 = 预训练骨干 + 新任务头',formulaDescription:'可训练参数范围和学习率应随微调阶段变化。',language:'PyTorch',code:`for p in model.backbone.parameters():\n    p.requires_grad = False\nmodel.classifier = nn.Linear(model.classifier.in_features, num_classes)\noptimizer = torch.optim.AdamW(model.classifier.parameters(), lr=1e-3)`,codeExplanation:'第一阶段只训练新分类头；解冻后通常用更小学习率更新骨干。',related:['residual-networks','normalization']}),
-  lesson({slug:'detection-segmentation',title:'目标检测与图像分割',category:'deep-learning',difficulty:'挑战',summary:'检测预测物体类别与边界框，分割为每个像素分配类别或实例。',explanation:'分类回答“图里有什么”，检测还回答“在哪里”，分割进一步描出每个像素。',principle:'检测评估围绕 IoU、Precision/Recall 和 mAP；NMS 去除重叠冗余框，数据增强必须同步变换图像与标注。',formula:'IoU = |A∩B| / |A∪B|',formulaDescription:'预测框与真实框重叠越充分，IoU 越高。',language:'Python',code:`def iou(box_a, box_b):\n    x1, y1 = max(box_a[0], box_b[0]), max(box_a[1], box_b[1])\n    x2, y2 = min(box_a[2], box_b[2]), min(box_a[3], box_b[3])\n    inter = max(0, x2-x1) * max(0, y2-y1)\n    area_a = (box_a[2]-box_a[0]) * (box_a[3]-box_a[1])\n    area_b = (box_b[2]-box_b[0]) * (box_b[3]-box_b[1])\n    return inter / (area_a + area_b - inter)`,codeExplanation:'先求交集面积，再除以并集面积；真实实现还需批量化和边界约定。',related:['convolutional-neural-networks','transfer-learning']}),
-  lesson({slug:'deep-generative-models',title:'VAE、GAN 与扩散模型',category:'deep-learning',difficulty:'挑战',summary:'生成模型用不同目标学习数据分布、潜变量或逐步去噪过程。',explanation:'VAE 学习连续潜空间，GAN 让生成器与判别器对抗，扩散模型学习把噪声一步步还原成数据。',principle:'三类模型的训练目标、采样路径和稳定性不同；选择应围绕数据、质量、速度和可控性。',formula:'VAE: L = reconstruction + KL(q(z|x)||p(z))',formulaDescription:'重建项保留样本信息，KL 项让潜变量分布接近先验。',language:'PyTorch',code:`mu, logvar = encoder(x)\nstd = (0.5 * logvar).exp()\nz = mu + std * torch.randn_like(std)\nreconstruction = decoder(z)`,codeExplanation:'重参数化把随机性移到独立噪声，使梯度能通过 mu 和 logvar 传播。',related:['generative-ai','backpropagation']}),
-  lesson({slug:'training-engineering',title:'可靠训练工程',category:'deep-learning',difficulty:'挑战',summary:'设备、混合精度、检查点、随机性和实验记录决定训练能否可靠复现。',explanation:'一次跑出好分数不等于工程完成；需要能够恢复、比较、解释并重复实验。',principle:'训练与验证职责分离；保存最佳模型而非只保存最后模型；检查点应含模型、优化器、调度器和 epoch。',formula:'可靠结果 = 代码 + 数据版本 + 配置 + 随机源 + 检查点',formulaDescription:'复现不是只设置一个 seed，而是记录完整实验环境。',language:'PyTorch',code:`checkpoint = {\n    "model": model.state_dict(),\n    "optimizer": optimizer.state_dict(),\n    "epoch": epoch,\n    "best_score": best_score,\n}\ntorch.save(checkpoint, "checkpoint.pt")`,codeExplanation:'完整检查点用于恢复训练；部署推理通常只需要权重、配置、预处理和类别映射。',related:['optimizers-schedulers','model-saving-inference']}),
-  lesson({slug:'model-debugging',title:'深度学习模型调试',category:'deep-learning',difficulty:'进阶',summary:'按数据、形状、损失、梯度、更新、极小 batch 和曲线的顺序定位问题。',explanation:'很多“模型不行”其实是标签错位、静默广播、梯度断开或参数没交给优化器。',principle:'先建立最小可复现案例，并要求模型拟合极小 batch；这一步失败时不要急着加深网络或大规模调参。',formula:'数据 → shape/dtype → loss → gradient → update → tiny batch → generalization',formulaDescription:'严格按顺序排查能快速缩小故障范围。',language:'PyTorch',code:`x, target = next(iter(train_loader))\nprint(x.shape, x.dtype, x.min().item(), x.max().item())\nlogits = model(x.to(device))\nassert torch.isfinite(logits).all()\nloss = criterion(logits, target.to(device))\nloss.backward()\nprint([(n, p.grad is None) for n, p in model.named_parameters()])`,codeExplanation:'第一批数据先验证形状、dtype、数值范围、有限性和梯度是否存在。',related:['backpropagation','training-engineering']}),
-  lesson({slug:'model-saving-inference',title:'模型保存、加载与推理',category:'deep-learning',difficulty:'进阶',summary:'推荐保存 state_dict，并同时保存配置、预处理和类别映射。',explanation:'权重只是模型的一部分；推理要重建相同结构，使用相同预处理，并把类别索引还原成真实标签。',principle:'推理前调用 model.eval 和 inference_mode；训练检查点与轻量推理产物服务于不同目的。',formula:'prediction = postprocess(model(preprocess(input)))',formulaDescription:'训练与推理的预处理、结构和后处理必须保持一致。',language:'PyTorch',code:`torch.save(model.state_dict(), "weights.pt")\nmodel.load_state_dict(torch.load("weights.pt", map_location="cpu"))\nmodel.eval()\nwith torch.inference_mode():\n    prediction = model(preprocessed_input)`,codeExplanation:'state_dict 比保存整个 Python 模型对象更稳健；部署时还需记录模型配置。',pitfalls:['忘记 model.eval()','训练和推理预处理不一致'],related:['training-engineering','end-to-end-ml-project']}),
+export const expandedConcepts: Concept[] = [
+  lesson({
+    slug: 'math-data-foundations',
+    title: '数学与数据基础',
+    category: 'machine-learning',
+    difficulty: '入门',
+    summary: '用向量、矩阵、统计量、概率、距离和梯度描述数据与学习过程。',
+    explanation:
+      '机器学习中的一行数据通常是一个向量，多行组成矩阵；模型通过距离、概率或梯度从这些数字中寻找规律。',
+    principle:
+      '特征矩阵 X 的行对应样本、列对应特征；统计量描述分布，梯度指出损失增大的最快方向。',
+    formula: 'X ∈ ℝⁿˣᵈ，wᵀx = Σⱼwⱼxⱼ',
+    formulaDescription:
+      'n 是样本数，d 是特征数；点积是线性模型和神经元的核心运算。',
+    language: 'NumPy',
+    code: `import numpy as np\n\nX = np.array([[1., 2.], [3., 6.], [5., 10.]])\nprint(X.shape)\nprint(X.mean(axis=0))\nprint(X.std(axis=0))`,
+    codeExplanation:
+      'shape 明确样本与特征维度；axis=0 表示沿样本方向统计每个特征。',
+    related: ['linear-regression', 'pytorch-tensors-modules'],
+  }),
+  lesson({
+    slug: 'data-preprocessing',
+    title: '数据预处理与泄漏边界',
+    category: 'machine-learning',
+    difficulty: '入门',
+    summary: '先划分数据，再只用训练集拟合填补、缩放和编码参数。',
+    explanation:
+      '预处理器也会“学习”。如果让它看到测试集均值，相当于考试前偷看了试卷整体分布。',
+    principle:
+      '训练数据拟合 preprocessing 参数，验证、测试与线上数据只调用 transform。Pipeline 能让交叉验证中的每一折独立执行这一规则。',
+    formula: "x' = (x - μtrain) / σtrain",
+    formulaDescription: '均值和标准差必须只来自当前训练数据。',
+    language: 'Python',
+    code: `from sklearn.pipeline import make_pipeline\nfrom sklearn.impute import SimpleImputer\nfrom sklearn.preprocessing import StandardScaler\nfrom sklearn.linear_model import LogisticRegression\n\nmodel = make_pipeline(\n    SimpleImputer(strategy="median"),\n    StandardScaler(),\n    LogisticRegression(),\n)`,
+    codeExplanation:
+      'Pipeline 把缺失值填补、标准化和模型绑成一个整体，降低交叉验证时的数据泄漏风险。',
+    applications: ['缺失值处理', '特征缩放', '可靠交叉验证'],
+    pitfalls: ['先对全数据标准化再划分', '验证和测试阶段重新拟合预处理器'],
+    related: ['feature-engineering', 'cross-validation'],
+  }),
+  lesson({
+    slug: 'feature-engineering',
+    title: '特征工程与 Pipeline',
+    category: 'machine-learning',
+    difficulty: '进阶',
+    summary: '把原始字段转换为更能表达任务规律、且预测时确实可获得的特征。',
+    explanation:
+      '模型只看到数字。好的特征像给它一张清晰地图，泄漏特征则像把答案直接写在地图上。',
+    principle:
+      '特征构造应来自领域关系，并在相同验证协议下比较；数值与类别列应通过 ColumnTransformer 分别处理。',
+    formula: '新特征 = 可解释变换(原始可用信息)',
+    formulaDescription: '特征必须在真实预测时可获得，不能含未来信息。',
+    language: 'Python',
+    code: `from sklearn.compose import ColumnTransformer\nfrom sklearn.preprocessing import OneHotEncoder, StandardScaler\n\nprep = ColumnTransformer([\n    ("num", StandardScaler(), ["age", "income"]),\n    ("cat", OneHotEncoder(handle_unknown="ignore"), ["city"]),\n])`,
+    codeExplanation:
+      '不同列使用适合自己的变换，并由统一预处理器保持训练和预测一致。',
+    related: ['data-preprocessing', 'model-evaluation'],
+  }),
+  lesson({
+    slug: 'logistic-regression',
+    title: '逻辑回归',
+    category: 'machine-learning',
+    difficulty: '入门',
+    summary: '逻辑回归把线性得分映射为类别概率，是可靠的分类基线。',
+    explanation:
+      '先计算特征加权总分，再用 S 形函数把它压到 0～1，最后按阈值分类。',
+    principle: '二分类中对数几率是特征的线性组合，训练通常最小化对数损失。',
+    formula: 'p(y=1|x)=σ(wᵀx+b)',
+    formulaDescription: 'σ 是 Sigmoid，输出可解释为模型概率估计。',
+    language: 'Python',
+    code: `from sklearn.linear_model import LogisticRegression\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.preprocessing import StandardScaler\n\nmodel = make_pipeline(StandardScaler(), LogisticRegression(C=1.0))\nmodel.fit(X_train, y_train)\nprob = model.predict_proba(X_test)[:, 1]`,
+    codeExplanation: '标准化让正则化更公平；C 越小通常正则越强。',
+    related: ['supervised-learning', 'model-evaluation'],
+  }),
+  lesson({
+    slug: 'knn',
+    title: 'K 近邻',
+    category: 'machine-learning',
+    difficulty: '入门',
+    summary: 'KNN 根据训练集中距离最近的 K 个样本进行投票或平均。',
+    explanation:
+      '判断新样本时，先看看它最像哪些已知样本，再参考这些邻居的答案。',
+    principle:
+      'KNN 几乎不做参数训练，计算主要发生在预测阶段；距离对特征尺度非常敏感。',
+    formula: 'ŷ = mode{yᵢ | xᵢ ∈ Nₖ(x)}',
+    formulaDescription: '分类预测由最近 K 个邻居的多数类别决定。',
+    language: 'Python',
+    code: `from sklearn.neighbors import KNeighborsClassifier\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.preprocessing import StandardScaler\n\nmodel = make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=5))\nmodel.fit(X_train, y_train)`,
+    codeExplanation: 'StandardScaler 防止数值范围大的特征主导欧氏距离。',
+    applications: ['小规模分类', '相似样本检索'],
+    pitfalls: ['忘记标准化', 'K 太小易过拟合、太大易欠拟合'],
+    related: ['math-data-foundations', 'cross-validation'],
+  }),
+  lesson({
+    slug: 'naive-bayes',
+    title: '朴素贝叶斯',
+    category: 'machine-learning',
+    difficulty: '进阶',
+    summary: '朴素贝叶斯结合先验与特征似然，计算类别的后验概率。',
+    explanation: '先考虑每个类别本来有多常见，再看当前特征在各类别中有多常见。',
+    principle:
+      '“朴素”假设特征在给定类别后条件独立，使高维联合概率可以拆成乘积。',
+    formula: 'P(y|x) ∝ P(y)∏ⱼP(xⱼ|y)',
+    formulaDescription: '比较各类别未归一化后验分数即可完成分类。',
+    language: 'Python',
+    code: `from sklearn.naive_bayes import GaussianNB\n\nmodel = GaussianNB().fit(X_train, y_train)\nprint(model.predict_proba(X_test[:2]))`,
+    codeExplanation: 'GaussianNB 用每个类别内各特征的高斯分布估计似然。',
+    related: ['math-data-foundations', 'supervised-learning'],
+  }),
+  lesson({
+    slug: 'support-vector-machines',
+    title: '支持向量机',
+    category: 'machine-learning',
+    difficulty: '进阶',
+    summary: 'SVM 寻找间隔最大的决策边界，并可借助核函数表达非线性。',
+    explanation: '不仅要把两类分开，还希望边界离最近的两侧样本都尽可能远。',
+    principle:
+      '真正决定边界的是靠近间隔的支持向量；C 控制间隔宽度与误分类惩罚，gamma 控制 RBF 影响范围。',
+    formula: 'min ½||w||² + CΣξᵢ',
+    formulaDescription: '第一项鼓励大间隔，第二项惩罚违反间隔的样本。',
+    language: 'Python',
+    code: `from sklearn.svm import SVC\nfrom sklearn.pipeline import make_pipeline\nfrom sklearn.preprocessing import StandardScaler\n\nmodel = make_pipeline(StandardScaler(), SVC(C=1.0, gamma="scale", probability=True))`,
+    codeExplanation: 'SVM 对尺度敏感，因此通常与标准化组合在 Pipeline 中。',
+    related: ['overfitting-regularization', 'cross-validation'],
+  }),
+  lesson({
+    slug: 'decision-trees',
+    title: '决策树',
+    category: 'machine-learning',
+    difficulty: '入门',
+    summary: '决策树反复选择特征与阈值，把样本划分到更纯的叶节点。',
+    explanation: '像连续提问：“某特征是否大于阈值？”每次回答都把可能类别缩小。',
+    principle:
+      '训练在候选划分中选择不纯度下降最大的方案；树越深，越容易记住噪声。',
+    formula: 'Gain = I(parent) - Σₖ(nₖ/n)I(childₖ)',
+    formulaDescription: '划分增益等于父节点不纯度减去子节点加权不纯度。',
+    language: 'Python',
+    code: `from sklearn.tree import DecisionTreeClassifier\n\nmodel = DecisionTreeClassifier(max_depth=3, min_samples_leaf=5, random_state=42)\nmodel.fit(X_train, y_train)`,
+    codeExplanation:
+      'max_depth 和 min_samples_leaf 约束树复杂度，帮助控制过拟合。',
+    related: ['random-forest-boosting', 'overfitting-regularization'],
+  }),
+  lesson({
+    slug: 'random-forest-boosting',
+    title: '随机森林与梯度提升',
+    category: 'machine-learning',
+    difficulty: '进阶',
+    summary: '集成学习组合多棵树，利用差异降低方差或逐步修正错误。',
+    explanation:
+      '随机森林让许多不同的树投票；Boosting 则让后一棵树重点修正前面的残差。',
+    principle:
+      'Bagging 并行训练多模型以降低方差；Boosting 串行添加弱模型以降低当前误差。',
+    formula: 'Fₘ(x)=Fₘ₋₁(x)+ηhₘ(x)',
+    formulaDescription: '梯度提升以学习率 η 逐步加入新树。',
+    language: 'Python',
+    code: `from sklearn.ensemble import RandomForestClassifier, HistGradientBoostingClassifier\n\nforest = RandomForestClassifier(n_estimators=300, min_samples_leaf=2, random_state=42)\nboost = HistGradientBoostingClassifier(learning_rate=0.05, max_iter=200)`,
+    codeExplanation: '两种方法都基于树，但训练关系、主要超参数和误差特性不同。',
+    related: ['decision-trees', 'model-evaluation'],
+  }),
+  lesson({
+    slug: 'pca-clustering',
+    title: 'PCA 与聚类解释',
+    category: 'machine-learning',
+    difficulty: '进阶',
+    summary: 'PCA 寻找方差最大的正交方向，常用于压缩和观察聚类结构。',
+    explanation:
+      '把高维数据投影到最能保留变化的几条轴上，方便观察但不保证类别分得最好。',
+    principle:
+      '第一主成分使投影方差最大，后续主成分与之前方向正交；聚类编号本身没有类别语义。',
+    formula: 'v₁ = argmax||v||=1 Var(Xv)',
+    formulaDescription: '第一主成分是在单位方向中投影方差最大的方向。',
+    language: 'Python',
+    code: `from sklearn.decomposition import PCA\nfrom sklearn.preprocessing import StandardScaler\n\nX_scaled = StandardScaler().fit_transform(X)\nX_2d = PCA(n_components=2).fit_transform(X_scaled)\nprint(X_2d.shape)`,
+    codeExplanation: '先标准化再做 PCA，避免大尺度特征主导方差方向。',
+    related: ['unsupervised-learning', 'model-evaluation'],
+  }),
+  lesson({
+    slug: 'model-evaluation',
+    title: '模型评估与错误代价',
+    category: 'machine-learning',
+    difficulty: '进阶',
+    summary: '评价指标必须匹配真实使用方式、类别分布和错误成本。',
+    explanation:
+      '准确率只回答“总体对了多少”，却可能掩盖少数类漏报；指标要围绕真正关心的错误选择。',
+    principle:
+      '混淆矩阵拆分 TP、FP、FN、TN；精确率关注误报，召回率关注漏报，F1 平衡二者。',
+    formula: 'Precision=TP/(TP+FP)，Recall=TP/(TP+FN)',
+    formulaDescription: '误报成本高看精确率，漏报成本高看召回率。',
+    language: 'Python',
+    code: `from sklearn.metrics import classification_report, confusion_matrix\n\nprint(confusion_matrix(y_test, y_pred))\nprint(classification_report(y_test, y_pred))`,
+    codeExplanation: '不要只报告单一准确率；同时查看每类指标和具体错误样本。',
+    related: ['cross-validation', 'overfitting-regularization'],
+  }),
+  lesson({
+    slug: 'cross-validation',
+    title: '交叉验证与可靠调参',
+    category: 'machine-learning',
+    difficulty: '进阶',
+    summary: '交叉验证让每条训练数据轮流参与验证，得到更稳定的模型比较。',
+    explanation:
+      '一次划分可能碰巧简单或困难；多折验证像进行多次小考试，再观察平均表现和波动。',
+    principle:
+      '预处理必须在每个训练折内拟合；时间、用户或设备存在依赖时，应使用时间或分组划分而非普通随机折。',
+    formula: 'CV score = mean(s₁,…,sₖ) ± std(s₁,…,sₖ)',
+    formulaDescription: '平均值衡量总体表现，标准差反映对数据划分的敏感度。',
+    language: 'Python',
+    code: `from sklearn.model_selection import StratifiedKFold, cross_validate\n\ncv = StratifiedKFold(5, shuffle=True, random_state=42)\nresult = cross_validate(model, X_train, y_train, cv=cv, scoring=["accuracy", "f1_macro"])`,
+    codeExplanation: '分层折让各折类别比例接近总体；最终测试集仍应保持未使用。',
+    related: ['data-preprocessing', 'model-evaluation'],
+  }),
+  lesson({
+    slug: 'end-to-end-ml-project',
+    title: '端到端机器学习项目',
+    category: 'machine-learning',
+    difficulty: '挑战',
+    summary: '从任务定义、数据检查到保存推理，建立可复现的完整机器学习闭环。',
+    explanation:
+      '真正的项目不是只调用 fit，而是确保每一步的数据边界、比较协议和推理输入都一致。',
+    principle:
+      '先保留最终测试集；用 Pipeline 和交叉验证比较候选模型；调参后只做一次最终测试，并保存模型与预处理。',
+    formula: '任务契约 → 数据 → Pipeline → CV → 调参 → 测试 → 保存/推理',
+    formulaDescription: '每一步都应有可检查的输入、输出与验收条件。',
+    language: 'Python',
+    code: `import joblib\n\nbest_model.fit(X_train, y_train)\nprint(best_model.score(X_test, y_test))\njoblib.dump(best_model, "model.joblib")\nloaded = joblib.load("model.joblib")`,
+    codeExplanation:
+      '保存整个 Pipeline，才能让未来输入复用相同预处理和模型参数。',
+    applications: ['Wine 分类项目', '生产推理闭环'],
+    related: ['cross-validation', 'model-evaluation'],
+  }),
+  lesson({
+    slug: 'artificial-neuron',
+    title: '人工神经元',
+    category: 'deep-learning',
+    difficulty: '入门',
+    summary: '人工神经元对输入加权求和、加偏置，再经过激活函数。',
+    explanation:
+      '每个输入像一条证据，权重表示证据重要性，偏置调整触发门槛，激活函数决定输出方式。',
+    principle:
+      '单个神经元是仿射变换与非线性的组合；多个神经元组成层，多层堆叠形成网络。',
+    formula: 'y=f(wᵀx+b)',
+    formulaDescription: 'w 和 b 是学习参数，f 是激活函数。',
+    language: 'PyTorch',
+    code: `import torch\nfrom torch import nn\n\nneuron = nn.Linear(2, 1)\nx = torch.tensor([[0.4, 0.8]])\ny = torch.sigmoid(neuron(x))\nprint(y.shape)`,
+    codeExplanation: 'Linear 学习权重和偏置，Sigmoid 把输出压缩到 0～1。',
+    related: ['neural-networks', 'activation-functions'],
+  }),
+  lesson({
+    slug: 'pytorch-tensors-modules',
+    title: 'PyTorch 张量与 nn.Module',
+    category: 'deep-learning',
+    difficulty: '入门',
+    summary: '张量承载数据，nn.Module 组织可学习参数、子模块与前向计算。',
+    explanation:
+      'Tensor 是带形状和 dtype 的多维数组；Module 像模型的结构化容器，会自动登记需要优化的参数。',
+    principle:
+      '每个操作都应先明确 batch 维、特征维、设备和 dtype；Module 的 forward 描述从输入到输出的变换。',
+    formula: '[N,din] @ [din,dout] → [N,dout]',
+    formulaDescription: '矩阵乘法的内维必须一致。',
+    language: 'PyTorch',
+    code: `import torch\nfrom torch import nn\n\nlayer = nn.Linear(5, 3)\nx = torch.randn(8, 5)\ny = layer(x)\nprint(y.shape, sum(p.numel() for p in layer.parameters()))`,
+    codeExplanation: '8 个 5 维样本映射为 3 维；参数量为 5×3+3。',
+    related: ['artificial-neuron', 'data-pipeline'],
+  }),
+  lesson({
+    slug: 'epoch-batch-iteration',
+    title: 'Epoch、Batch 与 Iteration',
+    category: 'deep-learning',
+    difficulty: '入门',
+    summary:
+      'Batch 是一批样本，Iteration 是一次参数更新，Epoch 是完整遍历一次训练集。',
+    explanation:
+      '大数据不能一次装入显存，因此分批学习；内层循环处理 batch，外层循环重复 epoch。',
+    principle:
+      '保留最后一个不完整 batch 时，每个 epoch 的 iteration 数是样本数除以 batch size 后向上取整。',
+    formula: 'iterations/epoch = ⌈N/B⌉',
+    formulaDescription: '若 drop_last=True，则不完整的最后一批会被丢弃。',
+    language: 'PyTorch',
+    code: `for epoch in range(num_epochs):\n    for x, target in train_loader:\n        optimizer.zero_grad()\n        loss = criterion(model(x), target)\n        loss.backward()\n        optimizer.step()`,
+    codeExplanation: '每次内层循环通常完成一次前向、反向和参数更新。',
+    related: ['data-pipeline', 'optimizers-schedulers'],
+  }),
+  lesson({
+    slug: 'data-pipeline',
+    title: 'Dataset、DataLoader 与预处理',
+    category: 'deep-learning',
+    difficulty: '进阶',
+    summary:
+      'Dataset 定义单个样本，DataLoader 负责抽样、分批、打乱和并行读取。',
+    explanation:
+      'Dataset 回答“第 i 个样本是什么”，DataLoader 回答“怎样把样本组织成训练批次”。',
+    principle:
+      '划分应先于有学习参数的预处理；训练集可使用随机增强，验证与测试使用确定性变换。',
+    formula: 'Dataset[i] → sample，collate(samples) → batch',
+    formulaDescription: 'batch 维通常由 DataLoader 添加。',
+    language: 'PyTorch',
+    code: `from torch.utils.data import DataLoader, TensorDataset\n\ndataset = TensorDataset(x, y)\nloader = DataLoader(dataset, batch_size=16, shuffle=True, drop_last=False)\nbatch_x, batch_y = next(iter(loader))`,
+    codeExplanation:
+      '训练集通常 shuffle=True；先从 num_workers=0 开始确认正确性。',
+    related: ['epoch-batch-iteration', 'data-preprocessing'],
+  }),
+  lesson({
+    slug: 'gradient-initialization',
+    title: '梯度问题与权重初始化',
+    category: 'deep-learning',
+    difficulty: '进阶',
+    summary: '深层网络可能出现梯度消失或爆炸，初始化决定信号和梯度的初始尺度。',
+    explanation: '信号逐层相乘，若每层都稍小会快速消失，稍大则可能爆炸。',
+    principle:
+      'ReLU 网络常用 He 初始化；饱和激活、过深链路与不当尺度会让梯度难以传播。',
+    formula: 'Var(w) ≈ 2/fan_in',
+    formulaDescription: 'Kaiming/He 初始化为 ReLU 网络保持合适方差。',
+    language: 'PyTorch',
+    code: `from torch import nn\n\nlayer = nn.Linear(128, 64)\nnn.init.kaiming_normal_(layer.weight, nonlinearity="relu")\nnn.init.zeros_(layer.bias)`,
+    codeExplanation: '初始化应与激活函数和层结构匹配，并通过梯度统计验证。',
+    related: ['backpropagation', 'normalization'],
+  }),
+  lesson({
+    slug: 'normalization',
+    title: 'BatchNorm 与 LayerNorm',
+    category: 'deep-learning',
+    difficulty: '进阶',
+    summary: '归一化层控制中间特征尺度，但统计轴和训练/评估行为不同。',
+    explanation:
+      'BatchNorm 借助同批样本统计每个通道；LayerNorm 在每个样本内部统计特征，更适合序列模型。',
+    principle:
+      'BatchNorm 训练时使用当前 batch 并更新运行统计，eval 时使用累计统计；LayerNorm 不依赖 batch 组成。',
+    formula: 'x̂=(x-μS)/√(σ²S+ε)，y=γx̂+β',
+    formulaDescription: '方法差异主要在统计集合 S 包含哪些轴。',
+    language: 'PyTorch',
+    code: `import torch\nfrom torch import nn\n\nx = torch.randn(8, 20, 64)\nln = nn.LayerNorm(64)\nprint(ln(x).shape)`,
+    codeExplanation: 'LayerNorm 对最后 64 个特征归一化，输出形状保持不变。',
+    pitfalls: ['混淆输入标准化与网络归一化', '推理前忘记 model.eval()'],
+    related: ['gradient-initialization', 'transformer'],
+  }),
+  lesson({
+    slug: 'optimizers-schedulers',
+    title: '优化器与学习率调度',
+    category: 'deep-learning',
+    difficulty: '进阶',
+    summary: '优化器根据梯度更新参数，调度器随训练阶段调整步长。',
+    explanation:
+      '梯度指出方向，学习率决定一步走多远，动量和自适应统计帮助减少震荡。',
+    principle:
+      'SGD+momentum 与 AdamW 是常见基线；scheduler.step 的时机必须与其设计一致，不能机械放置。',
+    formula: 'θₜ₊₁ = θₜ - ηₜ · update(gₜ)',
+    formulaDescription: '学习率 ηₜ 可以由调度器按 epoch 或 iteration 改变。',
+    language: 'PyTorch',
+    code: `from torch.optim import AdamW\nfrom torch.optim.lr_scheduler import CosineAnnealingLR\n\noptimizer = AdamW(model.parameters(), lr=3e-4, weight_decay=1e-2)\nscheduler = CosineAnnealingLR(optimizer, T_max=20)`,
+    codeExplanation:
+      'AdamW 将权重衰减与梯度更新解耦；调度器通常在完成规定粒度的更新后调用。',
+    related: ['epoch-batch-iteration', 'training-engineering'],
+  }),
+  lesson({
+    slug: 'dl-evaluation-imbalance',
+    title: '深度学习评估与类别不平衡',
+    category: 'deep-learning',
+    difficulty: '进阶',
+    summary: '评估阶段要固定模型行为、关闭梯度，并使用适合类别分布的指标。',
+    explanation:
+      '总体准确率可能很好，却完全漏掉少数类；需要同时看每类召回、宏平均 F1 和错误样本。',
+    principle:
+      'model.eval 控制 Dropout/BatchNorm，inference_mode 关闭 autograd；二者职责不同，评估时通常同时使用。',
+    formula: 'F1macro=(1/C)Σc F1c',
+    formulaDescription: '宏平均让每个类别权重相同，更能暴露少数类问题。',
+    language: 'PyTorch',
+    code: `model.eval()\ncorrect = total = 0\nwith torch.inference_mode():\n    for x, y in val_loader:\n        pred = model(x).argmax(1)\n        correct += (pred == y).sum().item()\n        total += y.numel()`,
+    codeExplanation: '验证不更新参数；还应累计混淆矩阵并按类别分析。',
+    related: ['model-evaluation', 'normalization'],
+  }),
+  lesson({
+    slug: 'embeddings-sequences',
+    title: 'Embedding 与序列数据',
+    category: 'deep-learning',
+    difficulty: '进阶',
+    summary:
+      'Embedding 把离散 token id 映射为可学习的稠密向量，并配合 padding mask 处理变长序列。',
+    explanation:
+      '词编号本身没有大小意义；Embedding 像一张可学习查找表，把每个编号变成语义向量。',
+    principle:
+      '输入通常是 [N,L] 的整数 id，输出为 [N,L,D]；padding 位置必须从注意力、损失和池化中排除。',
+    formula: 'E[token_ids] → ℝᴺˣᴸˣᴰ',
+    formulaDescription:
+      '词表大小决定行数，embedding 维度 D 决定每个 token 的表示宽度。',
+    language: 'PyTorch',
+    code: `import torch\nfrom torch import nn\n\nids = torch.tensor([[2, 7, 4, 0]])\nembedding = nn.Embedding(1000, 64, padding_idx=0)\nx = embedding(ids)\nprint(x.shape)`,
+    codeExplanation:
+      '输出形状为 [1,4,64]；padding_idx=0 让补齐项使用固定零向量。',
+    related: ['rnn-lstm-gru', 'transformer'],
+  }),
+  lesson({
+    slug: 'rnn-lstm-gru',
+    title: 'RNN、LSTM 与 GRU',
+    category: 'deep-learning',
+    difficulty: '进阶',
+    summary: '循环网络用隐藏状态传递历史信息，门控结构帮助保留长期依赖。',
+    explanation:
+      '模型从左到右阅读序列，每一步更新“记忆”；LSTM 和 GRU 用门决定保留或写入什么。',
+    principle:
+      '双向模型能看未来上下文，不适合严格在线或自回归任务；变长序列需 packing 或正确 mask。',
+    formula: 'hₜ=f(xₜ,hₜ₋₁)',
+    formulaDescription: '当前隐藏状态由当前输入和上一时刻状态共同决定。',
+    language: 'PyTorch',
+    code: `import torch\nfrom torch import nn\n\nlstm = nn.LSTM(64, 128, batch_first=True, bidirectional=True)\nx = torch.randn(8, 20, 64)\noutput, (h, c) = lstm(x)\nprint(output.shape, h.shape)`,
+    codeExplanation:
+      '双向输出为 [8,20,256]，最终隐藏状态第一维包含层数×方向数。',
+    related: ['embeddings-sequences', 'transformer'],
+  }),
+  lesson({
+    slug: 'residual-networks',
+    title: '残差连接与现代 CNN',
+    category: 'deep-learning',
+    difficulty: '进阶',
+    summary: '残差块学习对输入的修正，让深层网络更容易优化。',
+    explanation:
+      '与其每层重新构造全部表示，不如学习“在原结果上改多少”，并保留一条直达路径。',
+    principle:
+      '相加前主分支与 shortcut 的形状必须一致；通道或空间尺寸变化时使用投影 shortcut。',
+    formula: 'y = F(x) + shortcut(x)',
+    formulaDescription:
+      '当形状相同 shortcut 可为恒等映射，否则用 1×1 卷积匹配。',
+    language: 'PyTorch',
+    code: `from torch import nn\n\nshortcut = nn.Conv2d(64, 128, kernel_size=1, stride=2)\n# 将 [N,64,32,32] 映射为 [N,128,16,16]`,
+    codeExplanation:
+      '1×1、stride=2 同时调整通道与空间尺寸，使两条分支能够相加。',
+    related: ['convolutional-neural-networks', 'transfer-learning'],
+  }),
+  lesson({
+    slug: 'transfer-learning',
+    title: '迁移学习与微调',
+    category: 'deep-learning',
+    difficulty: '进阶',
+    summary: '复用预训练模型表示，替换任务头并按阶段解冻参数。',
+    explanation:
+      '预训练骨干已经学会通用特征，新任务先学习小分类头，再视数据量逐步微调更深层。',
+    principle:
+      '冻结参数与设置 eval 是不同操作；预处理必须使用权重对应的 transforms，小 batch 微调还要谨慎处理 BatchNorm。',
+    formula: '新模型 = 预训练骨干 + 新任务头',
+    formulaDescription: '可训练参数范围和学习率应随微调阶段变化。',
+    language: 'PyTorch',
+    code: `for p in model.backbone.parameters():\n    p.requires_grad = False\nmodel.classifier = nn.Linear(model.classifier.in_features, num_classes)\noptimizer = torch.optim.AdamW(model.classifier.parameters(), lr=1e-3)`,
+    codeExplanation: '第一阶段只训练新分类头；解冻后通常用更小学习率更新骨干。',
+    related: ['residual-networks', 'normalization'],
+  }),
+  lesson({
+    slug: 'detection-segmentation',
+    title: '目标检测与图像分割',
+    category: 'deep-learning',
+    difficulty: '挑战',
+    summary: '检测预测物体类别与边界框，分割为每个像素分配类别或实例。',
+    explanation:
+      '分类回答“图里有什么”，检测还回答“在哪里”，分割进一步描出每个像素。',
+    principle:
+      '检测评估围绕 IoU、Precision/Recall 和 mAP；NMS 去除重叠冗余框，数据增强必须同步变换图像与标注。',
+    formula: 'IoU = |A∩B| / |A∪B|',
+    formulaDescription: '预测框与真实框重叠越充分，IoU 越高。',
+    language: 'Python',
+    code: `def iou(box_a, box_b):\n    x1, y1 = max(box_a[0], box_b[0]), max(box_a[1], box_b[1])\n    x2, y2 = min(box_a[2], box_b[2]), min(box_a[3], box_b[3])\n    inter = max(0, x2-x1) * max(0, y2-y1)\n    area_a = (box_a[2]-box_a[0]) * (box_a[3]-box_a[1])\n    area_b = (box_b[2]-box_b[0]) * (box_b[3]-box_b[1])\n    return inter / (area_a + area_b - inter)`,
+    codeExplanation:
+      '先求交集面积，再除以并集面积；真实实现还需批量化和边界约定。',
+    related: ['convolutional-neural-networks', 'transfer-learning'],
+  }),
+  lesson({
+    slug: 'deep-generative-models',
+    title: 'VAE、GAN 与扩散模型',
+    category: 'deep-learning',
+    difficulty: '挑战',
+    summary: '生成模型用不同目标学习数据分布、潜变量或逐步去噪过程。',
+    explanation:
+      'VAE 学习连续潜空间，GAN 让生成器与判别器对抗，扩散模型学习把噪声一步步还原成数据。',
+    principle:
+      '三类模型的训练目标、采样路径和稳定性不同；选择应围绕数据、质量、速度和可控性。',
+    formula: 'VAE: L = reconstruction + KL(q(z|x)||p(z))',
+    formulaDescription: '重建项保留样本信息，KL 项让潜变量分布接近先验。',
+    language: 'PyTorch',
+    code: `mu, logvar = encoder(x)\nstd = (0.5 * logvar).exp()\nz = mu + std * torch.randn_like(std)\nreconstruction = decoder(z)`,
+    codeExplanation:
+      '重参数化把随机性移到独立噪声，使梯度能通过 mu 和 logvar 传播。',
+    related: ['generative-ai', 'backpropagation'],
+  }),
+  lesson({
+    slug: 'training-engineering',
+    title: '可靠训练工程',
+    category: 'deep-learning',
+    difficulty: '挑战',
+    summary: '设备、混合精度、检查点、随机性和实验记录决定训练能否可靠复现。',
+    explanation:
+      '一次跑出好分数不等于工程完成；需要能够恢复、比较、解释并重复实验。',
+    principle:
+      '训练与验证职责分离；保存最佳模型而非只保存最后模型；检查点应含模型、优化器、调度器和 epoch。',
+    formula: '可靠结果 = 代码 + 数据版本 + 配置 + 随机源 + 检查点',
+    formulaDescription: '复现不是只设置一个 seed，而是记录完整实验环境。',
+    language: 'PyTorch',
+    code: `checkpoint = {\n    "model": model.state_dict(),\n    "optimizer": optimizer.state_dict(),\n    "epoch": epoch,\n    "best_score": best_score,\n}\ntorch.save(checkpoint, "checkpoint.pt")`,
+    codeExplanation:
+      '完整检查点用于恢复训练；部署推理通常只需要权重、配置、预处理和类别映射。',
+    related: ['optimizers-schedulers', 'model-saving-inference'],
+  }),
+  lesson({
+    slug: 'model-debugging',
+    title: '深度学习模型调试',
+    category: 'deep-learning',
+    difficulty: '进阶',
+    summary:
+      '按数据、形状、损失、梯度、更新、极小 batch 和曲线的顺序定位问题。',
+    explanation:
+      '很多“模型不行”其实是标签错位、静默广播、梯度断开或参数没交给优化器。',
+    principle:
+      '先建立最小可复现案例，并要求模型拟合极小 batch；这一步失败时不要急着加深网络或大规模调参。',
+    formula:
+      '数据 → shape/dtype → loss → gradient → update → tiny batch → generalization',
+    formulaDescription: '严格按顺序排查能快速缩小故障范围。',
+    language: 'PyTorch',
+    code: `x, target = next(iter(train_loader))\nprint(x.shape, x.dtype, x.min().item(), x.max().item())\nlogits = model(x.to(device))\nassert torch.isfinite(logits).all()\nloss = criterion(logits, target.to(device))\nloss.backward()\nprint([(n, p.grad is None) for n, p in model.named_parameters()])`,
+    codeExplanation:
+      '第一批数据先验证形状、dtype、数值范围、有限性和梯度是否存在。',
+    related: ['backpropagation', 'training-engineering'],
+  }),
+  lesson({
+    slug: 'model-saving-inference',
+    title: '模型保存、加载与推理',
+    category: 'deep-learning',
+    difficulty: '进阶',
+    summary: '推荐保存 state_dict，并同时保存配置、预处理和类别映射。',
+    explanation:
+      '权重只是模型的一部分；推理要重建相同结构，使用相同预处理，并把类别索引还原成真实标签。',
+    principle:
+      '推理前调用 model.eval 和 inference_mode；训练检查点与轻量推理产物服务于不同目的。',
+    formula: 'prediction = postprocess(model(preprocess(input)))',
+    formulaDescription: '训练与推理的预处理、结构和后处理必须保持一致。',
+    language: 'PyTorch',
+    code: `torch.save(model.state_dict(), "weights.pt")\nmodel.load_state_dict(torch.load("weights.pt", map_location="cpu"))\nmodel.eval()\nwith torch.inference_mode():\n    prediction = model(preprocessed_input)`,
+    codeExplanation:
+      'state_dict 比保存整个 Python 模型对象更稳健；部署时还需记录模型配置。',
+    pitfalls: ['忘记 model.eval()', '训练和推理预处理不一致'],
+    related: ['training-engineering', 'end-to-end-ml-project'],
+  }),
 ];
