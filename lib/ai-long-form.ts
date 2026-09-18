@@ -21,30 +21,58 @@ const mcpSpec='https://modelcontextprotocol.io/specification/2026-07-28';
 
 const localLoop=`from dataclasses import dataclass\n\n@dataclass\nclass StepResult:\n    observation: str\n    done: bool\n\ndef search_notes(topic: str) -> StepResult:\n    notes = {"Agent": "Agent 组织模型、状态与工具来完成目标。"}\n    text = notes.get(topic, "本地资料中没有结果")\n    return StepResult(text, topic in notes)\n\ndef run_agent(task: str, max_steps: int = 4) -> str:\n    state = {"task": task, "step": 0, "observations": []}\n    while state["step"] < max_steps:\n        state["step"] += 1\n        result = search_notes("Agent")\n        state["observations"].append(result.observation)\n        if result.done:\n            return f"第 {state['step']} 步完成：{result.observation}"\n    return "达到步数上限，安全停止"\n\nprint(run_agent("解释 Agent"))`;
 
-const toolSchema=`from dataclasses import dataclass\n+from typing import Literal\n+\n+@dataclass\n+class ReadRequest:\n+    path: str\n+    mode: Literal["summary", "metadata"] = "summary"\n+\n+def validate(request: ReadRequest) -> None:\n+    if not request.path.endswith(".md"):\n+        raise ValueError("只允许读取 Markdown")\n+    if ".." in request.path:\n+        raise PermissionError("禁止越过资料目录")\n+\n+def read_local_note(request: ReadRequest) -> dict:\n+    validate(request)\n+    return {"ok": True, "path": request.path, "content": "本地演示结果"}\n+\n+request = ReadRequest("notes/agent.md")\n+print(read_local_note(request))`;
 
-function make(seed:Seed):AILongFormConcept{return {
-  id:seed.slug,slug:seed.slug,title:seed.title,category:'artificial-intelligence',difficulty:seed.difficulty,subcategory:seed.subcategory,entityType:seed.entityType,summary:seed.summary,
-  importance:[`${seed.title}决定系统如何把“能生成文字”转化为可验证、可控制的任务能力。`,`理解它能帮助学习者划清模型能力、应用编排与外部执行之间的责任边界。`],
-  learningObjectives:[`能够用自己的话定义${seed.title}并指出它解决的问题。`,`能够沿输入、处理、输出复述完整流程。`,`能够识别至少两个失败模式，并说明权限或验证应放在哪里。`],
-  definition:[seed.definition,`正式地说，${seed.title}不是一个孤立名词，而是 AI 系统中具有明确输入、状态变化、输出和边界条件的组件或方法。`],
-  background:[seed.background,`当系统从单轮预测扩展到长任务时，正确性不只取决于模型输出，还取决于上下文、工具结果、停止条件、权限和可观测性。`],
-  intuition:[seed.intuition,`可以把它放在“模型理解与生成—Agent 组织—Skill 给出流程—Tool 执行动作—MCP 标准化连接”的学习框架中定位，但该框架只是教学抽象，具体产品行为以所列官方文档为准。`],
-  corePrinciple:seed.principles,
-  formulas:[seed.formula??{label:'任务成功率分解',expression:'P(success)=P(plan)\\,P(action\\mid plan)\\,P(verify\\mid action)',description:'教学性分解：计划、执行和验证任一环节薄弱都会降低端到端成功率；各项通常并不严格独立。'}],
-  variableDefinitions:[{symbol:'P(success)',meaning:'在预先定义的验收条件下完成任务的概率。'},{symbol:'P(plan)',meaning:'规划覆盖关键步骤和约束的概率。'},{symbol:'P(action|plan)',meaning:'给定规划后正确执行动作的条件概率。'},{symbol:'P(verify|action)',meaning:'执行后正确验证结果并发现错误的条件概率。'}],
-  numericalExample:{title:`${seed.title}的小型可靠性示例`,given:['规划正确率 0.95','执行正确率 0.90','验证正确率 0.98'],steps:['把三个阶段视为教学上的近似独立环节。','相乘得到 0.95×0.90×0.98。','结果约为 0.838，说明局部高分并不自动带来同等高的端到端可靠性。'],result:'近似成功率为 83.8%；真实系统应通过评测数据估计，而不是直接假定独立。',comparison:['只有模型回答：缺少外部动作验证。','加入流程与工具：能力增强，同时增加权限和失败面。','加入审批、日志与结果校验：牺牲少量速度换取可控性。']},
-  algorithmSteps:seed.steps,workflow:seed.steps,inputs:seed.inputs,outputs:seed.outputs,
-  codeExamples:[(seed.code??{title:`${seed.title}的本地确定性示例`,language:'Python',purpose:'用不调用网络、不需要 API Key 的代码观察状态、边界与输出。',source:seed.entityType==='tool'?toolSchema:localLoop,explanation:['数据和工具结果都在本地固定定义，因此每次运行可复现。','步数上限、输入校验和结构化返回值是可靠性边界的一部分。','示例展示概念映射，不会在网站内执行。'],expectedOutput:'打印结构化的本地结果或明确的安全停止原因。'}) as AILongFormConcept['codeExamples'][number]],
-  codeExplanation:['先检查输入与允许范围，再执行最小动作，最后把结构化结果交给上层判断。','代码示例用于对应原理，不代表网站会调用 OpenAI API、远程 MCP 或执行用户输入。'],expectedOutput:seed.code?.expectedOutput??'得到稳定、可复现的本地输出，并能观察失败时的明确错误。',
-  applications:seed.applications,pitfalls:seed.pitfalls,securityRisks:seed.security??['把不可信内容当作高优先级指令。','给组件超过任务所需的读写权限。','缺少结果校验便把外部返回值写入关键系统。'],performanceNotes:seed.performance??['增加上下文、工具和编排层会带来延迟与成本。','应限制循环次数、工具集合、返回大小和重试次数，并记录每一步。'],
-  prerequisites:seed.prerequisites,relatedConcepts:seed.related,interactiveDemo:seed.interactiveDemo,
-  sourceDocuments:[{path:'OpenAI / MCP 官方在线文档（内容录入时查阅）',title:'当前官方技术文档',kind:'扩展资料'}],sourceSections:seed.sourceSections??['概念定义、流程、权限与安全章节'],sourceUrls:seed.sourceUrls??[openaiAgents],versionDate:accessed,
-  extensionNotes:['本页属于人工智能方向扩展内容；OpenAI、Codex、Agents SDK 与 MCP 的现行行为已按来源页面在 2026-08-30 核对。通用教学示例不等同于某一厂商 API 承诺。'],
-  capabilities:seed.capabilities??seed.applications,permissions:seed.permissions??['默认最小权限','敏感写操作需要显式审批'],inputsSchema:seed.inputs.join('；'),outputsSchema:seed.outputs.join('；'),transport:seed.transport,executionEnvironment:seed.executionEnvironment??'本地浏览器教学演示；示例代码独立运行',approvalRequired:seed.approvalRequired??false,readOnly:seed.readOnly??true,failureModes:seed.failureModes??seed.pitfalls,trustBoundary:seed.trustBoundary??['用户输入与系统指令之间','模型输出与工具执行之间','外部结果与最终结论之间'],
-  commonQuestions:[{question:`${seed.title}是否等同于大语言模型？`,answer:'不等同。模型是理解与生成组件；本概念描述的是更具体的方法、流程或连接边界。'},{question:'为什么本页示例不直接调用在线 API？',answer:'本站定位为本地学习资料。示例完整展示接口思想，但不执行用户代码、不读取密钥，也不发起远程 AI 请求。'}]
-}}
-
+function make(seed: Seed): AILongFormConcept {
+  const reliability = seed.slug === 'agent-reliability';
+  const code = seed.code ?? (seed.slug === 'agent-loop' ? {
+    title: '有停止条件的本地工作循环', language: 'Python' as const,
+    purpose: '观察任务状态、工具返回和最大步数如何共同决定循环何时结束。',
+    source: localLoop,
+    explanation: ['工具返回观察结果和完成标记。', '循环保留历史观察，完成后立即返回；未完成时受最大步数限制。', '这是确定性的循环骨架，不包含模型推理或自主规划。'],
+    expectedOutput: '第 1 步完成：Agent 组织模型、状态与工具来完成目标。',
+  } : undefined);
+  return {
+    id: seed.slug, slug: seed.slug, title: seed.title,
+    category: 'artificial-intelligence', difficulty: seed.difficulty,
+    subcategory: seed.subcategory, entityType: seed.entityType, summary: seed.summary,
+    importance: [],
+    learningObjectives: [`能说明${seed.title}解决什么问题，以及何时适用。`, `能解释为什么“${seed.pitfalls[0]}”是误区。`],
+    definition: [seed.definition], background: [seed.background], intuition: [seed.intuition],
+    corePrinciple: seed.principles,
+    formulas: reliability ? [{
+      label: '串行流程的联合成功概率',
+      expression: String.raw`P(A\cap B\cap C)=P(A)\,P(B\mid A)\,P(C\mid A\cap B)`,
+      description: 'A、B、C 分别表示规划、执行、验收三个环节达标。公式描述三者同时达标的概率，是条件概率的链式法则，不要求各环节独立。实际任务成功必须另有明确验收标准，不能把模型自报“通过”当作真实成功。',
+    }] : seed.formula ? [seed.formula] : [],
+    variableDefinitions: reliability ? [
+      { symbol: 'A', meaning: '规划满足任务约束。' },
+      { symbol: 'B', meaning: '执行按约定正确完成。' },
+      { symbol: 'C', meaning: '结果满足预先定义的验收条件。' },
+      { symbol: 'P(B|A)', meaning: '在规划达标的样本中，执行达标的比例。' },
+      { symbol: 'P(C|A∩B)', meaning: '在规划和执行都达标的样本中，验收达标的比例。' },
+    ] : [],
+    numericalExample: reliability ? {
+      title: '从同一批任务统计端到端通过率',
+      given: ['以下数字仅为教学假设，不是实测数据。', '1000 个任务中，950 个规划达标；其中 855 个执行达标；最后 838 个通过验收。'],
+      steps: ['规划达标比例为 950 / 1000。', '在规划达标的任务中，执行达标比例为 855 / 950。', '在前两步都达标的任务中，验收达标比例为 838 / 855。', '三者相乘，得到 838 / 1000 = 83.8%。'],
+      result: '这批假设任务的联合通过率为 83.8%，不需要假设三个环节相互独立。',
+      comparison: ['不能直接相乘三个来自不同样本的总体通过率。', '线上评估还应按任务类型和失败原因分组，检查验收标准是否可靠。'],
+    } : undefined,
+    algorithmSteps: seed.steps, workflow: seed.steps, inputs: seed.inputs, outputs: seed.outputs,
+    codeExamples: code ? [code as AILongFormConcept['codeExamples'][number]] : [],
+    codeExplanation: code?.explanation ?? [], expectedOutput: code?.expectedOutput ?? '',
+    applications: seed.applications, pitfalls: seed.pitfalls,
+    securityRisks: seed.security ?? [], performanceNotes: seed.performance ?? [],
+    prerequisites: seed.prerequisites, relatedConcepts: seed.related,
+    interactiveDemo: seed.interactiveDemo,
+    sourceDocuments: [], sourceSections: [], sourceUrls: seed.sourceUrls ?? [], versionDate: accessed,
+    extensionNotes: [], capabilities: seed.capabilities ?? seed.applications,
+    permissions: seed.permissions ?? [], inputsSchema: seed.inputs.join('；'), outputsSchema: seed.outputs.join('；'),
+    transport: seed.transport, executionEnvironment: seed.executionEnvironment ?? '',
+    approvalRequired: seed.approvalRequired ?? false, readOnly: seed.readOnly ?? true,
+    failureModes: seed.failureModes ?? [], trustBoundary: seed.trustBoundary ?? [], commonQuestions: [],
+  };
+}
 const seeds:Seed[]=[
 {slug:'ai-overview',title:'人工智能是什么',difficulty:'入门',subcategory:'理论基础',entityType:'theory',summary:'从理性行动、任务环境与可验证目标理解人工智能，而不是把 AI 等同于单一模型。',definition:'人工智能研究和构建能够感知环境、表示信息、推理或学习，并采取行动以实现目标的系统。',background:'AI 同时包含符号推理、搜索规划、统计学习、生成模型和智能体系统，不同路线解决的问题与证据标准不同。',intuition:'AI 像一套解决问题的工程学：先定义“什么算完成”，再选择表示、算法、模型与行动机制。',principles:['任务必须先被表示为可观察输入、内部状态、候选行动与成功标准。','理性并不要求永远正确，而是在有限信息与资源下选择预期效用较高的行动。','生成结果需要由评测、约束或外部事实验证，流畅度不是正确性的充分证据。'],steps:['定义任务环境与用户目标','确定可观察信息和行动范围','选择规则、搜索、学习或生成方法','执行并收集反馈','按验收标准评估和改进'],inputs:['任务描述','环境观察','约束与成功标准'],outputs:['预测、计划、生成内容或环境行动'],applications:['辅助决策','自动化工作流','感知与生成系统'],pitfalls:['把 AI 等同于聊天机器人','没有先定义成功标准','把拟人化描述当成机制解释'],prerequisites:['概率与逻辑基础'],related:['state-space-search','knowledge-representation','intelligent-agent'],sourceUrls:['https://plato.stanford.edu/entries/artificial-intelligence/',openaiAgents]},
 {slug:'ai-history',title:'人工智能发展历史',difficulty:'入门',subcategory:'理论基础',entityType:'theory',summary:'沿符号主义、统计学习、深度学习与基础模型理解 AI 方法为何更替并相互融合。',definition:'AI 历史是问题表示、计算资源、数据规模与学习算法共同演进的历史。',background:'早期系统依赖规则与搜索，随后统计学习强调从数据估计，深度学习推进表示学习，基础模型又把通用生成能力带入工具化系统。',intuition:'每一波 AI 浪潮都不是把旧方法清零，而是在新的资源条件下重新组合表示、搜索和学习。',principles:['能力提升通常来自算法、数据、算力和评测的共同变化。','技术低谷常由承诺超过可验证能力、数据或计算条件不足造成。','现代 Agent 仍会使用经典搜索、规划、状态和反馈思想。'],steps:['按年代标记代表性方法','比较各时期的核心假设','记录成功任务与失败边界','把历史概念连接到现代系统'],inputs:['年代','代表论文和系统','当时的计算与数据条件'],outputs:['技术路线时间线','方法之间的继承关系'],applications:['理解技术选择','避免把旧思想包装成全新概念'],pitfalls:['只记年份不理解因果','把路线更替写成单线胜利史'],prerequisites:['人工智能是什么'],related:['ai-overview','symbolic-connectionist-behaviorist','generative-ai']},
