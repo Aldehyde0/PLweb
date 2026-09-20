@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildMindMap,
+  zoomMindMap,
   layoutMindMap,
   type MapConcept,
 } from '../lib/mindmap.ts';
@@ -90,4 +91,21 @@ void test('desktop and touch layouts contain nonoverlapping nodes', () => {
         );
       }
   }
+});
+
+void test('wide maps spread large branches over multiple columns and reduce height', () => {
+  const graph = buildMindMap('machine-learning', items);
+  const wide = layoutMindMap(graph, 1440);
+  const group = wide.nodes.filter(
+    (n) => n.kind === 'concept' && n.group === '目录 0',
+  );
+  assert.equal(new Set(group.map((n) => n.x)).size, 2);
+  assert.ok(wide.height < layoutMindMap(graph, 768).height);
+});
+void test('zoom keeps the world point under the mouse stationary and respects limits', () => {
+  const next = zoomMindMap(1, 1.5, 300, 200, 250, 160, 1440, 1000);
+  assert.equal((300 + 250) / 1, (next.left + 250) / next.scale);
+  assert.equal((200 + 160) / 1, (next.top + 160) / next.scale);
+  assert.equal(zoomMindMap(1, 50, 0, 0, 0, 0, 1440, 1000).scale, 2.5);
+  assert.equal(zoomMindMap(1, 0.01, 0, 0, 0, 0, 1440, 1000).scale, 0.2);
 });
