@@ -26,9 +26,11 @@ export function PlanNextStep({ plan }: { plan: LearningPlan }) {
     (item) => item.status !== 'completed' && item.status !== 'skipped',
   );
   const concept = task.conceptSlug ? conceptMap[task.conceptSlug] : null;
-  const href = concept
-    ? `${getConceptHref(concept)}#${step?.targetSection ?? task.targetSection ?? 'definition'}`
-    : `#task-${task.id}`;
+  const href =
+    task.resourceUrl ??
+    (concept
+      ? `${getConceptHref(concept)}#${step?.targetSection ?? task.targetSection ?? 'definition'}`
+      : `#task-${task.id}`);
   return (
     <section className="plan-next-step">
       <div>

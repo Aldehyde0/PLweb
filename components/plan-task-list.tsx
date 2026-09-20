@@ -166,7 +166,10 @@ export function PlanTaskList({
                                 <small>{step.description}</small>
                               )}
                             </span>
-                            <em>{step.estimatedMinutes} 分钟</em>
+                            <em>
+                              {step.estimatedMinutes} 分钟
+                              {step.dueDate ? ` · ${step.dueDate}` : ''}
+                            </em>
                           </label>
                           {concept && step.targetSection && (
                             <Link
@@ -295,7 +298,8 @@ function TaskEditor({ plan, task }: { plan: LearningPlan; task: PlanTask }) {
         <Input
           id={field('minutes')}
           type="number"
-          min={5}
+          min={1}
+          max={10}
           value={draft.estimatedMinutes}
           onChange={(event) =>
             setDraft({ ...draft, estimatedMinutes: Number(event.target.value) })

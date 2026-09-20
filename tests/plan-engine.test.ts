@@ -15,6 +15,7 @@ import {
   generatePlan,
   migratePlanState,
   parseWeeklyMinutes,
+  planPreview,
   recomputePlan,
   type PlanConcept,
   type PlanFormInput,
@@ -122,7 +123,7 @@ void test('knowledge route only links existing concepts and reports broken prere
   );
 });
 
-void test('deep understanding keeps required comprehension steps inside two concept cards', () => {
+void test('deep understanding keeps required comprehension steps inside one concept card', () => {
   const plan = generatePlan(
     {
       ...baseInput,
@@ -137,7 +138,7 @@ void test('deep understanding keeps required comprehension steps inside two conc
   const tasks = plan.phases
     .flatMap((phase) => phase.tasks)
     .filter((task) => task.conceptSlug === 'intro');
-  assert.equal(tasks.length, 2);
+  assert.equal(tasks.length, 1);
   const types = new Set(
     tasks.flatMap((task) => task.substeps.map((step) => step.type)),
   );
@@ -160,7 +161,9 @@ void test('code practice adds an interactive experiment only for concepts that h
   );
   const experiments = plan.phases
     .flatMap((phase) => phase.tasks)
-    .filter((task) => task.type === 'interactive-experiment');
+    .filter((task) =>
+      task.substeps.some((step) => step.type === 'interactive-experiment'),
+    );
   assert.deepEqual(
     experiments.map((task) => task.conceptSlug),
     ['core'],
@@ -181,9 +184,10 @@ void test('spaced review uses day 0, 1, 3, 7 and 14 offsets', () => {
   );
   const reviews = plan.phases
     .flatMap((phase) => phase.tasks)
-    .filter((task) => task.type === 'review');
+    .flatMap((task) => task.substeps)
+    .filter((step) => step.type === 'review');
   assert.deepEqual(
-    reviews.map((task) => task.dueDate),
+    reviews.map((step) => step.dueDate),
     ['2026-08-31', '2026-09-01', '2026-09-03', '2026-09-07', '2026-09-14'],
   );
 });
@@ -203,7 +207,7 @@ void test('recompute keeps reading, code, test and mastery states independent', 
     { ...plan, phases: [{ ...plan.phases[0]!, tasks }] },
     new Date('2026-08-31T10:00:00'),
   );
-  assert.ok(updated.completionRate > 0 && updated.completionRate < 100);
+  assert.equal(updated.completionRate, 100);
   assert.notEqual(updated.phases[0]!.test.status, 'completed');
   assert.equal(updated.phases[0]!.mastered, false);
 });
@@ -228,7 +232,7 @@ void test('reminder appears once per local day only for an active incomplete pla
     new Date('2026-08-31T09:00:00'),
   );
   assert.equal(reminder?.daysAway, 2);
-  assert.equal(reminder?.suggestedTasks.length, 2);
+  assert.equal(reminder?.suggestedTasks.length, 1);
   assert.equal(
     buildReminder(
       plan,
@@ -246,46 +250,23 @@ void test('reminder appears once per local day only for an active incomplete pla
   );
 });
 
-void test('learned synchronization completes the understanding card but not the practice card', () => {
+void test('learned synchronization completes only the matching concept card', () => {
   const plan = generatePlan(
-    {
-      ...baseInput,
-      method: 'deep-understanding',
-      includeCode: false,
-      includeReview: false,
-    },
-    concepts.slice(0, 1),
+    { ...baseInput, includeReview: false },
+    concepts,
     { learned: [], bookmarks: [] },
     new Date('2026-08-31T08:00:00'),
   );
-  const reading = plan.phases[0]!.tasks.find(
-    (task) => task.type === 'concept-understanding',
-  )!;
-  const code = plan.phases[0]!.tasks.find(
-    (task) => task.type === 'principle-practice',
-  )!;
-  const synced = syncLearnedTasks(
-    plan,
-    ['intro'],
-    new Date('2026-08-31T09:00:00'),
-  );
+  const synced = syncLearnedTasks(plan, ['intro']);
+  const tasks = synced.phases.flatMap((phase) => phase.tasks);
   assert.equal(
-    synced.phases[0]!.tasks.find((task) => task.id === reading.id)?.status,
+    tasks.find((task) => task.conceptSlug === 'intro')?.status,
     'completed',
   );
-  assert.notEqual(
-    synced.phases[0]!.tasks.find((task) => task.id === code.id)?.status,
-    'completed',
-  );
-  const paused = updateTask(
-    synced,
-    code.id,
-    { status: 'paused' },
-    new Date('2026-08-31T10:00:00'),
-  );
-  assert.equal(
-    paused.phases[0]!.tasks.find((task) => task.id === code.id)?.status,
-    'paused',
+  assert.ok(
+    tasks
+      .filter((task) => task.conceptSlug !== 'intro')
+      .every((task) => task.status !== 'completed'),
   );
 });
 
@@ -319,12 +300,21 @@ void test('only comprehension tasks count as proof that a concept was learned', 
   );
   const tasks = plan.phases.flatMap((phase) => phase.tasks);
   const learnedTypes = new Set(
-    tasks.filter((task) => taskMarksConceptLearned(task)).map((task) => task.type),
+    tasks
+      .filter((task) => taskMarksConceptLearned(task))
+      .map((task) => task.type),
   );
-  assert.ok(learnedTypes.size > 0, 'some task must be able to mark a concept learned');
+  assert.ok(
+    learnedTypes.size > 0,
+    'some task must be able to mark a concept learned',
+  );
   for (const type of learnedTypes)
     assert.ok(
-      ['concept-understanding', 'concept-reading', 'definition-reading'].includes(type),
+      [
+        'concept-understanding',
+        'concept-reading',
+        'definition-reading',
+      ].includes(type),
       `${type} must not mark a concept as learned`,
     );
   // Practice, review, exercise, project and resource work must never imply mastery.
@@ -445,7 +435,9 @@ void test('completing a comprehension card directly and by substeps share one ru
     new Date('2026-08-31T08:00:00'),
   );
   const phase = plan.phases[0]!;
-  const card = phase.tasks.find((task) => task.type === 'concept-understanding')!;
+  const card = phase.tasks.find(
+    (task) => task.type === 'concept-understanding',
+  )!;
   assert.ok(card.conceptSlug, 'the comprehension card must carry a concept');
   assert.equal(taskMarksConceptLearned(card), true);
 
@@ -466,34 +458,21 @@ void test('completing a comprehension card directly and by substeps share one ru
     'step-by-step completion must satisfy the same rule as completing the card',
   );
 
-  const practice = phase.tasks.find((task) => task.type === 'principle-practice')!;
-  assert.equal(taskMarksConceptLearned(practice), false);
-  const practiceDone = updateTask(
-    plan,
-    practice.id,
-    { status: 'completed' },
-    new Date('2026-08-31T09:00:00'),
-  );
-  const synced = syncLearnedTasks(
-    practiceDone,
-    [],
-    new Date('2026-08-31T09:00:00'),
-  );
-  assert.equal(
-    synced.phases[0]!.tasks.find((task) => task.id === practice.id)?.conceptSlug,
-    practice.conceptSlug,
-    'practice keeps its concept link without implying mastery',
-  );
+  const directly = updateTask(plan, card.id, { status: 'completed' });
+  assert.equal(directly.phases[0]!.tasks[0]!.status, 'completed');
+  assert.equal(substepsComplete(directly.phases[0]!.tasks[0]!.substeps), true);
 });
 
-void test('moving a task changes only the current plan and updates phase ownership', () => {  const plan = generatePlan(
+void test('moving a task changes only the current plan and updates phase ownership', () => {
+  const plan = generatePlan(
     { ...baseInput, includeReview: false },
     concepts,
     { learned: [], bookmarks: [] },
     new Date('2026-08-31T08:00:00'),
   );
   const source = plan.phases[0]!;
-  const target = plan.phases[1]!;
+  const target = { ...source, id: 'move-target', tasks: [] };
+  plan.phases.push(target);
   const task = source.tasks[0]!;
   const moved = moveTask(
     plan,
@@ -579,7 +558,7 @@ void test('stage-test can append a dedicated weak-concept review even when sched
   );
 });
 
-void test('route includes cross-category prerequisite closure before the selected concept', () => {
+void test('route keeps selected category scope without inserting cross-category prerequisites', () => {
   const routeConcepts: PlanConcept[] = [
     {
       slug: 'calculus',
@@ -610,10 +589,7 @@ void test('route includes cross-category prerequisite closure before the selecte
     .flatMap((phase) => phase.tasks)
     .filter((task) => task.type === 'concept-understanding')
     .map((task) => task.conceptSlug);
-  assert.deepEqual(slugs, ['calculus', 'optimization']);
-  assert.ok(
-    plan.generationWarnings.some((warning) => warning.includes('跨方向前置')),
-  );
+  assert.deepEqual(slugs, ['optimization']);
 });
 
 void test('definition paragraph is natural prose without labeled colon sections or memory slogans', () => {
@@ -625,7 +601,7 @@ void test('definition paragraph is natural prose without labeled colon sections 
   assert.match(paragraph, /神经网络/);
 });
 
-void test('knowledge route uses two cards per concept and derives minutes from substeps', () => {
+void test('knowledge route uses one card per concept and derives minutes from substeps', () => {
   const plan = generatePlan(
     { ...baseInput, includeReview: false },
     [richConcept],
@@ -633,15 +609,15 @@ void test('knowledge route uses two cards per concept and derives minutes from s
     new Date('2026-08-31T08:00:00'),
   );
   const tasks = plan.phases.flatMap((phase) => phase.tasks);
-  assert.equal(tasks.length, 2);
+  assert.equal(tasks.length, 1);
   assert.deepEqual(
     tasks.map((task) => task.type),
-    ['concept-understanding', 'principle-practice'],
+    ['concept-understanding'],
   );
   const definition = tasks
     .flatMap((task) => task.substeps)
     .find((step) => step.type === 'definition-reading');
-  assert.equal(definition?.estimatedMinutes, 5);
+  assert.ok(definition && definition.estimatedMinutes > 0);
   for (const task of tasks) {
     assert.equal(
       task.estimatedMinutes,
@@ -650,7 +626,7 @@ void test('knowledge route uses two cards per concept and derives minutes from s
   }
 });
 
-void test('knowledge and deep routes aggregate review work by phase instead of concept', () => {
+void test('knowledge and deep routes keep review work inside concept cards', () => {
   for (const method of ['knowledge-route', 'deep-understanding'] as const) {
     const plan = generatePlan(
       { ...baseInput, method, includeReview: true },
@@ -658,10 +634,13 @@ void test('knowledge and deep routes aggregate review work by phase instead of c
       { learned: [], bookmarks: [] },
       new Date('2026-08-31T08:00:00'),
     );
-    const reviews = plan.phases
-      .flatMap((phase) => phase.tasks)
-      .filter((task) => task.type === 'phase-review');
-    assert.equal(reviews.length, plan.phases.length);
+    const tasks = plan.phases.flatMap((phase) => phase.tasks);
+    assert.equal(tasks.length, concepts.length);
+    assert.ok(
+      tasks.every((task) =>
+        task.substeps.some((step) => step.type === 'review' && step.dueDate),
+      ),
+    );
   }
 });
 
@@ -685,7 +664,7 @@ void test('segmented local date rejects impossible days and supports leap years'
 void test('substep completion updates its parent card without completing sibling cards', () => {
   const plan = generatePlan(
     { ...baseInput, includeReview: false },
-    [richConcept],
+    [richConcept, { ...richConcept, slug: 'second', title: '第二概念' }],
     { learned: [], bookmarks: [] },
     new Date('2026-08-31T08:00:00'),
   );
@@ -710,10 +689,15 @@ void test('substep completion updates its parent card without completing sibling
     plan,
   );
   assert.equal(completed.phases[0]!.tasks[0]!.status, 'completed');
-  assert.notEqual(completed.phases[0]!.tasks[1]!.status, 'completed');
+  assert.notEqual(
+    completed.phases
+      .flatMap((phase) => phase.tasks)
+      .find((task) => task.conceptSlug === 'second')!.status,
+    'completed',
+  );
 });
 
-void test('manual task duration stays equal to redistributed substep minutes', () => {
+void test('manual task duration is capped at ten minutes and redistributed across substeps', () => {
   const plan = generatePlan(
     { ...baseInput, includeReview: false },
     [richConcept],
@@ -723,10 +707,10 @@ void test('manual task duration stays equal to redistributed substep minutes', (
   const task = plan.phases[0]!.tasks[0]!;
   const updated = updateTask(plan, task.id, { estimatedMinutes: 30 });
   const result = updated.phases[0]!.tasks[0]!;
-  assert.equal(result.estimatedMinutes, 30);
+  assert.equal(result.estimatedMinutes, 10);
   assert.equal(
     result.substeps.reduce((sum, step) => sum + step.estimatedMinutes, 0),
-    30,
+    10,
   );
 });
 
@@ -757,7 +741,7 @@ void test('migration wraps legacy tasks in a compatible fallback substep', () =>
   );
   const task = migrated.plans[0]!.phases[0]!.tasks[0]!;
   assert.equal(task.substeps.length, 1);
-  assert.equal(task.substeps[0]!.estimatedMinutes, 15);
+  assert.equal(task.substeps[0]!.estimatedMinutes, 10);
   assert.equal(task.substeps[0]!.status, 'completed');
 });
 
@@ -783,7 +767,7 @@ void test('pausing and resuming a card preserves completed substeps', () => {
 
 void test('estimated completion uses only unfinished substep minutes', () => {
   const plan = generatePlan(
-    { ...baseInput, weeklyMinutes: 30, includeReview: false },
+    { ...baseInput, weeklyMinutes: 7, includeReview: false },
     [richConcept],
     { learned: [], bookmarks: [] },
     new Date('2026-08-31T08:00:00'),
@@ -916,5 +900,226 @@ void test('optional reference resources create independent plan tasks in method 
       .flatMap((phase) => phase.tasks)
       .filter((task) => task.resourceId)
       .every((task) => task.status !== 'completed'),
+  );
+});
+
+void test('all methods preserve the entire selected block order despite a tiny budget', () => {
+  const block: PlanConcept[] = Array.from({ length: 31 }, (_, index) => ({
+    ...richConcept,
+    slug: `lesson-${index}`,
+    title: `课程 ${index}`,
+    difficulty: index % 2 ? '入门' : '挑战',
+    prerequisites: index < 30 ? [`lesson-${index + 1}`] : [],
+  }));
+  for (const method of [
+    'knowledge-route',
+    'deep-understanding',
+    'code-practice',
+    'spaced-review',
+  ] as const) {
+    const plan = generatePlan(
+      {
+        ...baseInput,
+        method,
+        weeklyMinutes: 1,
+        targetDate: '2026-08-31',
+        includeReview: true,
+      },
+      block,
+      { learned: ['lesson-5'], bookmarks: ['lesson-28'] },
+      new Date('2026-08-31T08:00:00'),
+    );
+    const tasks = plan.phases.flatMap((phase) => phase.tasks);
+    assert.deepEqual(
+      tasks.map((task) => task.conceptSlug),
+      block.map((concept) => concept.slug),
+      method,
+    );
+    for (const task of tasks) {
+      assert.ok(
+        task.estimatedMinutes > 0 && task.estimatedMinutes <= 10,
+        `${method}: card duration`,
+      );
+      const minutes = task.substeps.reduce(
+        (sum, step) => sum + step.estimatedMinutes,
+        0,
+      );
+      assert.ok(minutes <= 10 + 1e-9, `${method}: substep total`);
+      assert.ok(
+        Math.abs(task.estimatedMinutes - minutes) < 1e-9,
+        `${method}: matching duration`,
+      );
+      assert.ok(
+        task.substeps.every(
+          (step) => step.type !== 'exercise' && step.type !== 'project',
+        ),
+        `${method}: no placeholder exercises`,
+      );
+    }
+  }
+});
+
+void test('optional resources deduplicate the same URL across the whole plan', () => {
+  const resource = {
+    id: 'shared',
+    title: '共享文章',
+    type: '技术文章',
+    url: 'https://example.com/shared',
+    summary: '相同学习资料',
+    estimatedMinutes: 40,
+    recommendationLevel: 'A' as const,
+  };
+  const source = concepts.map((concept, index) => ({
+    ...concept,
+    resources: [{ ...resource, id: `reference-${index}` }],
+  }));
+  const enabled = generatePlan(
+    { ...baseInput, includeResources: true },
+    source,
+    { learned: [], bookmarks: [] },
+  );
+  const resources = enabled.phases
+    .flatMap((phase) => phase.tasks)
+    .filter((task) => task.resourceUrl);
+  assert.equal(resources.length, 1);
+  assert.equal(resources[0]!.resourceUrl, resource.url);
+  assert.ok(resources[0]!.estimatedMinutes <= 10);
+  const disabled = generatePlan(
+    { ...baseInput, includeResources: false },
+    source,
+    { learned: [], bookmarks: [] },
+  );
+  assert.ok(
+    disabled.phases
+      .flatMap((phase) => phase.tasks)
+      .every((task) => !task.resourceUrl),
+  );
+});
+
+void test('migration removes empty exercise jumps and merges old concept cards without losing progress', () => {
+  const state = migratePlanState(
+    JSON.stringify({
+      plans: [
+        {
+          id: 'legacy',
+          phases: [
+            {
+              id: 'phase',
+              tasks: [
+                {
+                  id: 'reading',
+                  type: 'concept-understanding',
+                  conceptSlug: 'intro',
+                  title: '阅读',
+                  estimatedMinutes: 20,
+                  substeps: [
+                    {
+                      id: 'read-step',
+                      type: 'definition-reading',
+                      title: '定义',
+                      status: 'completed',
+                      estimatedMinutes: 20,
+                      targetSection: 'definition',
+                    },
+                  ],
+                },
+                {
+                  id: 'practice',
+                  type: 'principle-practice',
+                  conceptSlug: 'intro',
+                  title: '原理',
+                  estimatedMinutes: 25,
+                  substeps: [
+                    {
+                      id: 'principle-step',
+                      type: 'principle',
+                      title: '原理',
+                      status: 'not-started',
+                      estimatedMinutes: 15,
+                      targetSection: 'core-principle',
+                    },
+                    {
+                      id: 'empty-step',
+                      type: 'exercise',
+                      title: '练习',
+                      status: 'not-started',
+                      estimatedMinutes: 10,
+                      targetSection: 'core-principle',
+                    },
+                  ],
+                },
+                {
+                  id: 'empty-exercise',
+                  type: 'exercise',
+                  conceptSlug: 'intro',
+                  title: '练习',
+                  targetSection: 'core-principle',
+                  estimatedMinutes: 30,
+                },
+                {
+                  id: 'empty-project',
+                  type: 'project',
+                  conceptSlug: 'intro',
+                  title: '项目',
+                  targetSection: 'code',
+                  estimatedMinutes: 30,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  const tasks = state.plans[0]!.phases.flatMap((phase) => phase.tasks);
+  assert.equal(tasks.length, 1);
+  assert.equal(tasks[0]!.id, 'reading');
+  assert.deepEqual(
+    tasks[0]!.substeps.map((step) => step.id),
+    ['read-step', 'principle-step'],
+  );
+  assert.equal(tasks[0]!.substeps[0]!.status, 'completed');
+  assert.equal(tasks[0]!.substeps[1]!.status, 'not-started');
+  assert.ok(tasks[0]!.estimatedMinutes <= 10);
+  assert.ok(
+    tasks[0]!.substeps.reduce((sum, step) => sum + step.estimatedMinutes, 0) <=
+      10,
+  );
+});
+
+void test('reloading migrated plans is stable and keeps later weak-concept reviews independent', () => {
+  const plan = generatePlan(baseInput, concepts, {
+    learned: [],
+    bookmarks: [],
+  });
+  const task = plan.phases[0]!.tasks[0]!;
+  plan.phases[0]!.tasks.push({
+    ...task,
+    id: 'weak-review',
+    type: 'review',
+    title: '薄弱概念复习',
+  });
+  const first = migratePlanState(JSON.stringify({ plans: [plan] }));
+  const second = migratePlanState(JSON.stringify(first));
+  assert.deepEqual(second.plans[0]!.phases, first.plans[0]!.phases);
+  assert.ok(
+    second.plans[0]!.phases.flatMap((phase) => phase.tasks).some(
+      (task) => task.id === 'weak-review',
+    ),
+  );
+});
+
+void test('preview counts cards containing scheduled reviews', () => {
+  const plan = generatePlan(baseInput, concepts, {
+    learned: [],
+    bookmarks: [],
+  });
+  assert.equal(planPreview(plan).reviewCount, concepts.length);
+  const task = plan.phases[0]!.tasks[0]!;
+  const edited = updateTask(plan, task.id, { estimatedMinutes: 2.4 });
+  const changed = edited.phases[0]!.tasks[0]!;
+  assert.equal(
+    changed.estimatedMinutes,
+    changed.substeps.reduce((sum, step) => sum + step.estimatedMinutes, 0),
   );
 });

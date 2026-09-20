@@ -79,6 +79,7 @@ export type StageTestStatus =
   | 'skipped';
 
 export interface PlanConcept {
+  subcategory?: string;
   slug: string;
   title: string;
   category: CategorySlug;
@@ -204,6 +205,7 @@ export interface PlanPhase {
 }
 
 export interface LearningPlan {
+  taskLayoutVersion?: 2;
   id: string;
   title: string;
   goal: string;
@@ -285,7 +287,7 @@ export const PLAN_METHODS: {
   {
     value: 'knowledge-route',
     label: '知识路线法',
-    summary: '严格沿前置关系逐概念推进，每个概念包含理解与实践两张卡。',
+    summary: '按板块目录顺序学习，每个概念一张卡，预计最多 10 分钟。',
   },
   {
     value: 'deep-understanding',
@@ -295,7 +297,7 @@ export const PLAN_METHODS: {
   {
     value: 'code-practice',
     label: '代码实践法',
-    summary: '概念、代码、参数、实验、记录、练习与小项目。',
+    summary: '在一张概念卡内阅读代码、调整参数并记录结果。',
   },
   {
     value: 'spaced-review',
@@ -459,7 +461,13 @@ export function migratePlanState(raw: string | null): PlanState {
     },
     completedTaskIds: Array.isArray(source.completedTaskIds)
       ? source.completedTaskIds.filter(
-          (id): id is string => typeof id === 'string',
+          (id): id is string =>
+            typeof id === 'string' &&
+            plans.some((plan) =>
+              plan.phases.some((phase) =>
+                phase.tasks.some((task) => task.id === id),
+              ),
+            ),
         )
       : [],
   };
@@ -500,9 +508,13 @@ function migratePlan(value: unknown): LearningPlan {
     value && typeof value === 'object' ? (value as Partial<LearningPlan>) : {};
   const now = new Date();
   const id = typeof item.id === 'string' ? item.id : makeId('plan');
-  const phases = Array.isArray(item.phases)
+  const restoredPhases = Array.isArray(item.phases)
     ? item.phases.map((phase, index) => migratePhase(phase, id, index))
     : [];
+  const phases =
+    item.taskLayoutVersion === 2
+      ? restoredPhases
+      : mergeLegacyConceptTasks(restoredPhases);
   const startDate =
     typeof item.startDate === 'string' ? item.startDate : localDate(now);
   const targetDate =
@@ -510,6 +522,7 @@ function migratePlan(value: unknown): LearningPlan {
   return recomputePlan(
     {
       id,
+      taskLayoutVersion: 2,
       title: typeof item.title === 'string' ? item.title : '未命名计划',
       goal: typeof item.goal === 'string' ? item.goal : '',
       categories: Array.isArray(item.categories)
@@ -613,6 +626,67 @@ function migratePhase(
   };
 }
 
+function isEmptyPractice(item: {
+  type?: TaskType;
+  targetSection?: string | null;
+  resourceUrl?: string | null;
+}) {
+  return (
+    (item.type === 'exercise' || item.type === 'project') && !item.resourceUrl
+  );
+}
+
+function mergeLegacyConceptTasks(phases: PlanPhase[]): PlanPhase[] {
+  const byConcept = new Map<string, PlanTask>();
+  return phases.map((phase) => {
+    const tasks: PlanTask[] = [];
+    for (const task of phase.tasks) {
+      if (isEmptyPractice(task)) continue;
+      task.substeps = task.substeps.filter((step) => !isEmptyPractice(step));
+      if (
+        (!task.conceptSlug && !task.resourceUrl) ||
+        task.type === 'phase-review' ||
+        task.type === 'custom'
+      ) {
+        tasks.push(task);
+        continue;
+      }
+      const key = task.resourceUrl
+        ? `resource:${task.resourceUrl}`
+        : `concept:${task.conceptSlug}`;
+      const previous = byConcept.get(key);
+      if (!previous) {
+        byConcept.set(key, task);
+        tasks.push(task);
+        continue;
+      }
+      previous.substeps.push(...task.substeps);
+      previous.notes = [previous.notes, task.notes]
+        .filter(Boolean)
+        .join('\n\n');
+      previous.description = [
+        ...new Set([previous.description, task.description].filter(Boolean)),
+      ].join('\n');
+      previous.isImportant ||= task.isImportant;
+      if (taskMarksConceptLearned(task))
+        previous.type = 'concept-understanding';
+      previous.status = previous.substeps.every((step) => terminal(step.status))
+        ? 'completed'
+        : previous.substeps.some((step) => step.status !== 'not-started')
+          ? 'in-progress'
+          : 'not-started';
+      previous.completedAt =
+        previous.status === 'completed'
+          ? (previous.completedAt ?? task.completedAt)
+          : null;
+    }
+    tasks.forEach((task, order) => {
+      task.order = order;
+    });
+    return { ...phase, tasks };
+  });
+}
+
 function migrateTask(value: unknown, phaseId: string, order: number): PlanTask {
   const item =
     value && typeof value === 'object' ? (value as Partial<PlanTask>) : {};
@@ -696,77 +770,57 @@ export function generatePlan(
 ): LearningPlan {
   const planId = makeId('plan');
   const warnings: string[] = [];
-  const candidates = collectRouteConcepts(
-    allConcepts,
-    input.categories,
-    warnings,
+  // The category directory is the route: do not reorder, expand or truncate it.
+  const selected = allConcepts.filter((concept) =>
+    input.categories.includes(concept.category),
   );
-  const ordered = orderConcepts(candidates, learning.bookmarks, warnings);
+  const known = new Set(
+    allConcepts.flatMap((concept) => [concept.slug, concept.title]),
+  );
+  for (const concept of selected) {
+    for (const prerequisite of concept.prerequisites) {
+      if (!known.has(prerequisite))
+        warnings.push(`${concept.title} 缺失前置知识链接：${prerequisite}`);
+    }
+  }
   const days = Math.max(
     7,
     Math.ceil(
       (parseLocal(input.targetDate).getTime() - now.getTime()) / 86_400_000,
     ),
   );
-  const weeks = Math.max(1, days / 7);
-  const capacity = Math.max(30, input.weeklyMinutes) * weeks;
-  const selected: PlanConcept[] = [];
-  let usedMinutes = 0;
-  for (const concept of ordered.slice(0, 24)) {
-    const minutes = tasksForConcept(
-      input,
-      concept,
-      'estimate',
-      learning.learned.includes(concept.slug),
-      now,
-    ).reduce((sum, task) => sum + task.estimatedMinutes, 0);
-    if (selected.length > 0 && usedMinutes + minutes > capacity) break;
-    selected.push(concept);
-    usedMinutes += minutes;
+  const phaseGroups: { title: string; concepts: PlanConcept[] }[] = [];
+  for (const concept of selected) {
+    const title = `${CATEGORY_LABELS[concept.category]} · ${concept.subcategory ?? '学习目录'}`;
+    const last = phaseGroups.at(-1);
+    if (last?.title === title) last.concepts.push(concept);
+    else phaseGroups.push({ title, concepts: [concept] });
   }
-  if (selected.length < candidates.length)
-    warnings.push(
-      `根据可用时间，本版先安排 ${selected.length} / ${candidates.length} 个概念。`,
-    );
-  const phaseDefs = [
-    {
-      title: '基础起步',
-      description: '沿前置关系完成最初一组概念，不跨过必要知识。',
-    },
-    {
-      title: '核心推进',
-      description: '在已有基础上继续理解核心概念、原理与联系。',
-    },
-    {
-      title: '综合应用',
-      description: '完成路线后段的原理验证、代码和综合练习。',
-    },
-  ];
+  const seenResources = new Set<string>();
   const phases: PlanPhase[] = [];
-  const phaseCount = Math.min(3, Math.max(1, selected.length));
-  const chunkSize = Math.max(1, Math.ceil(selected.length / phaseCount));
-  for (const [phaseIndex, def] of phaseDefs.slice(0, phaseCount).entries()) {
-    const phaseConcepts = selected.slice(
-      phaseIndex * chunkSize,
-      (phaseIndex + 1) * chunkSize,
-    );
-    if (!phaseConcepts.length) continue;
+  for (const group of phaseGroups) {
+    const phaseConcepts = group.concepts;
+    const def = {
+      title: group.title,
+      description: '按目录顺序逐项学习，每个概念对应一张任务卡。',
+    };
     const phaseId = makeId('phase');
-    let tasks = phaseConcepts.flatMap((concept) =>
-      tasksForConcept(
-        input,
-        concept,
-        phaseId,
-        learning.learned.includes(concept.slug),
-        now,
-      ),
-    );
-    if (
-      input.includeReview &&
-      (input.method === 'knowledge-route' ||
-        input.method === 'deep-understanding')
-    )
-      tasks = [...tasks, makePhaseReviewTask(phaseId, phaseConcepts, now)];
+    const tasks = phaseConcepts
+      .flatMap((concept) =>
+        tasksForConcept(
+          input,
+          concept,
+          phaseId,
+          learning.learned.includes(concept.slug),
+          now,
+        ),
+      )
+      .filter((task) => {
+        if (!task.resourceUrl) return true;
+        if (seenResources.has(task.resourceUrl)) return false;
+        seenResources.add(task.resourceUrl);
+        return true;
+      });
     const test = makeStageTest(
       phaseId,
       def.title,
@@ -788,6 +842,14 @@ export function generatePlan(
     });
   }
   const flat = phases.flatMap((phase) => phase.tasks);
+  const totalMinutes = flat.reduce(
+    (sum, task) => sum + task.estimatedMinutes,
+    0,
+  );
+  if (totalMinutes > (Math.max(30, input.weeklyMinutes) * days) / 7)
+    warnings.push(
+      '已保留完整目录；当前每周时间可能不足以在目标日期前完成，可延长日期或增加每周时间。',
+    );
   if (input.includeTests) {
     const unavailable = phases.filter((phase) => phase.test.notGradable);
     if (unavailable.length)
@@ -820,6 +882,7 @@ export function generatePlan(
   return recomputePlan(
     {
       id: planId,
+      taskLayoutVersion: 2,
       title: input.title.trim() || '我的学习计划',
       goal: input.goal.trim(),
       categories: [...input.categories],
@@ -846,145 +909,6 @@ export function generatePlan(
   );
 }
 
-function normalizeConceptKey(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[、，,/（）()\s·：:]/g, '');
-}
-
-function collectRouteConcepts(
-  allConcepts: PlanConcept[],
-  categories: CategorySlug[],
-  warnings: string[],
-) {
-  const bySlug = new Map(allConcepts.map((concept) => [concept.slug, concept]));
-  const byTitle = new Map(
-    allConcepts.map((concept) => [normalizeConceptKey(concept.title), concept]),
-  );
-  const normalized = allConcepts.map((concept) => ({
-    ...concept,
-    prerequisites: concept.prerequisites.flatMap((identifier) => {
-      const resolved =
-        bySlug.get(identifier) ?? byTitle.get(normalizeConceptKey(identifier));
-      if (!resolved) {
-        warnings.push(`${concept.title} 缺失前置知识链接：${identifier}`);
-        return [];
-      }
-      return [resolved.slug];
-    }),
-  }));
-  const normalizedBySlug = new Map(
-    normalized.map((concept) => [concept.slug, concept]),
-  );
-  const targetSlugs = normalized
-    .filter((concept) => categories.includes(concept.category))
-    .map((concept) => concept.slug);
-  const included = new Set(targetSlugs);
-  const visit = (slug: string, visiting: Set<string>) => {
-    if (visiting.has(slug)) return;
-    const concept = normalizedBySlug.get(slug);
-    if (!concept) return;
-    const next = new Set(visiting).add(slug);
-    for (const prerequisite of concept.prerequisites) {
-      included.add(prerequisite);
-      visit(prerequisite, next);
-    }
-  };
-  for (const slug of targetSlugs) visit(slug, new Set());
-  const bridges = normalized.filter(
-    (concept) =>
-      included.has(concept.slug) && !categories.includes(concept.category),
-  );
-  if (bridges.length)
-    warnings.push(
-      `已加入跨方向前置知识：${bridges.map((concept) => concept.title).join('、')}。`,
-    );
-  return normalized.filter((concept) => included.has(concept.slug));
-}
-
-function orderConcepts(
-  concepts: PlanConcept[],
-  bookmarks: string[],
-  warnings: string[],
-) {
-  const map = new Map(concepts.map((concept) => [concept.slug, concept]));
-  const indegree = new Map(concepts.map((concept) => [concept.slug, 0]));
-  const children = new Map<string, string[]>();
-  for (const concept of concepts) {
-    for (const prerequisite of concept.prerequisites) {
-      if (!map.has(prerequisite)) {
-        warnings.push(`${concept.title} 缺失前置知识链接：${prerequisite}`);
-        continue;
-      }
-      indegree.set(concept.slug, (indegree.get(concept.slug) ?? 0) + 1);
-      children.set(prerequisite, [
-        ...(children.get(prerequisite) ?? []),
-        concept.slug,
-      ]);
-    }
-  }
-  const rank: Record<Difficulty, number> = { 入门: 0, 进阶: 1, 挑战: 2 };
-  const sort = (a: PlanConcept, b: PlanConcept) =>
-    rank[a.difficulty] - rank[b.difficulty] ||
-    Number(bookmarks.includes(b.slug)) - Number(bookmarks.includes(a.slug)) ||
-    a.title.localeCompare(b.title, 'zh-CN');
-  const queue = concepts
-    .filter((concept) => indegree.get(concept.slug) === 0)
-    .sort(sort);
-  const result: PlanConcept[] = [];
-  while (queue.length) {
-    const concept = queue.shift()!;
-    result.push(concept);
-    for (const child of children.get(concept.slug) ?? []) {
-      indegree.set(child, (indegree.get(child) ?? 1) - 1);
-      if (indegree.get(child) === 0) queue.push(map.get(child)!);
-      queue.sort(sort);
-    }
-  }
-  const remaining = concepts
-    .filter((concept) => !result.some((item) => item.slug === concept.slug))
-    .sort(sort);
-  if (remaining.length)
-    warnings.push(
-      `检测到循环前置关系：${remaining.map((item) => item.title).join('、')}；已按难度降级排序。`,
-    );
-  return [...result, ...remaining];
-}
-
-function baseTask(
-  concept: PlanConcept,
-  phaseId: string,
-  type: TaskType,
-  title: string,
-  minutes: number,
-  section: string | null,
-  complete = false,
-): PlanTask {
-  const substeps = [
-    makeSubstep(type, title, concept.title, minutes, section, complete),
-  ];
-  return {
-    id: makeId('task'),
-    phaseId,
-    type,
-    title,
-    conceptSlug: concept.slug,
-    description: concept.title,
-    category: concept.category,
-    difficulty: concept.difficulty,
-    estimatedMinutes: minutes,
-    dueDate: localDate(new Date()),
-    order: 0,
-    status: complete ? 'completed' : 'not-started',
-    isImportant: false,
-    completedAt: complete ? new Date().toISOString() : null,
-    notes: '',
-    targetSection: section,
-    substeps,
-  };
-}
-
 function makeSubstep(
   type: TaskType,
   title: string,
@@ -1004,216 +928,6 @@ function makeSubstep(
     completedAt: complete ? new Date().toISOString() : null,
     targetSection,
     dueDate,
-  };
-}
-
-function groupedTask(
-  concept: PlanConcept,
-  phaseId: string,
-  type: 'concept-understanding' | 'principle-practice',
-  title: string,
-  description: string,
-  substeps: PlanSubstep[],
-  complete = false,
-): PlanTask {
-  const normalized = complete
-    ? substeps.map((step) => ({
-        ...step,
-        status: 'completed' as const,
-        completedAt: step.completedAt ?? new Date().toISOString(),
-      }))
-    : substeps;
-  return {
-    id: makeId('task'),
-    phaseId,
-    type,
-    title,
-    conceptSlug: concept.slug,
-    description,
-    category: concept.category,
-    difficulty: concept.difficulty,
-    estimatedMinutes: normalized.reduce(
-      (sum, step) => sum + step.estimatedMinutes,
-      0,
-    ),
-    dueDate: localDate(new Date()),
-    order: 0,
-    status: complete ? 'completed' : 'not-started',
-    isImportant: false,
-    completedAt: complete ? new Date().toISOString() : null,
-    notes: '',
-    targetSection: normalized[0]?.targetSection ?? null,
-    substeps: normalized,
-  };
-}
-
-function progressiveConceptTasks(
-  input: PlanFormInput,
-  concept: PlanConcept,
-  phaseId: string,
-  learned: boolean,
-): PlanTask[] {
-  const deep = input.method === 'deep-understanding';
-  const definition = buildDefinitionParagraph(concept);
-  const understanding = [
-    makeSubstep(
-      'definition-reading',
-      `阅读定义 · ${concept.title}`,
-      definition,
-      5,
-      'definition',
-      learned,
-    ),
-    makeSubstep(
-      'context',
-      '理解它解决的问题与知识位置',
-      concept.summary ?? definition,
-      deep ? 5 : 3,
-      'background',
-      learned,
-    ),
-    makeSubstep(
-      'intuition',
-      `理解直觉 · ${concept.title}`,
-      concept.summary ?? concept.title,
-      deep ? 5 : 4,
-      'intuition',
-      learned,
-    ),
-    makeSubstep(
-      'related-concepts',
-      '确认前置与后续关系',
-      [...concept.prerequisites, ...(concept.relatedConcepts ?? [])]
-        .filter(Boolean)
-        .join('、'),
-      deep ? 5 : 3,
-      'related',
-      learned,
-    ),
-    makeSubstep(
-      'understanding-question',
-      `完成理解检查 · ${concept.title}`,
-      '用自己的话说明这个概念是什么，以及它解决什么问题。',
-      5,
-      'related',
-      learned,
-    ),
-  ];
-  const practice = [
-    makeSubstep(
-      'principle',
-      `学习核心原理 · ${concept.title}`,
-      concept.principles?.[0] ?? concept.summary ?? concept.title,
-      deep ? 8 : 6,
-      'core-principle',
-    ),
-    ...(concept.hasFormula
-      ? [
-          makeSubstep(
-            'formula',
-            `阅读公式或最小例子 · ${concept.title}`,
-            '对照变量含义和最小计算，确认公式如何表达核心原理。',
-            deep ? 8 : 6,
-            'formulas',
-          ),
-        ]
-      : []),
-    ...(input.includeCode && concept.hasCode
-      ? [
-          makeSubstep(
-            'code-reading',
-            `阅读代码 · ${concept.title}`,
-            '把代码中的变量、步骤和输出与概念原理逐项对应。',
-            deep ? 12 : 10,
-            'code',
-          ),
-        ]
-      : []),
-    ...(concept.hasInteractive
-      ? [
-          makeSubstep(
-            'interactive-experiment',
-            `交互实验 · ${concept.title}`,
-            '修改一个关键参数，观察变化并记录结果。',
-            deep ? 15 : 12,
-            'algorithm-steps',
-          ),
-        ]
-      : []),
-    makeSubstep(
-      'self-explanation',
-      `用自己的话解释 · ${concept.title}`,
-      '不查看正文，说明核心原理及其适用边界。',
-      5,
-      'core-principle',
-    ),
-    makeSubstep(
-      'exercise',
-      `完成巩固练习 · ${concept.title}`,
-      '完成一个简短问题或最小练习，检查是否真正理解。',
-      5,
-      'pitfalls',
-    ),
-  ];
-  return [
-    groupedTask(
-      concept,
-      phaseId,
-      'concept-understanding',
-      `名词与理解 · ${concept.title}`,
-      definition,
-      understanding,
-      learned,
-    ),
-    groupedTask(
-      concept,
-      phaseId,
-      'principle-practice',
-      `原理与实践 · ${concept.title}`,
-      concept.principles?.[0] ?? concept.summary ?? concept.title,
-      practice,
-    ),
-  ];
-}
-
-function makePhaseReviewTask(
-  phaseId: string,
-  concepts: PlanConcept[],
-  now: Date,
-): PlanTask {
-  const names = concepts.map((concept) => concept.title).join('、');
-  const substeps = [1, 3, 7, 14].map((offset) =>
-    makeSubstep(
-      'review',
-      `${offset} 天后复习本阶段`,
-      `复习${names}，优先回看定义、核心原理和未完成的练习。`,
-      offset === 14 ? 8 : 6,
-      offset % 2 ? 'formulas' : 'code',
-      false,
-      addDays(now, offset),
-    ),
-  );
-  return {
-    id: makeId('task'),
-    phaseId,
-    type: 'phase-review',
-    title: '阶段聚合复习',
-    conceptSlug: null,
-    description: `按 1、3、7、14 天节奏复习：${names}`,
-    category: null,
-    difficulty: null,
-    estimatedMinutes: substeps.reduce(
-      (sum, step) => sum + step.estimatedMinutes,
-      0,
-    ),
-    dueDate: addDays(now, 1),
-    order: 0,
-    status: 'not-started',
-    isImportant: false,
-    completedAt: null,
-    notes: '',
-    targetSection: null,
-    substeps,
   };
 }
 
@@ -1296,15 +1010,9 @@ function resourceTasksForConcept(
         input.method === 'spaced-review'
           ? `复习参考资料 · ${resource.title}`
           : resourceTaskTitle(resource);
-      const minutes = Math.max(5, resource.estimatedMinutes);
+      const minutes = Math.min(10, Math.max(1, resource.estimatedMinutes));
       const substeps = [
-        makeSubstep(
-          type,
-          title,
-          resource.summary,
-          minutes,
-          null,
-        ),
+        makeSubstep(type, title, resource.summary, minutes, null),
       ];
       return {
         id: makeId('task'),
@@ -1337,141 +1045,159 @@ function tasksForConcept(
   learned: boolean,
   now: Date,
 ): PlanTask[] {
-  let tasks: PlanTask[];
-  if (
-    input.method === 'knowledge-route' ||
-    input.method === 'deep-understanding'
-  ) {
-    tasks = progressiveConceptTasks(input, concept, phaseId, learned);
-  } else if (input.method === 'code-practice') {
-    tasks = [
-      baseTask(
-        concept,
-        phaseId,
-        'concept-reading',
-        `学习概念 · ${concept.title}`,
-        20,
-        'definition',
-        learned,
-      ),
-      baseTask(
-        concept,
-        phaseId,
-        'code-reading',
-        `阅读代码 · ${concept.title}`,
-        25,
-        'code',
-      ),
-      baseTask(
-        concept,
-        phaseId,
-        'parameter-change',
-        `修改参数 · ${concept.title}`,
-        25,
-        'code',
-      ),
-      ...(concept.hasInteractive
-        ? [
-            baseTask(
-              concept,
-              phaseId,
-              'interactive-experiment',
-              `交互实验 · ${concept.title}`,
-              25,
-              'algorithm-steps',
-            ),
-          ]
-        : []),
-      baseTask(
-        concept,
-        phaseId,
-        'result-note',
-        `记录实验结果 · ${concept.title}`,
-        15,
-        'code',
-      ),
-      baseTask(
-        concept,
-        phaseId,
-        'exercise',
-        `完成小练习 · ${concept.title}`,
-        30,
-        'pitfalls',
-      ),
-      baseTask(
-        concept,
-        phaseId,
-        'project',
-        `完成小项目 · ${concept.title}`,
-        45,
-        'applications',
-      ),
-    ];
-  } else if (input.method === 'spaced-review') {
-    tasks = [
-      baseTask(
-        concept,
-        phaseId,
-        'concept-reading',
-        `首次学习 · ${concept.title}`,
-        25,
-        'definition',
-        learned,
-      ),
-    ];
-    for (const offset of [0, 1, 3, 7, 14]) {
-      const task = baseTask(
-        concept,
-        phaseId,
-        'review',
-        `${offset === 0 ? '当天' : `${offset} 天后`}复习 · ${concept.title}`,
-        15,
-        offset % 2 ? 'code' : 'formulas',
+  const definition = buildDefinitionParagraph(concept);
+  const substeps = [
+    makeSubstep(
+      'definition-reading',
+      `阅读定义 · ${concept.title}`,
+      definition,
+      2,
+      'definition',
+      learned,
+    ),
+    makeSubstep(
+      'intuition',
+      '理解直觉与背景',
+      concept.summary ?? definition,
+      1,
+      'intuition',
+      learned,
+    ),
+    makeSubstep(
+      'principle',
+      '理解核心原理',
+      concept.principles?.[0] ?? definition,
+      2,
+      'core-principle',
+      learned,
+    ),
+    ...(concept.hasFormula
+      ? [
+          makeSubstep(
+            'formula',
+            '阅读公式与例子',
+            '对照变量含义理解计算过程。',
+            1,
+            'formulas',
+            learned,
+          ),
+        ]
+      : []),
+    ...(input.includeCode && concept.hasCode
+      ? [
+          makeSubstep(
+            'code-reading',
+            '阅读代码与观察结果',
+            '将代码的输入、计算和输出与原理对应。',
+            2,
+            'code',
+            learned,
+          ),
+        ]
+      : []),
+    ...(concept.hasInteractive
+      ? [
+          makeSubstep(
+            'interactive-experiment',
+            '交互实验',
+            '调整参数并观察变化。',
+            1,
+            'algorithm-steps',
+            learned,
+          ),
+        ]
+      : []),
+    makeSubstep(
+      'self-explanation',
+      '用自己的话解释',
+      '说明核心原理及其适用边界。',
+      1,
+      null,
+      learned,
+    ),
+    makeSubstep(
+      'understanding-question',
+      '检查理解',
+      '回想它是什么、解决什么问题。',
+      1,
+      null,
+      learned,
+    ),
+  ];
+  if (input.includeReview || input.method === 'spaced-review') {
+    const offsets =
+      input.method === 'spaced-review' ? [0, 1, 3, 7, 14] : [1, 3, 7, 14];
+    for (const offset of offsets)
+      substeps.push(
+        makeSubstep(
+          'review',
+          `${offset === 0 ? '当天' : `${offset} 天后`}复习`,
+          '回顾定义与原理，记录仍不清楚的地方。',
+          1,
+          'definition',
+          learned,
+          addDays(now, offset),
+        ),
       );
-      task.dueDate = addDays(now, offset);
-      tasks.push(task);
-    }
-  } else tasks = [];
-  tasks.push(...resourceTasksForConcept(input, concept, phaseId, now));
-  if (
-    input.includeCode &&
-    concept.hasCode &&
-    !tasks.some(
-      (task) =>
-        task.type === 'code-reading' ||
-        task.substeps.some((step) => step.type === 'code-reading'),
-    )
-  )
-    tasks.push(
-      baseTask(
-        concept,
-        phaseId,
-        'code-reading',
-        `代码练习 · ${concept.title}`,
-        25,
-        'code',
+  }
+  if (input.method === 'deep-understanding')
+    substeps.splice(
+      1,
+      0,
+      makeSubstep(
+        'context',
+        '梳理背景与知识关系',
+        concept.summary ?? definition,
+        1,
+        'background',
+        learned,
       ),
     );
   if (
-    input.includeReview &&
-    input.method !== 'spaced-review' &&
-    input.method !== 'knowledge-route' &&
-    input.method !== 'deep-understanding'
+    input.method === 'code-practice' &&
+    input.includeCode &&
+    concept.hasCode
   ) {
-    for (const offset of [1, 3, 7, 14]) {
-      const task = baseTask(
-        concept,
-        phaseId,
-        'review',
-        `${offset} 天后复习 · ${concept.title}`,
-        12,
-        offset % 2 ? 'formulas' : 'code',
-      );
-      task.dueDate = addDays(now, offset);
-      tasks.push(task);
-    }
+    substeps.push(
+      makeSubstep(
+        'parameter-change',
+        '调整代码参数',
+        '修改示例中的一个参数，对比输出。',
+        1,
+        'code',
+        learned,
+      ),
+      makeSubstep(
+        'result-note',
+        '记录代码观察',
+        '记录参数变化和结果之间的关系。',
+        1,
+        null,
+        learned,
+      ),
+    );
   }
-  return tasks;
+  const steps = resizeSubsteps(substeps, 10);
+  const task: PlanTask = {
+    id: makeId('task'),
+    phaseId,
+    type: 'concept-understanding',
+    title: `学习 · ${concept.title}`,
+    conceptSlug: concept.slug,
+    description: definition,
+    category: concept.category,
+    difficulty: concept.difficulty,
+    estimatedMinutes: 10,
+    dueDate: localDate(now),
+    order: 0,
+    status: learned ? 'completed' : 'not-started',
+    isImportant: false,
+    completedAt: learned ? now.toISOString() : null,
+    notes: '',
+    targetSection: 'definition',
+    substeps: steps,
+  };
+  return [task, ...resourceTasksForConcept(input, concept, phaseId, now)];
 }
 
 /** Target number of questions per stage test; coverage is capped, never faked. */
@@ -1539,8 +1265,7 @@ function conceptDerivedQuestions(concept: PlanConcept): StageQuestionInput[] {
   if (prerequisites.length) {
     questions.push({
       id: `${concept.slug}-prerequisite`,
-      type:
-        prerequisites.length > 1 ? 'multiple-choice' : 'single-choice',
+      type: prerequisites.length > 1 ? 'multiple-choice' : 'single-choice',
       prompt: `学“${concept.title}”之前，本知识库为它声明了哪些直接前置知识？`,
       options: rotate(
         [
@@ -1581,7 +1306,9 @@ function conceptDerivedQuestions(concept: PlanConcept): StageQuestionInput[] {
   return questions;
 }
 
-export function questionsForConcept(concept: PlanConcept): StageQuestionInput[] {
+export function questionsForConcept(
+  concept: PlanConcept,
+): StageQuestionInput[] {
   const curated = curatedQuestionsFor(concept.slug);
   return curated.length ? curated : conceptDerivedQuestions(concept);
 }
@@ -1715,7 +1442,24 @@ export function recomputePlan(
   plan: LearningPlan,
   now = new Date(),
 ): LearningPlan {
-  const phases = plan.phases.map((phase) => {
+  const phases = plan.phases.map((originalPhase) => {
+    const phase = {
+      ...originalPhase,
+      tasks: originalPhase.tasks.map((task) => {
+        const requested =
+          task.substeps.reduce((sum, step) => sum + step.estimatedMinutes, 0) ||
+          task.estimatedMinutes;
+        const minutes = Math.min(
+          10,
+          Math.max(1, Number.isFinite(requested) ? Math.round(requested) : 10),
+        );
+        return {
+          ...task,
+          estimatedMinutes: Math.round(minutes * 100) / 100,
+          substeps: resizeSubsteps(task.substeps, minutes),
+        };
+      }),
+    };
     const done = phase.tasks.filter((task) => terminal(task.status)).length;
     const completionRate = phase.tasks.length
       ? Math.round((done / phase.tasks.length) * 100)
@@ -1845,7 +1589,10 @@ export function planPreview(plan: LearningPlan) {
         ),
     ).length,
     reviewCount: tasks.filter(
-      (task) => task.type === 'review' || task.type === 'phase-review',
+      (task) =>
+        task.type === 'review' ||
+        task.type === 'phase-review' ||
+        task.substeps.some((step) => step.type === 'review'),
     ).length,
     resourceCount: tasks.filter((task) => Boolean(task.resourceId)).length,
     testCount: plan.phases.filter((phase) => phase.test.questions.length > 0)
@@ -1856,19 +1603,31 @@ export function planPreview(plan: LearningPlan) {
 
 function resizeSubsteps(substeps: PlanSubstep[], requestedMinutes: number) {
   if (!substeps.length) return substeps;
-  const target = Math.max(substeps.length, Math.round(requestedMinutes));
-  const current = Math.max(
-    1,
-    substeps.reduce((sum, step) => sum + step.estimatedMinutes, 0),
+  const target = Math.min(
+    10,
+    Math.max(
+      1,
+      Number.isFinite(requestedMinutes) ? Math.round(requestedMinutes) : 10,
+    ),
   );
+  const weights = substeps.map((step) =>
+    Math.max(0.1, Number(step.estimatedMinutes) || 1),
+  );
+  const total = weights.reduce((sum, value) => sum + value, 0);
+  if (Math.abs(total - target) < 1e-9) return substeps;
+  // Use exact halves/quarters for long legacy checklists, avoiding rounding drift.
+  const denominator =
+    2 ** Math.max(0, Math.ceil(Math.log2(substeps.length / target)));
+  const units = Math.round(target * denominator);
+  const distributable = units - substeps.length;
   let allocated = 0;
   return substeps.map((step, index) => {
-    const minutes =
+    const share =
       index === substeps.length - 1
-        ? Math.max(1, target - allocated)
-        : Math.max(1, Math.floor((step.estimatedMinutes / current) * target));
-    allocated += minutes;
-    return { ...step, estimatedMinutes: minutes };
+        ? units - allocated
+        : 1 + Math.floor((weights[index] / total) * distributable);
+    allocated += share;
+    return { ...step, estimatedMinutes: share / denominator };
   });
 }
 
@@ -1991,14 +1750,18 @@ export const CONCEPT_LEARNING_TASK_TYPES: ReadonlySet<TaskType> = new Set([
 
 /** True only for tasks whose completion marks the concept as learned. */
 export function taskMarksConceptLearned(task: PlanTask): boolean {
-  return Boolean(task.conceptSlug) && CONCEPT_LEARNING_TASK_TYPES.has(task.type);
+  return (
+    Boolean(task.conceptSlug) && CONCEPT_LEARNING_TASK_TYPES.has(task.type)
+  );
 }
 
 /** True when every substep has reached a terminal state. */
 export function substepsComplete(substeps: PlanSubstep[]): boolean {
   return (
     substeps.length > 0 &&
-    substeps.every((step) => step.status === 'completed' || step.status === 'skipped')
+    substeps.every(
+      (step) => step.status === 'completed' || step.status === 'skipped',
+    )
   );
 }
 
@@ -2104,7 +1867,13 @@ function gradeQuestion(
  */
 export function computeStageTestScore(grades: StageTestGrade[]) {
   const judged = grades.filter((grade) => grade.correct !== null);
-  if (!judged.length) return { score: null as number | null, judged: 0, correct: 0, pending: grades.length };
+  if (!judged.length)
+    return {
+      score: null as number | null,
+      judged: 0,
+      correct: 0,
+      pending: grades.length,
+    };
   const correct = judged.filter((grade) => grade.correct).length;
   return {
     score: Math.round((correct / judged.length) * 100),
@@ -2124,7 +1893,9 @@ export function scoreStageTest(
   const phases = (plan.phases ?? []).map((phase) => {
     const questions = phase.test?.questions ?? [];
     if (phase.id !== phaseId || questions.length === 0) return phase;
-    const grades = questions.map((question) => gradeQuestion(question, answers));
+    const grades = questions.map((question) =>
+      gradeQuestion(question, answers),
+    );
     const { score, pending } = computeStageTestScore(grades);
     const wrong = questions.filter(
       (question) =>

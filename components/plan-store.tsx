@@ -388,7 +388,15 @@ export function PlanProvider({ children }: { children: React.ReactNode }) {
         planId,
         (plan) => {
           const taskId = `task-custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-          const minutes = Math.max(5, input.estimatedMinutes);
+          const minutes = Math.min(
+            10,
+            Math.max(
+              1,
+              Number.isFinite(input.estimatedMinutes)
+                ? input.estimatedMinutes
+                : 10,
+            ),
+          );
           const phases = plan.phases.map((phase) =>
             phase.id === phaseId
               ? {
