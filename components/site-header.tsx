@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react';
 import { useState } from 'react';
+import { MindMapNav } from '@/components/mindmap-nav';
 import { ThemeToggle } from '@/components/theme-toggle';
 
 export function SiteHeader() {
@@ -36,6 +37,7 @@ export function SiteHeader() {
             </Link>
           ))}
         </nav>
+        <MindMapNav />
         <ThemeToggle />
         <button
           type="button"
