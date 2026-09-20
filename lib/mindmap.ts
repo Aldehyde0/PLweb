@@ -132,16 +132,18 @@ export function layoutMindMap(graph: MindMapGraph, width: number) {
   const cursors = [compact ? 160 : 48, 48];
   const padding = 16,
     inner = width - padding * 2,
-    row = 76;
+    row = 60;
   for (const group of groups) {
     const children = graph.nodes.filter(
       (n) => n.kind === 'concept' && n.group === group.group,
     );
     const side = compact ? 0 : cursors[0]! <= cursors[1]! ? 0 : 1;
     const start = cursors[side]!;
-    const center = start + (children.length * row - 12) / 2;
+    const columns = width >= 1200 && children.length >= 8 ? 2 : 1;
+    const rows = Math.ceil(children.length / columns);
+    const center = start + (rows * row - 12) / 2;
     const groupWidth = inner * (compact ? 0.28 : 0.16);
-    const leafWidth = inner * (compact ? 0.47 : 0.22);
+    const leafWidth = inner * (compact ? 0.47 : columns === 2 ? 0.115 : 0.22);
     const groupCenter =
       padding + inner * (compact ? 0.2 : side === 0 ? 0.34 : 0.66);
     const leafCenter =
@@ -149,32 +151,62 @@ export function layoutMindMap(graph: MindMapGraph, width: number) {
     positioned.push({
       ...group,
       x: groupCenter - groupWidth / 2,
-      y: center - 32,
+      y: center - 24,
       width: groupWidth,
-      height: 64,
+      height: 48,
     });
     children.forEach((node, i) =>
       positioned.push({
         ...node,
-        x: leafCenter - leafWidth / 2,
-        y: start + i * row,
+        x:
+          (columns === 2
+            ? padding +
+              inner *
+                (side === 0 ? [0.0625, 0.205][i % 2]! : [0.795, 0.9375][i % 2]!)
+            : leafCenter) -
+          leafWidth / 2,
+        y: start + Math.floor(i / columns) * row,
         width: leafWidth,
-        height: 64,
+        height: 48,
       }),
     );
-    cursors[side] = start + children.length * row + 80;
+    cursors[side] = start + rows * row + 40;
   }
-  const height = Math.max(600, ...cursors) + 32;
+  const height = Math.max(440, ...cursors) + 32;
   const root = graph.nodes.find((n) => n.kind === 'root');
   if (root) {
     const rootWidth = compact ? Math.min(200, inner * 0.7) : inner * 0.14;
     positioned.unshift({
       ...root,
       x: (width - rootWidth) / 2,
-      y: compact ? 32 : height / 2 - 40,
+      y: compact ? 32 : height / 2 - 32,
       width: rootWidth,
-      height: 80,
+      height: 64,
     });
   }
   return { nodes: positioned, height, compact };
+}
+
+/** Scale around the pointer, accounting for centering when the map is smaller than its viewport. */
+export function zoomMindMap(
+  scale: number,
+  requested: number,
+  left: number,
+  top: number,
+  x: number,
+  y: number,
+  canvasWidth: number,
+  viewportWidth: number,
+) {
+  const next = Math.min(
+    2.5,
+    Math.max(0.2, Number.isFinite(requested) ? requested : scale),
+  );
+  const oldOffset = Math.max(0, (viewportWidth - canvasWidth * scale) / 2);
+  const newOffset = Math.max(0, (viewportWidth - canvasWidth * next) / 2);
+  return {
+    scale: next,
+    left: Math.max(0, ((left + x - oldOffset) * next) / scale + newOffset - x),
+    top: Math.max(0, ((top + y) * next) / scale - y),
+  };
 }

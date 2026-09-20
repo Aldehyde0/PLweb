@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -12,6 +13,7 @@ import { ArrowUpRight, Check, Crosshair, Search } from 'lucide-react';
 import { type Category, categories } from '@/lib/content';
 import {
   layoutMindMap,
+  zoomMindMap,
   type MapConcept,
   type MapEdge,
   type MindMapGraph,
@@ -72,10 +74,18 @@ export function MindMapView({
   const [hovered, setHovered] = useState<string | null>(null),
     [active, setActive] = useState<string | null>(null),
     [selected, setSelected] = useState<MapConcept | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const pendingZoom = useRef<{
+    scale: number;
+    left: number;
+    top: number;
+  } | null>(null);
+  const canvasWidth = width >= 680 ? Math.max(width, 1440) : width || 1440;
+  const offsetX = Math.max(0, (width - canvasWidth * zoom) / 2);
   const storageKey = `knowledge-map-view:${category.slug}`;
   const layout = useMemo(
-    () => layoutMindMap(graph, width || 1024),
-    [graph, width],
+    () => layoutMindMap(graph, canvasWidth),
+    [graph, canvasWidth],
   );
   const positioned = useMemo(
     () => new Map(layout.nodes.map((n) => [n.id, n])),
@@ -112,7 +122,11 @@ export function MindMapView({
   );
   const saveView = () => {
     if (viewport.current)
-      writeStored('session', storageKey, { top: viewport.current.scrollTop });
+      writeStored('session', storageKey, {
+        top: viewport.current.scrollTop,
+        left: viewport.current.scrollLeft,
+        scale: zoom,
+      });
   };
   useEffect(() => {
     const el = viewport.current;
@@ -121,30 +135,125 @@ export function MindMapView({
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!width || restored.current || !viewport.current) return;
     const saved = readStored('session', storageKey, (value) => {
-      const top =
-        typeof value === 'object' && value !== null && 'top' in value
-          ? Number(value.top)
-          : NaN;
-      return Number.isFinite(top) && top >= 0 ? top : null;
+      if (!value || typeof value !== 'object') return null;
+      const record = value as Record<string, unknown>;
+      if (!Number.isFinite(record.top) || Number(record.top) < 0) return null;
+      return {
+        top: Number(record.top),
+        left: Number.isFinite(record.left)
+          ? Math.max(0, Number(record.left))
+          : 0,
+        scale: Number.isFinite(record.scale)
+          ? Math.min(2.5, Math.max(0.2, Number(record.scale)))
+          : Math.min(1, width / canvasWidth),
+      };
     });
+    const initial = saved.value?.scale ?? Math.min(1, width / canvasWidth);
     const root = layout.nodes.find((n) => n.kind === 'root');
-    viewport.current.scrollTop =
-      saved.value ??
-      (layout.compact
-        ? 0
-        : Math.max(0, (root?.y ?? 0) - viewport.current.clientHeight / 2 + 40));
+    pendingZoom.current = {
+      scale: initial,
+      left: saved.value?.left ?? 0,
+      top:
+        saved.value?.top ??
+        (layout.compact
+          ? 0
+          : Math.max(
+              0,
+              (root?.y ?? 0) * initial -
+                viewport.current.clientHeight / 2 +
+                32 * initial,
+            )),
+    };
     restored.current = true;
-  }, [width, layout, storageKey]);
+    setZoom(initial);
+  }, [width, layout, canvasWidth, storageKey]);
+  useLayoutEffect(() => {
+    const next = pendingZoom.current;
+    if (!next || !viewport.current || next.scale !== zoom) return;
+    viewport.current.scrollLeft = next.left;
+    viewport.current.scrollTop = next.top;
+    pendingZoom.current = null;
+  }, [zoom, width]);
+  useEffect(() => {
+    const el = viewport.current;
+    if (!el) return;
+    const wheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      const box = el.getBoundingClientRect();
+      const unit =
+        event.deltaMode === 1
+          ? 16
+          : event.deltaMode === 2
+            ? el.clientHeight
+            : 1;
+      const next = zoomMindMap(
+        zoom,
+        zoom * Math.exp(-event.deltaY * unit * 0.002),
+        el.scrollLeft,
+        el.scrollTop,
+        event.clientX - box.left,
+        event.clientY - box.top,
+        canvasWidth,
+        el.clientWidth,
+      );
+      pendingZoom.current = next;
+      setZoom(next.scale);
+    };
+    el.addEventListener('wheel', wheel, { passive: false });
+    return () => el.removeEventListener('wheel', wheel);
+  }, [zoom, canvasWidth]);
+  const changeZoom = (requested: number) => {
+    const el = viewport.current;
+    if (!el) return;
+    const next = zoomMindMap(
+      zoom,
+      requested,
+      el.scrollLeft,
+      el.scrollTop,
+      el.clientWidth / 2,
+      el.clientHeight / 2,
+      canvasWidth,
+      el.clientWidth,
+    );
+    pendingZoom.current = next;
+    setZoom(next.scale);
+  };
+  const fitMap = () => {
+    const el = viewport.current;
+    if (!el) return;
+    const scale = Math.min(
+      1,
+      Math.max(
+        0.2,
+        Math.min(
+          el.clientWidth / canvasWidth,
+          (el.clientHeight - 16) / layout.height,
+        ),
+      ),
+    );
+    pendingZoom.current = { scale, left: 0, top: 0 };
+    if (scale === zoom) {
+      el.scrollTo(0, 0);
+      pendingZoom.current = null;
+    } else setZoom(scale);
+  };
   const locate = (id: string) => {
     const node = positioned.get(id);
     if (!node || !viewport.current) return;
     viewport.current.scrollTo({
+      left: Math.max(
+        0,
+        (node.x + node.width / 2) * zoom +
+          offsetX -
+          viewport.current.clientWidth / 2,
+      ),
       top: Math.max(
         0,
-        node.y - viewport.current.clientHeight / 2 + node.height / 2,
+        (node.y + node.height / 2) * zoom - viewport.current.clientHeight / 2,
       ),
       behavior: matchMedia('(prefers-reduced-motion: reduce)').matches
         ? 'instant'
@@ -254,6 +363,35 @@ export function MindMapView({
           回到中心
         </button>
       </div>
+      <div className="mindmap-zoom-controls" aria-label="导图缩放">
+        <button
+          type="button"
+          aria-label="缩小导图"
+          disabled={zoom <= 0.2}
+          onClick={() => changeZoom(zoom / 1.2)}
+        >
+          −
+        </button>
+        <button
+          type="button"
+          aria-label="恢复100%缩放"
+          onClick={() => changeZoom(1)}
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          type="button"
+          aria-label="放大导图"
+          disabled={zoom >= 2.5}
+          onClick={() => changeZoom(zoom * 1.2)}
+        >
+          ＋
+        </button>
+        <button type="button" onClick={fitMap}>
+          适应全图
+        </button>
+        <span>Ctrl + 滚轮缩放 · 普通滚轮移动画布</span>
+      </div>
       <div className="mindmap-legend" aria-label="导图图例">
         <span>
           <i className="map-line-solid" />
@@ -302,109 +440,124 @@ export function MindMapView({
         aria-label={`${category.title}知识导图，可上下滚动；所有概念均可通过键盘访问`}
         onScroll={saveView}
       >
-        <div className="mindmap-canvas" style={{ height: layout.height }}>
-          <svg
-            className="mindmap-edges"
-            width={width || 1024}
-            height={layout.height}
-            aria-hidden="true"
+        <div
+          className="mindmap-scaled-world"
+          style={{
+            width: Math.max(width, canvasWidth * zoom),
+            height: layout.height * zoom,
+          }}
+        >
+          <div
+            className="mindmap-canvas"
+            style={{
+              width: canvasWidth,
+              height: layout.height,
+              transform: `translateX(${offsetX}px) scale(${zoom})`,
+            }}
           >
-            <defs>
-              <marker
-                id={`map-arrow-${category.slug}`}
-                markerWidth="7"
-                markerHeight="7"
-                refX="6"
-                refY="3.5"
-                orient="auto"
-              >
-                <path d="M0,0 L7,3.5 L0,7" fill="context-stroke" />
-              </marker>
-            </defs>
-            {visibleEdges.map((e) => {
-              const from = positioned.get(e.from),
-                to = positioned.get(e.to);
-              if (!from || !to) return null;
-              const lit =
-                highlight && (e.from === highlight || e.to === highlight);
+            <svg
+              className="mindmap-edges"
+              width={canvasWidth}
+              height={layout.height}
+              aria-hidden="true"
+            >
+              <defs>
+                <marker
+                  id={`map-arrow-${category.slug}`}
+                  markerWidth="7"
+                  markerHeight="7"
+                  refX="6"
+                  refY="3.5"
+                  orient="auto"
+                >
+                  <path d="M0,0 L7,3.5 L0,7" fill="context-stroke" />
+                </marker>
+              </defs>
+              {visibleEdges.map((e) => {
+                const from = positioned.get(e.from),
+                  to = positioned.get(e.to);
+                if (!from || !to) return null;
+                const lit =
+                  highlight && (e.from === highlight || e.to === highlight);
+                return (
+                  <path
+                    key={`${e.kind}/${e.from}/${e.to}`}
+                    data-edge-kind={e.kind}
+                    d={edgePath(from, to, layout.compact, e)}
+                    className={`mindmap-edge mindmap-edge-${e.kind}${lit ? ' is-highlighted' : ''}`}
+                    style={{
+                      stroke: color(e.branch),
+                      opacity:
+                        highlight && !lit
+                          ? e.kind === 'hierarchy'
+                            ? 0.45
+                            : 0.15
+                          : undefined,
+                    }}
+                    markerEnd={
+                      e.kind === 'prerequisite'
+                        ? `url(#map-arrow-${category.slug})`
+                        : undefined
+                    }
+                  />
+                );
+              })}
+            </svg>
+            {layout.nodes.map((node) => {
+              const geometry: CSSProperties = {
+                left: node.x,
+                top: node.y,
+                width: node.width,
+                height: node.height,
+                ...style(node.branch),
+              };
+              if (node.kind === 'group')
+                return (
+                  <div
+                    key={node.id}
+                    className="mindmap-directory"
+                    style={geometry}
+                  >
+                    <span>{node.title}</span>
+                    <small>目录分支</small>
+                  </div>
+                );
+              const core = (knownRelations.get(node.id) ?? 0) >= 5;
+              const done = learned.includes(node.id);
               return (
-                <path
-                  key={`${e.kind}/${e.from}/${e.to}`}
-                  data-edge-kind={e.kind}
-                  d={edgePath(from, to, layout.compact, e)}
-                  className={`mindmap-edge mindmap-edge-${e.kind}${lit ? ' is-highlighted' : ''}`}
-                  style={{
-                    stroke: color(e.branch),
-                    opacity:
-                      highlight && !lit
-                        ? e.kind === 'hierarchy'
-                          ? 0.45
-                          : 0.15
-                        : undefined,
+                <button
+                  key={node.id}
+                  type="button"
+                  ref={(el) => {
+                    if (el) nodes.current.set(node.id, el);
+                    else nodes.current.delete(node.id);
                   }}
-                  markerEnd={
-                    e.kind === 'prerequisite'
-                      ? `url(#map-arrow-${category.slug})`
-                      : undefined
-                  }
-                />
+                  data-concept-slug={node.id}
+                  className={`mindmap-node mindmap-node-${node.kind === 'root' ? 'root' : core ? 'core' : 'leaf'}${highlight === node.id ? ' is-selected' : ''}`}
+                  style={geometry}
+                  title={node.title}
+                  aria-label={`${node.title}${done ? '，已学习' : ''}，点击确认是否进入知识页`}
+                  onMouseEnter={() => setHovered(node.id)}
+                  onMouseLeave={() => setHovered(null)}
+                  onFocus={() => setActive(node.id)}
+                  onClick={(e) => {
+                    returnFocus.current = e.currentTarget;
+                    if (node.concept) openConcept(node.concept);
+                  }}
+                >
+                  <span>
+                    {node.kind === 'root' ? category.title : node.title}
+                  </span>
+                  {done && <Check size={13} aria-label="已学习" />}
+                  <ArrowUpRight
+                    className="mindmap-node-arrow"
+                    size={12}
+                    aria-hidden="true"
+                  />
+                </button>
               );
             })}
-          </svg>
-          {layout.nodes.map((node) => {
-            const geometry: CSSProperties = {
-              left: node.x,
-              top: node.y,
-              width: node.width,
-              height: node.height,
-              ...style(node.branch),
-            };
-            if (node.kind === 'group')
-              return (
-                <div
-                  key={node.id}
-                  className="mindmap-directory"
-                  style={geometry}
-                >
-                  <span>{node.title}</span>
-                  <small>目录分支</small>
-                </div>
-              );
-            const core = (knownRelations.get(node.id) ?? 0) >= 5;
-            const done = learned.includes(node.id);
-            return (
-              <button
-                key={node.id}
-                type="button"
-                ref={(el) => {
-                  if (el) nodes.current.set(node.id, el);
-                  else nodes.current.delete(node.id);
-                }}
-                data-concept-slug={node.id}
-                className={`mindmap-node mindmap-node-${node.kind === 'root' ? 'root' : core ? 'core' : 'leaf'}${highlight === node.id ? ' is-selected' : ''}`}
-                style={geometry}
-                title={node.title}
-                aria-label={`${node.title}${done ? '，已学习' : ''}，点击确认是否进入知识页`}
-                onMouseEnter={() => setHovered(node.id)}
-                onMouseLeave={() => setHovered(null)}
-                onFocus={() => setActive(node.id)}
-                onClick={(e) => {
-                  returnFocus.current = e.currentTarget;
-                  if (node.concept) openConcept(node.concept);
-                }}
-              >
-                <span>
-                  {node.kind === 'root' ? category.title : node.title}
-                </span>
-                {done && <Check size={13} aria-label="已学习" />}
-                <ArrowUpRight
-                  className="mindmap-node-arrow"
-                  size={12}
-                  aria-hidden="true"
-                />
-              </button>
-            );
-          })}
+          </div>
         </div>
       </section>
       <p className="mindmap-caption">
