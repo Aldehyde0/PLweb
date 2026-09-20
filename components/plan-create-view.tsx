@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { categories, concepts, type CategorySlug } from '@/lib/content';
+import { conceptDirectory, directoryConcepts } from '@/lib/category-directory';
 import { resolveConceptLink } from '@/lib/concept-utils';
 import { longFormMap, type LongFormConcept } from '@/lib/long-form-content';
 import {
@@ -77,7 +78,7 @@ export function PlanCreateView() {
   const previewRef = useRef<HTMLHeadingElement>(null);
   const planConcepts = useMemo(
     () =>
-      concepts.map((concept) => {
+      directoryConcepts(concepts).map((concept) => {
         const long = longFormMap[concept.slug] as
           | (LongFormConcept & {
               interactiveDemo?: string;
@@ -87,6 +88,7 @@ export function PlanCreateView() {
           | undefined;
         return {
           slug: concept.slug,
+          subcategory: conceptDirectory(concept),
           title: concept.title,
           category: concept.category,
           difficulty: concept.difficulty,
@@ -286,7 +288,7 @@ export function PlanCreateView() {
             {form.categories.length > 1 && (
               <p className="plan-inline-note">
                 <Sparkles />
-                已启用多方向组合，将按各方向的前置关系和难度统一排序。
+                已启用多方向组合，将依次保留各板块的完整目录顺序，每个概念一张卡。
               </p>
             )}
           </section>
@@ -436,8 +438,8 @@ export function PlanCreateView() {
                 checked={form.includeCode}
                 onChange={() => set('includeCode', !form.includeCode)}
                 icon={<Code2 />}
-                title="包含代码练习"
-                note="在有代码示例的概念中加入阅读或修改任务"
+                title="包含代码阅读"
+                note="在有代码示例的概念卡中加入代码阅读步骤"
               />
               <Option
                 id="plan-option-tests"
@@ -505,7 +507,7 @@ function PlanPreview({
   const stats = [
     ['阶段', summary.phaseCount],
     ['概念', summary.conceptCount],
-    ['代码练习', summary.codeCount],
+    ['代码阅读', summary.codeCount],
     ['复习任务', summary.reviewCount],
     ['参考资料', summary.resourceCount],
     ['阶段测试', summary.testCount],

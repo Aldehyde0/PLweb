@@ -11,38 +11,16 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { Category, Concept, Difficulty } from '@/lib/content';
-import { longFormMap } from '@/lib/long-form-content';
+import {
+  conceptDirectory as sub,
+  directoryConcepts,
+} from '@/lib/category-directory';
 import { sortConcepts } from '@/lib/concept-utils';
 import { ConceptCard } from '@/components/concept-card';
 import { ConceptSortControl } from '@/components/concept-sort-control';
 import { EmptyState } from '@/components/empty-state';
 import { Input } from '@/components/ui/input';
 import { useLearning } from '@/components/learning-store';
-const ai = [
-  ['全部', '全部知识'],
-  ['Agent', 'Agent 学习目录'],
-  ['Skill', 'Skill 学习目录'],
-  ['Tool', 'Tool 学习目录'],
-  ['MCP', 'MCP 学习目录'],
-  ['核心对照', '核心对照'],
-];
-const rl = [
-  ['全部', '全部知识'],
-  ['入门基础', '入门基础'],
-  ['基础理论', '基础理论'],
-  ['Value-based', 'Value-based'],
-  ['Policy-based', 'Policy-based'],
-  ['Actor-Critic', 'Actor-Critic'],
-  ['Offline RL', 'Offline RL'],
-  ['现代策略与偏好优化', 'PPO / GRPO / DPO'],
-  ['挑战专题', '挑战专题'],
-  ['核心对照', '算法比较'],
-];
-const sub = (c: Concept) =>
-  longFormMap[c.slug] && 'subcategory' in longFormMap[c.slug]
-    ? ((longFormMap[c.slug] as { subcategory?: string }).subcategory ??
-      '基础概念')
-    : '基础概念';
 export function CategoryView({
   category,
   concepts,
@@ -55,14 +33,25 @@ export function CategoryView({
     [status, setStatus] = useState<'全部' | '未学习' | '已学习'>('全部'),
     [dimension, setDimension] = useState('全部');
   const { learned, bookmarks, sortMode } = useLearning();
-  const grouped =
-      category.slug === 'artificial-intelligence' ||
-      category.slug === 'reinforcement-learning',
-    tabs = category.slug === 'reinforcement-learning' ? rl : ai;
+  const grouped = true;
+  const orderedConcepts = useMemo(
+    () => directoryConcepts(concepts),
+    [concepts],
+  );
+  const tabs = useMemo(
+    () => [
+      ['全部', '全部知识'],
+      ...Array.from(new Set(orderedConcepts.map(sub))).map((name) => [
+        name,
+        name,
+      ]),
+    ],
+    [orderedConcepts],
+  );
   const filtered = useMemo(
     () =>
       sortConcepts(
-        concepts.filter((c) => {
+        orderedConcepts.filter((c) => {
           const query = q.trim().toLowerCase(),
             done = learned.includes(c.slug);
           return (
@@ -78,7 +67,7 @@ export function CategoryView({
         sortMode,
       ),
     [
-      concepts,
+      orderedConcepts,
       q,
       difficulty,
       status,
@@ -95,8 +84,10 @@ export function CategoryView({
       const k = sub(c);
       m.set(k, [...(m.get(k) ?? []), c]);
     }
-    return [...m.entries()];
-  }, [filtered]);
+    return tabs.flatMap(([name]) =>
+      m.has(name) ? [[name, m.get(name)!] as [string, Concept[]]] : [],
+    );
+  }, [filtered, tabs]);
   const intro =
     category.slug === 'artificial-intelligence'
       ? '从理论、模型到 Agent、Skill、Tool 与 MCP，建立带来源、权限和安全边界的完整人工智能知识体系。'

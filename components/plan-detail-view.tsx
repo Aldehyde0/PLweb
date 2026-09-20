@@ -582,7 +582,7 @@ function CustomTaskForm({
   const [input, setInput] = useState({
     title: '',
     description: '',
-    estimatedMinutes: 25,
+    estimatedMinutes: 10,
     dueDate: localDate(new Date()),
     notes: '',
   });
@@ -625,7 +625,8 @@ function CustomTaskForm({
         <Input
           id={`${plan.id}-custom-minutes`}
           type="number"
-          min={5}
+          min={1}
+          max={10}
           value={input.estimatedMinutes}
           onChange={(event) =>
             setInput({ ...input, estimatedMinutes: Number(event.target.value) })
