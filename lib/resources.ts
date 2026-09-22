@@ -1,3 +1,4 @@
+import { additionalResources } from './resources-additions.ts';
 import type { CategorySlug, Difficulty } from './content-base';
 
 export const resourceCategories = [
@@ -89,6 +90,7 @@ const resource = (seed: ResourceSeed): LearningResource => ({
 });
 
 export const learningResources: LearningResource[] = [
+  ...additionalResources,
   resource({
     id: 'ai-openai-agents-docs',
     title: 'OpenAI Agents SDK 文档',

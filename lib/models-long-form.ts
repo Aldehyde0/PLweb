@@ -58,7 +58,6 @@ function m(i: I): LongFormConcept {
     relatedConcepts: i.related,
     sourceDocuments: [
       {
-        path: `学习资料/learning_tech/${i.doc}`,
         title: i.docTitle,
         kind: '原始文档',
       },

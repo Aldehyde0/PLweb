@@ -10,7 +10,13 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { categoryMap, type CategorySlug, type Difficulty } from '@/lib/content';
+import {
+  categories,
+  categoryMap,
+  conceptMap,
+  type CategorySlug,
+  type Difficulty,
+} from '@/lib/content';
 import { exercises, type ExerciseType } from '@/lib/exercises';
 import { getExerciseTypeGroup } from '@/lib/exercise-style';
 import { useLearning } from '@/components/learning-store';
@@ -118,8 +124,11 @@ export function ExercisesView() {
               aria-label="方向筛选"
             >
               <option value="all">全部方向</option>
-              <option value="machine-learning">机器学习</option>
-              <option value="deep-learning">深度学习</option>
+              {categories.map((item) => (
+                <option key={item.slug} value={item.slug}>
+                  {item.title}
+                </option>
+              ))}
             </select>
             <select
               className="select-control"
@@ -235,8 +244,19 @@ export function ExercisesView() {
                         href={`/concept/${item.conceptSlug}`}
                         className="mt-4 inline-flex rounded-md text-xs font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                       >
-                        学习对应概念 · {item.source}
+                        学习对应概念 ·{' '}
+                        {conceptMap[item.conceptSlug]?.title ?? '概念详情'}
                       </Link>
+                      {item.sourceUrl && (
+                        <a
+                          href={item.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-3 block w-fit rounded-md text-xs text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          阅读公开参考资料（新窗口）
+                        </a>
+                      )}
                     </div>
                   )}
                   <div className="mt-5 flex flex-wrap gap-2">

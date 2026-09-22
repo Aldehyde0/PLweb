@@ -27,7 +27,6 @@ type Input = {
   sections: string[];
 };
 const source = {
-  path: '学习资料/learning_tech/02_preprocessing_feature_engineering.md',
   title: '02｜数据预处理与特征工程',
   kind: '原始文档' as const,
 };

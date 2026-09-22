@@ -26,7 +26,6 @@ export interface CodeExample {
   expectedOutput: string;
 }
 export interface SourceDocument {
-  path: string;
   title: string;
   kind: '原始文档' | '扩展资料';
 }
@@ -225,17 +224,14 @@ export const longFormConcepts: LongFormConcept[] = [
     ],
     sourceDocuments: [
       {
-        path: '学习资料/learning_tech/02_preprocessing_feature_engineering.md',
         title: '02｜数据预处理与特征工程',
         kind: '原始文档',
       },
       {
-        path: '学习资料/learning_tech/01_math_data_foundations.md',
         title: '01｜数学与数据基础',
         kind: '原始文档',
       },
       {
-        path: '学习资料/learning_tech/11_l1_regularization.md',
         title: '11｜L1 正则化：稀疏模型与特征选择',
         kind: '原始文档',
       },

@@ -182,7 +182,6 @@ function make(s: Seed): RLLongFormConcept {
     relatedConcepts: s.related ?? [],
     sourceDocuments: [
       {
-        path: '外部原始教材或论文',
         title: '强化学习可靠资料',
         kind: '扩展资料',
       },
@@ -1534,12 +1533,10 @@ const seeds: Seed[] = [
       ],
       sourceDocuments: [
         {
-          path: 'arXiv:2004.07219',
           title: 'D4RL: Datasets for Deep Data-Driven Reinforcement Learning',
           kind: '原始文档',
         },
         {
-          path: 'arXiv:2006.04779',
           title: 'Conservative Q-Learning',
           kind: '原始文档',
         },
@@ -1638,12 +1635,11 @@ const seeds: Seed[] = [
       ],
       sourceDocuments: [
         {
-          path: 'arXiv:1906.00949',
           title:
             'Stabilizing Off-Policy Q-Learning via Bootstrapping Error Reduction',
           kind: '原始文档',
         },
-        { path: 'arXiv:2004.07219', title: 'D4RL', kind: '原始文档' },
+        { title: 'D4RL', kind: '原始文档' },
       ],
       extensionNotes: [
         '道路地图直觉、覆盖审计清单、NumPy support mask 与 DQN/SAC 教学对照均为本站扩展解释；bootstrapping error 与数据集性质依据所列论文。',
@@ -1733,10 +1729,9 @@ const seeds: Seed[] = [
         'CQL 通过保守 Q 间接改变 actor；IQL 用数据动作的优势加权 BC 提取策略。',
       ],
       sourceDocuments: [
-        { path: 'arXiv:1906.00949', title: 'BEAR', kind: '原始文档' },
-        { path: 'arXiv:1812.02900', title: 'BCQ', kind: '原始文档' },
+        { title: 'BEAR', kind: '原始文档' },
+        { title: 'BCQ', kind: '原始文档' },
         {
-          path: 'arXiv:2110.06169',
           title: 'Implicit Q-Learning',
           kind: '原始文档',
         },
@@ -1831,7 +1826,6 @@ const seeds: Seed[] = [
       ],
       sourceDocuments: [
         {
-          path: 'arXiv:2006.04779',
           title: 'Conservative Q-Learning for Offline Reinforcement Learning',
           kind: '原始文档',
         },
@@ -1927,7 +1921,6 @@ const seeds: Seed[] = [
       ],
       sourceDocuments: [
         {
-          path: 'arXiv:2110.06169',
           title: 'Offline Reinforcement Learning with Implicit Q-Learning',
           kind: '原始文档',
         },

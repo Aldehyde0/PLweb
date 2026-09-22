@@ -17,7 +17,6 @@ type I = {
   docTitle?: string;
 };
 function p(i: I): LongFormConcept {
-  const doc = i.doc ?? 'practice_project_digits\\README.md';
   return {
     id: i.slug,
     slug: i.slug,
@@ -58,7 +57,6 @@ function p(i: I): LongFormConcept {
     relatedConcepts: i.related,
     sourceDocuments: [
       {
-        path: `学习资料/learning_tech/${doc}`,
         title: i.docTitle ?? '综合练习项目｜传统机器学习手写数字识别',
         kind: '原始文档',
       },

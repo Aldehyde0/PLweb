@@ -83,7 +83,6 @@ export function deep(input: Input): DeepLearningLongFormConcept {
     relatedConcepts: input.related,
     sourceDocuments: [
       {
-        path: `学习资料/deeplearning/${input.file}`,
         title: input.file.replace(/\.md$/, ''),
         kind: '原始文档',
       },

@@ -1,3 +1,4 @@
+import { additionalExercises } from './exercise-additions.ts';
 import type { CategorySlug, Difficulty } from '@/lib/content';
 
 export type ExerciseType = '概念' | '计算' | '代码' | '诊断' | '项目';
@@ -12,9 +13,11 @@ export interface Exercise {
   tags: string[];
   conceptSlug: string;
   source: string;
+  sourceUrl?: string;
 }
 
 export const exercises: Exercise[] = [
+  ...additionalExercises,
   {
     id: 'ml-task-type',
     title: '分类还是回归',
@@ -27,7 +30,7 @@ export const exercises: Exercise[] = [
     type: '概念',
     tags: ['监督学习', '分类', '回归'],
     conceptSlug: 'supervised-learning',
-    source: 'learning_tech / 00 机器学习导论',
+    source: '机器学习导论',
   },
   {
     id: 'ml-split-roles',
@@ -40,7 +43,7 @@ export const exercises: Exercise[] = [
     type: '概念',
     tags: ['数据划分', '数据泄漏', '泛化'],
     conceptSlug: 'data-preprocessing',
-    source: 'learning_tech / 00 机器学习导论',
+    source: '机器学习导论',
   },
   {
     id: 'ml-numpy-column-mean',
@@ -54,7 +57,7 @@ export const exercises: Exercise[] = [
     type: '代码',
     tags: ['NumPy', '矩阵', '统计量'],
     conceptSlug: 'math-data-foundations',
-    source: 'learning_tech / 01 数学与数据基础',
+    source: '数学与数据基础',
   },
   {
     id: 'ml-distance-scaling',
@@ -67,7 +70,7 @@ export const exercises: Exercise[] = [
     type: '概念',
     tags: ['KNN', '标准化', '决策树'],
     conceptSlug: 'knn',
-    source: 'learning_tech / 01 数学与数据基础',
+    source: '数学与数据基础',
   },
   {
     id: 'ml-preprocess-before-split',
@@ -81,7 +84,7 @@ export const exercises: Exercise[] = [
     type: '诊断',
     tags: ['标准化', '数据泄漏', 'Pipeline'],
     conceptSlug: 'data-preprocessing',
-    source: 'learning_tech / 02 数据预处理与特征工程',
+    source: '数据预处理与特征工程',
   },
   {
     id: 'ml-future-leakage',
@@ -95,7 +98,7 @@ export const exercises: Exercise[] = [
     type: '诊断',
     tags: ['特征工程', '数据泄漏', '业务时间'],
     conceptSlug: 'feature-engineering',
-    source: 'learning_tech / 02 数据预处理与特征工程',
+    source: '数据预处理与特征工程',
   },
   {
     id: 'ml-l1-l2',
@@ -109,7 +112,7 @@ export const exercises: Exercise[] = [
     type: '概念',
     tags: ['正则化', '逻辑回归', 'L1', 'L2'],
     conceptSlug: 'overfitting-regularization',
-    source: 'learning_tech / 03 线性模型',
+    source: '线性模型',
   },
   {
     id: 'ml-knn-k',
@@ -122,7 +125,7 @@ export const exercises: Exercise[] = [
     type: '概念',
     tags: ['KNN', '偏差方差', '交叉验证'],
     conceptSlug: 'knn',
-    source: 'learning_tech / 04 近邻、贝叶斯与支持向量机',
+    source: '近邻、贝叶斯与支持向量机',
   },
   {
     id: 'ml-svm-parameters',
@@ -135,7 +138,7 @@ export const exercises: Exercise[] = [
     type: '概念',
     tags: ['SVM', '超参数', 'RBF'],
     conceptSlug: 'support-vector-machines',
-    source: 'learning_tech / 04 近邻、贝叶斯与支持向量机',
+    source: '近邻、贝叶斯与支持向量机',
   },
   {
     id: 'ml-tree-overfit',
@@ -148,7 +151,7 @@ export const exercises: Exercise[] = [
     type: '诊断',
     tags: ['决策树', '过拟合', '剪枝'],
     conceptSlug: 'decision-trees',
-    source: 'learning_tech / 05 决策树与集成学习',
+    source: '决策树与集成学习',
   },
   {
     id: 'ml-cluster-labels',
@@ -161,7 +164,7 @@ export const exercises: Exercise[] = [
     type: '概念',
     tags: ['K-Means', '聚类', '无监督学习'],
     conceptSlug: 'pca-clustering',
-    source: 'learning_tech / 06 无监督学习',
+    source: '无监督学习',
   },
   {
     id: 'ml-metrics',
@@ -175,7 +178,7 @@ export const exercises: Exercise[] = [
     type: '概念',
     tags: ['Precision', 'Recall', '业务指标'],
     conceptSlug: 'model-evaluation',
-    source: 'learning_tech / 07 模型评估与调参',
+    source: '模型评估与调参',
   },
   {
     id: 'ml-group-split',
@@ -189,7 +192,7 @@ export const exercises: Exercise[] = [
     type: '诊断',
     tags: ['交叉验证', '分组划分', '泄漏'],
     conceptSlug: 'cross-validation',
-    source: 'learning_tech / 07 模型评估与调参',
+    source: '模型评估与调参',
   },
   {
     id: 'ml-wine-project',
@@ -203,7 +206,7 @@ export const exercises: Exercise[] = [
     type: '项目',
     tags: ['端到端', 'Pipeline', '模型保存'],
     conceptSlug: 'end-to-end-ml-project',
-    source: 'learning_tech / 08 端到端机器学习项目',
+    source: '端到端机器学习项目',
   },
   {
     id: 'dl-neuron-parameters',
@@ -217,7 +220,7 @@ export const exercises: Exercise[] = [
     type: '概念',
     tags: ['神经元', '权重', '激活函数'],
     conceptSlug: 'artificial-neuron',
-    source: 'deeplearning / 01 人工神经元',
+    source: '人工神经元',
   },
   {
     id: 'dl-epoch-iterations',
@@ -231,7 +234,7 @@ export const exercises: Exercise[] = [
     type: '计算',
     tags: ['Epoch', 'Batch', 'Iteration'],
     conceptSlug: 'epoch-batch-iteration',
-    source: 'deeplearning / 03 Epoch、Batch 与 Iteration',
+    source: 'Epoch、Batch 与 Iteration',
   },
   {
     id: 'dl-output-loss',
@@ -244,7 +247,7 @@ export const exercises: Exercise[] = [
     type: '概念',
     tags: ['输出层', '损失函数', 'Logits'],
     conceptSlug: 'loss-functions',
-    source: 'deeplearning / 06 输出层与损失函数',
+    source: '输出层与损失函数',
   },
   {
     id: 'dl-cnn-shape',
@@ -258,7 +261,7 @@ export const exercises: Exercise[] = [
     type: '计算',
     tags: ['CNN', '张量形状', 'PyTorch'],
     conceptSlug: 'convolutional-neural-networks',
-    source: 'deeplearning / 08 CNN 张量形状与参数量计算',
+    source: 'CNN 张量形状与参数量计算',
   },
   {
     id: 'dl-conv-params',
@@ -271,7 +274,7 @@ export const exercises: Exercise[] = [
     type: '计算',
     tags: ['CNN', '参数量', '卷积核'],
     conceptSlug: 'convolutional-neural-networks',
-    source: 'deeplearning / 07 CNN 卷积神经网络详解',
+    source: 'CNN 卷积神经网络详解',
   },
   {
     id: 'dl-dataloader-boundary',
@@ -285,7 +288,7 @@ export const exercises: Exercise[] = [
     type: '概念',
     tags: ['Dataset', 'DataLoader', '数据管道'],
     conceptSlug: 'data-pipeline',
-    source: 'deeplearning / 11 数据管道与预处理',
+    source: '数据管道与预处理',
   },
   {
     id: 'dl-autograd-grad',
@@ -299,7 +302,7 @@ export const exercises: Exercise[] = [
     type: '概念',
     tags: ['Autograd', '梯度', '训练循环'],
     conceptSlug: 'backpropagation',
-    source: 'deeplearning / 12 自动微分与反向传播详解',
+    source: '自动微分与反向传播详解',
   },
   {
     id: 'dl-bn-eval',
@@ -312,7 +315,7 @@ export const exercises: Exercise[] = [
     type: '诊断',
     tags: ['BatchNorm', 'eval', '推理'],
     conceptSlug: 'normalization',
-    source: 'deeplearning / 14 BatchNorm 与 LayerNorm',
+    source: 'BatchNorm 与 LayerNorm',
   },
   {
     id: 'dl-imbalance',
@@ -326,7 +329,7 @@ export const exercises: Exercise[] = [
     type: '计算',
     tags: ['类别不平衡', 'Accuracy', 'Recall'],
     conceptSlug: 'dl-evaluation-imbalance',
-    source: 'deeplearning / 16 模型评估与类别不平衡',
+    source: '模型评估与类别不平衡',
   },
   {
     id: 'dl-rnn-last-valid',
@@ -340,7 +343,7 @@ export const exercises: Exercise[] = [
     type: '计算',
     tags: ['RNN', 'Padding', '序列长度'],
     conceptSlug: 'rnn-lstm-gru',
-    source: 'deeplearning / 18 RNN、LSTM 与 GRU',
+    source: 'RNN、LSTM 与 GRU',
   },
   {
     id: 'dl-attention-shape',
@@ -354,7 +357,7 @@ export const exercises: Exercise[] = [
     type: '计算',
     tags: ['Attention', 'QKV', '张量形状'],
     conceptSlug: 'transformer',
-    source: 'deeplearning / 19 注意力机制与 Transformer',
+    source: '注意力机制与 Transformer',
   },
   {
     id: 'dl-causal-mask',
@@ -368,7 +371,7 @@ export const exercises: Exercise[] = [
     type: '概念',
     tags: ['Transformer', 'Causal Mask', '复杂度'],
     conceptSlug: 'transformer',
-    source: 'deeplearning / 19 注意力机制与 Transformer',
+    source: '注意力机制与 Transformer',
   },
   {
     id: 'dl-residual-shortcut',
@@ -382,7 +385,7 @@ export const exercises: Exercise[] = [
     type: '计算',
     tags: ['ResNet', 'Shortcut', '1×1卷积'],
     conceptSlug: 'residual-networks',
-    source: 'deeplearning / 20 残差连接与现代 CNN',
+    source: '残差连接与现代 CNN',
   },
   {
     id: 'dl-transfer-experiment',
@@ -396,7 +399,7 @@ export const exercises: Exercise[] = [
     type: '项目',
     tags: ['迁移学习', '微调', '对照实验'],
     conceptSlug: 'transfer-learning',
-    source: 'deeplearning / 21 迁移学习与微调',
+    source: '迁移学习与微调',
   },
   {
     id: 'dl-iou',
@@ -410,7 +413,7 @@ export const exercises: Exercise[] = [
     type: '计算',
     tags: ['目标检测', 'IoU', '边界框'],
     conceptSlug: 'detection-segmentation',
-    source: 'deeplearning / 22 目标检测与图像分割',
+    source: '目标检测与图像分割',
   },
   {
     id: 'dl-debug-small-batch',
@@ -424,7 +427,7 @@ export const exercises: Exercise[] = [
     type: '诊断',
     tags: ['调试', '训练循环', '梯度'],
     conceptSlug: 'model-debugging',
-    source: 'deeplearning / 26 深度学习模型调试指南',
+    source: '深度学习模型调试指南',
   },
   {
     id: 'dl-checkpoint',
@@ -438,7 +441,7 @@ export const exercises: Exercise[] = [
     type: '概念',
     tags: ['模型保存', 'Checkpoint', '推理'],
     conceptSlug: 'model-saving-inference',
-    source: 'deeplearning / 25-27 训练工程与模型保存',
+    source: '训练工程与模型保存',
   },
   {
     id: 'dl-mnist-project',
@@ -452,7 +455,7 @@ export const exercises: Exercise[] = [
     type: '项目',
     tags: ['MNIST', '端到端', '验收'],
     conceptSlug: 'training-engineering',
-    source: 'deeplearning / 28 端到端 MNIST 项目',
+    source: '端到端 MNIST 项目',
   },
 ];
 
