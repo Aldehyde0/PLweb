@@ -34,7 +34,7 @@ export function ImportantSection({
           className="important-toggle"
         >
           <Star className={active ? 'fill-current' : ''} />
-          <span>{active ? '已标记' : '标记重点'}</span>
+          {active && <span>已标记</span>}
         </button>
       </div>
       <div className="doc-section-body">{children}</div>
