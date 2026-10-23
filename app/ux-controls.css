@@ -1,3 +1,14 @@
+.exercise-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  margin-block-start: var(--space-md);
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+}
+
 /* Compact desktop controls keep their existing appearance. Touch controls use
    the shared minimum size, including Base UI buttons rendered as links. */
 @media (pointer: coarse), (max-width: 40rem) {

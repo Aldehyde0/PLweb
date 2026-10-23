@@ -10,31 +10,25 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import {
-  categories,
-  categoryMap,
-  type CategorySlug,
-  type Difficulty,
-} from '@/lib/content';
-import { exercises, type ExerciseType } from '@/lib/exercises';
+import { categories, categoryMap } from '@/lib/content';
+import { exercises } from '@/lib/exercises';
 import { getExerciseTypeGroup } from '@/lib/exercise-style';
 import { sortExercises } from '@/lib/exercise-utils';
+import { exerciseFilterSchema } from '@/lib/filter-query';
+import { useFilterQuery } from '@/hooks/use-filter-query';
 import { useLearning } from '@/components/learning-store';
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-type All<T> = '全部' | T;
 const orderedExercises = sortExercises(
   exercises,
   categories.map((category) => category.slug),
 );
 export function ExercisesView() {
-  const [query, setQuery] = useState('');
-  const [category, setCategory] = useState<'all' | CategorySlug>('all');
-  const [difficulty, setDifficulty] = useState<All<Difficulty>>('全部');
-  const [type, setType] = useState<All<ExerciseType>>('全部');
-  const [status, setStatus] = useState<'全部' | '未完成' | '已完成'>('全部');
+  const { filters, update, clear } = useFilterQuery(exerciseFilterSchema);
+  const { query, category, difficulty, type, status } = filters;
+  const setQuery = (value: string) => update({ query: value, page: '1' }, true);
   const [open, setOpen] = useState<string[]>([]);
   const { practiced, togglePractice } = useLearning();
   const filtered = useMemo(
@@ -58,13 +52,9 @@ export function ExercisesView() {
       }),
     [query, category, difficulty, type, status, practiced],
   );
-  const clear = () => {
-    setQuery('');
-    setCategory('all');
-    setDifficulty('全部');
-    setType('全部');
-    setStatus('全部');
-  };
+  const pageCount = Math.max(1, Math.ceil(filtered.length / 20));
+  const page = Math.min(Number(filters.page), pageCount);
+  const visible = filtered.slice((page - 1) * 20, page * 20);
   return (
     <main>
       <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
@@ -124,7 +114,12 @@ export function ExercisesView() {
             <select
               className="select-control"
               value={category}
-              onChange={(e) => setCategory(e.target.value as typeof category)}
+              onChange={(e) =>
+                update({
+                  category: e.target.value as typeof category,
+                  page: '1',
+                })
+              }
               aria-label="方向筛选"
             >
               <option value="all">全部方向</option>
@@ -135,7 +130,10 @@ export function ExercisesView() {
               className="select-control"
               value={difficulty}
               onChange={(e) =>
-                setDifficulty(e.target.value as typeof difficulty)
+                update({
+                  difficulty: e.target.value as typeof difficulty,
+                  page: '1',
+                })
               }
               aria-label="难度筛选"
             >
@@ -147,7 +145,9 @@ export function ExercisesView() {
             <select
               className="select-control"
               value={type}
-              onChange={(e) => setType(e.target.value as typeof type)}
+              onChange={(e) =>
+                update({ type: e.target.value as typeof type, page: '1' })
+              }
               aria-label="题型筛选"
             >
               <option>全部</option>
@@ -160,7 +160,9 @@ export function ExercisesView() {
             <select
               className="select-control"
               value={status}
-              onChange={(e) => setStatus(e.target.value as typeof status)}
+              onChange={(e) =>
+                update({ status: e.target.value as typeof status, page: '1' })
+              }
               aria-label="完成状态筛选"
             >
               <option>全部</option>
@@ -178,7 +180,8 @@ export function ExercisesView() {
             category !== 'all' ||
             difficulty !== '全部' ||
             type !== '全部' ||
-            status !== '全部') && (
+            status !== '全部' ||
+            filters.page !== '1') && (
             <button
               className="rounded-md text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring"
               onClick={clear}
@@ -189,7 +192,7 @@ export function ExercisesView() {
         </div>
         <section className="mt-5 space-y-4">
           {filtered.length ? (
-            filtered.map((item) => {
+            visible.map((item) => {
               const answered = open.includes(item.id);
               const done = practiced.includes(item.id);
               return (
@@ -281,6 +284,27 @@ export function ExercisesView() {
             />
           )}
         </section>
+        {pageCount > 1 && (
+          <nav className="exercise-pagination" aria-label="练习分页">
+            <Button
+              variant="outline"
+              disabled={page === 1}
+              onClick={() => update({ page: String(page - 1) })}
+            >
+              上一页
+            </Button>
+            <output>
+              第 {page} / {pageCount} 页 · 每页 20 题
+            </output>
+            <Button
+              variant="outline"
+              disabled={page === pageCount}
+              onClick={() => update({ page: String(page + 1) })}
+            >
+              下一页
+            </Button>
+          </nav>
+        )}
       </div>
     </main>
   );
