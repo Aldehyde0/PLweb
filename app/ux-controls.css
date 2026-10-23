@@ -1,3 +1,20 @@
+.exercise-answer {
+  margin-block-start: var(--space-2xs);
+  color: var(--color-learning-ink);
+  font-size: var(--text-sm);
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+.exercise-answer > p {
+  white-space: pre-line;
+}
+.exercise-answer p > code {
+  padding-inline: var(--space-3xs);
+  border-radius: var(--space-3xs);
+  background: var(--color-learning-surface-raised);
+  font-family: var(--font-outlier);
+}
+
 .progress-backup {
   margin-block-start: var(--space-2xs);
   font-size: var(--text-xs);
