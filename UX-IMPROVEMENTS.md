@@ -1,6 +1,6 @@
 # PLweb 前端体验改进交付记录
 
-日期：2026-10-23。分支：`codex/ux-improvements-2026-10`。基于本地原有提交 `3a20cbf`，未推送、合并或部署。
+更新日期：2026-10-23。分支：`codex/ux-improvements-2026-10`。基于本地原有提交 `3a20cbf`。原交付版本为 `ff8ab79`，已经核实存在于 origin 的同名分支。本次新增两个修复提交，推送因连接 GitHub 443 端口持续超时而尚未完成；未合并或部署。
 
 ## 逐项结果与提交
 
@@ -19,17 +19,29 @@
 
 另有一条验收提交，保存本报告及 scripts/verify-ux.ts；由原 scripts/verify-browser.ts 调用。原脚本的计划验收会在检测入口前展开默认折叠的已完成阶段，避免把隐藏文本误判为入口丢失。
 
+本次复核新增提交 `6977ecb`（补齐资源关联概念链接和滑块的 44px 命中区域及浏览器断言），另以独立验收提交保存 RSC 等待、取消分类、回归测试和本记录修订。原有 11 条提交保留。
+
 ## 验证记录
 
-- 每项任务后均运行 `npm run typecheck`、`npm run lint`、`npm test`，通过后进入下一项。
-- 最终类型检查通过，lint 通过（0 error / 0 warning），单元测试 **124/124** 通过，生产构建通过。
-- 对 Cloudflare Workers 本地生产预览执行 `node --experimental-strip-types scripts/verify-browser.ts http://127.0.0.1:8788`，真实 Chrome 验收 **124/124** 通过，无未处理运行时错误、无失败网络请求。
-- 第 1、2、4、5 项实际检查了浅色/深色、**375×900** 和 **1440×900** 视口。375px 下目录的 100 个控件/链接、资源区 118 个控件、练习区 107 个控件，以及备忘录笔记操作按钮均满足 44×44；1440px 下资源按钮仍为 28px 高。
+原交付曾记录 124/124，但后续独立复核连续两次为 123/124，且发现触控漏项。因此，原记录不能作为 `ff8ab79` 全项验收通过的依据。下面记录本次补充修复与重新验收，原始失败证据保留在 outputs/ux/ 下。
+
+- 本次类型检查通过，lint 通过（0 error / 0 warning），单元测试 **133/133** 通过，生产构建通过。
+- 对同一份 Cloudflare Workers 本地生产构建执行 `node --experimental-strip-types scripts/verify-browser.ts http://127.0.0.1:8788`，最终连续两轮均为 **170/170**。两轮各有 **1 条已验证的导航取消**，无非预期网络失败、无未处理运行时错误。取消会单独记录，不表述为“零取消请求”。
+- 第 1、2、4、5 项实际检查了浅色/深色、**375×900** 和 **1440×900** 视口。原检查的目录 100 个控件/链接、资源区 118 个操作控件、练习区 107 个控件以及备忘录按钮保留；本次额外覆盖资源卡的 **104 个关联概念链接**、学习率和标准化演示的全部滑块，并补测 **1440px 粗指针**。
+- 关联概念链接的最小高度为 **44px**；Base UI 滑块控制层及拇指扩展区域均为 **44px**，可见圆点仍为 **12px**、轨道仍为 **4px**。距轨道中心 20px 的实际触摸与键盘方向键调整均通过；1440px 细指针下仍保留原紧凑尺寸。
 - 抽屉实测正文/表面对比度约 **15.60:1**；确认背景、边框及输入面跟随主题，关闭按钮可点击且不与标题重叠。
 - 浏览器验证了真实浏览后的继续学习、概念目录匹配、首尾边界、顺序跳转的 visit 记录、URL 刷新/后退、20+12 分页不丢题、标签搜索、清除筛选、行内代码、实际 JSON 下载、无效导入、取消导入、成功导入后的即时状态更新及重点汇总。
 - 原有验收另外覆盖了 390px、768px、1440px 的相关页面、两种主题、字体、存储失败提示和计划生命周期。
 
 构建仍有 vinext 自身“部分路由无法静态分类”的提示；相关页面已在生产预览中验证，构建正常完成。
+
+## 复核问题与修复
+
+1. **触控漏项已补齐。** 原选择器漏掉了 `.resource-concepts a`。原滑块控制层只有 4px，可见拇指 12px，伪元素的实际区域约 26px，不能满足 44px。现在只在窄屏或粗指针设备下使用 `--size-control` 扩大区域，同时为资源链接居中排版，保留桌面尺寸。
+2. **网络取消已保留证据并收窄判定。** 本次实际复现了 `/exercises?_rsc=...` 的 `canceled: true`、`net::ERR_ABORTED`：其后同一文档提交到 `/exercises`，筛选状态和题目列表仍正确。等待响应体结束也不能保证框架永不取消请求，所以脚本增加了请求完成等待、提交后的界面复核和严格的取消分类。只有 RSC Fetch 明确被取消、其精确目标在同一 frame/loader 内提交、对应界面验证成功，且中间没有转到其他目标时，才归为正常导航取消。没有提交/验证、不同目标/文档、连接错误及其他资源失败仍然导致验收失败。
+3. 标签搜索与清除筛选在 **300ms 网络延迟** 下验证。新增的 9 项网络回归测试覆盖响应体尚未完成、并发请求、真正失败、未验证取消、不同目标/文档以及后来重访不能掩盖旧失败等边界。未修改筛选业务逻辑或依赖来规避验收。
+
+原有字体导航取消、资源随后成功取得的 `ERR_CACHE_MISS` 处理保留；本次没有新增其他网络忽略规则。
 
 ## 浏览器截图与原始记录
 
@@ -44,6 +56,14 @@
 - [浅色概念导航，375px](outputs/ux/concept-navigation-light-375.png) / [1440px](outputs/ux/concept-navigation-light-1440.png)
 - [深色概念导航，375px](outputs/ux/concept-navigation-dark-375.png) / [1440px](outputs/ux/concept-navigation-dark-1440.png)
 - [抽屉颜色与对比度测量](outputs/ux/measurements.json)
+- [完整触控测量](outputs/ux/touch-targets.json)
+- [资源关联概念链接，浅色 375px](outputs/ux/resource-concepts-light-375-coarse.png)
+- [学习率滑块，浅色 375px](outputs/ux/slider-learning-rate-selection-light-375-coarse.png)
+- [标准化滑块，深色 1440px 粗指针](outputs/ux/slider-numerical-standardization-dark-1440-coarse.png)
+- [修复前触控失败日志](outputs/ux/review-touch-before.log)
+- [RSC 取消复现证据](outputs/ux/rsc-abort-reproduction.json)
+- [网络分类明细](outputs/ux/network-classification.json) / [第一轮分类](outputs/ux/network-classification-1.json) / [第二轮分类](outputs/ux/network-classification-2.json) / [原始网络事件](outputs/ux/network-events.json)
+- [第一轮浏览器复测](outputs/ux/browser-review-1.log) / [第二轮浏览器复测](outputs/ux/browser-review-2.log)
 - [完整浏览器日志](outputs/ux/browser-verification.log) / [构建日志](outputs/ux/build.log) / [最终测试日志](outputs/ux/unit-tests.log)
 
 ## 限制与后续决策
