@@ -59,6 +59,7 @@
   summary,
   input:not([type='checkbox'], [type='radio'], [type='range'], [type='hidden']),
   .concept-list-link,
+  .resource-concepts a,
   .reference-available,
   .breadcrumbs a,
   .exercise-answer-link {
@@ -67,9 +68,27 @@
   }
 
   .breadcrumbs a,
+  .resource-concepts a,
   .exercise-answer-link {
     display: inline-flex;
     align-items: center;
     white-space: normal;
+  }
+
+  [data-slot='slider-control'][data-orientation='horizontal'] {
+    min-block-size: var(--size-control);
+  }
+
+  [data-slot='slider-control'][data-orientation='vertical'] {
+    min-inline-size: var(--size-control);
+  }
+
+  [data-slot='slider-thumb']::after {
+    inset: auto;
+    inset-block-start: 50%;
+    inset-inline-start: 50%;
+    inline-size: var(--size-control);
+    block-size: var(--size-control);
+    transform: translate(-50%, -50%);
   }
 }
