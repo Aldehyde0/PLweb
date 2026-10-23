@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { parseProgressBackup } from '../lib/progress-backup.ts';
 import { learningResources } from '../lib/resources.ts';
+import { verifyTouchTargets } from './verify-touch-targets.ts';
 
 interface Devtools {
   send(method: string, params?: Record<string, unknown>): Promise<unknown>;
@@ -53,6 +54,7 @@ export async function verifyUx({
   })()`);
 
   // First-time recommendation, then real visits with no learned marker.
+  await verifyTouchTargets({ page, evaluate, goto, waitFor, check });
   await goto('/');
   await evaluate(
     `localStorage.setItem('what-is-learning', JSON.stringify({learned:[],bookmarks:[],recent:[],practiced:[],importantConcepts:[],importantSections:{},notes:[],sortMode:'difficulty-asc'}))`,
