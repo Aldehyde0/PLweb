@@ -21,6 +21,7 @@ import {
   getConceptsByCategory,
 } from '@/lib/content';
 import { exercises } from '@/lib/exercises';
+import { recommendConcept } from '@/lib/learning-recommendation';
 
 const icons = {
   'artificial-intelligence': Sparkles,
@@ -40,7 +41,8 @@ export function Dashboard() {
     .filter(Boolean)
     .slice(0, 3);
   const recommended =
-    concepts.find((concept) => !learned.includes(concept.slug)) ?? concepts[0];
+    (ready ? recommendConcept(concepts, learned, recent) : concepts[0]) ??
+    concepts[0];
   const progress = ready
     ? Math.round((learned.length / Math.max(concepts.length, 1)) * 100)
     : 0;
@@ -60,9 +62,10 @@ export function Dashboard() {
           <div className="dashboard-hero__actions">
             <Link
               href={`/concept/${recommended.slug}`}
-              className="dashboard-button dashboard-button--primary"
+              className="dashboard-button dashboard-button--primary dashboard-continue"
+              aria-label={`继续学习：${recommended.title}`}
             >
-              继续学习
+              <span>继续学习：{recommended.title}</span>
               <ArrowRight aria-hidden="true" />
             </Link>
             <Link
@@ -78,7 +81,7 @@ export function Dashboard() {
           <div className="learning-console__header">
             <div>
               <span>今日工作台</span>
-              <strong>{recommended.title}</strong>
+              <strong>学习状态概览</strong>
             </div>
             <span className="learning-console__state">
               <span aria-hidden="true" />
@@ -108,16 +111,6 @@ export function Dashboard() {
               />
             </div>
           </div>
-          <Link
-            className="learning-console__next"
-            href={`/concept/${recommended.slug}`}
-          >
-            <span>
-              <small>推荐下一步</small>
-              <strong>{recommended.title}</strong>
-            </span>
-            <ArrowRight aria-hidden="true" />
-          </Link>
         </aside>
       </section>
 

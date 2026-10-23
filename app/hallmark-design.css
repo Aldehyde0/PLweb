@@ -298,6 +298,17 @@ button {
   height: 1rem;
 }
 
+.dashboard-continue {
+  max-inline-size: 100%;
+  inline-size: calc(var(--size-control) * 7);
+}
+
+.dashboard-continue > span {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .dashboard-button--primary {
   background: var(--color-ink);
   color: var(--color-paper);
