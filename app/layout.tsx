@@ -7,6 +7,7 @@ import {
 } from '@/components/persistence-store';
 import { ResourceProvider } from '@/components/resource-store';
 import { SiteHeader } from '@/components/site-header';
+import { ProgressBackup } from '@/components/progress-backup';
 import { StudyReminderBanner } from '@/components/study-reminder-banner';
 import { themeBootScript, THEME_STORAGE_KEY } from '@/lib/theme';
 import { resolveMetadataBase } from '@/lib/site-metadata';
@@ -89,6 +90,7 @@ export default function RootLayout({
                     <span>how to learn AI</span>
                     <span>学习数据仅保存在当前浏览器</span>
                   </div>
+                  <ProgressBackup />
                 </footer>
                 <PersistenceBanner />
               </PlanProvider>

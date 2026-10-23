@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  Fragment,
   useCallback,
   useContext,
   useMemo,
@@ -34,6 +35,7 @@ interface PersistenceValue {
   registerSaver: (key: PersistenceKey, save: () => void) => void;
   retry: () => void;
   dismiss: () => void;
+  reloadProgress: () => void;
 }
 
 const PersistenceContext = createContext<PersistenceValue | null>(null);
@@ -45,8 +47,15 @@ export function PersistenceProvider({
   children: React.ReactNode;
 }) {
   const [issues, setIssues] = useState<PersistenceIssue[]>([]);
+  const [revision, setRevision] = useState(0);
   const [dismissedAt, setDismissedAt] = useState<string | null>(null);
   const savers = useRef(new Map<PersistenceKey, () => void>());
+  const reloadProgress = useCallback(() => {
+    savers.current.clear();
+    setIssues([]);
+    setDismissedAt(null);
+    setRevision((current) => current + 1);
+  }, []);
 
   const reportWrite = useCallback(
     (key: PersistenceKey, outcome: WriteOutcome) => {
@@ -119,13 +128,22 @@ export function PersistenceProvider({
       registerSaver,
       retry,
       dismiss,
+      reloadProgress,
     }),
-    [visibleIssues, reportWrite, reportRead, registerSaver, retry, dismiss],
+    [
+      visibleIssues,
+      reportWrite,
+      reportRead,
+      registerSaver,
+      retry,
+      dismiss,
+      reloadProgress,
+    ],
   );
 
   return (
     <PersistenceContext.Provider value={value}>
-      {children}
+      <Fragment key={revision}>{children}</Fragment>
     </PersistenceContext.Provider>
   );
 }
