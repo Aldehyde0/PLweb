@@ -2,11 +2,8 @@ import type { Concept, Difficulty } from './content';
 import { conceptMap, concepts } from './content';
 
 export type ConceptSortMode = 'difficulty-asc' | 'difficulty-desc';
-export const difficultyOrder: Record<string, number> = {
-  入门: 1,
-  进阶: 2,
-  挑战: 3,
-};
+import { difficultyOrder } from './difficulty.ts';
+export { difficultyOrder } from './difficulty.ts';
 
 const aliases: Record<string, string> = {
   'Python 基础': 'numpy-data-operations',

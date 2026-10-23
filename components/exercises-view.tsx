@@ -10,15 +10,25 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { categoryMap, type CategorySlug, type Difficulty } from '@/lib/content';
+import {
+  categories,
+  categoryMap,
+  type CategorySlug,
+  type Difficulty,
+} from '@/lib/content';
 import { exercises, type ExerciseType } from '@/lib/exercises';
 import { getExerciseTypeGroup } from '@/lib/exercise-style';
+import { sortExercises } from '@/lib/exercise-utils';
 import { useLearning } from '@/components/learning-store';
 import { EmptyState } from '@/components/empty-state';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 type All<T> = '全部' | T;
+const orderedExercises = sortExercises(
+  exercises,
+  categories.map((category) => category.slug),
+);
 export function ExercisesView() {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<'all' | CategorySlug>('all');
@@ -29,7 +39,7 @@ export function ExercisesView() {
   const { practiced, togglePractice } = useLearning();
   const filtered = useMemo(
     () =>
-      exercises.filter((item) => {
+      orderedExercises.filter((item) => {
         const q = query.trim().toLowerCase();
         const matchesQuery =
           !q ||
