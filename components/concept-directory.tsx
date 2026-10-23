@@ -63,7 +63,7 @@ export function MobileConceptDirectory({
         </SheetTrigger>
         <SheetContent
           side="left"
-          className="w-[88vw] max-w-sm gap-0 border-[#343434] bg-[#1c1c1c] p-0"
+          className="concept-sheet w-[88vw] max-w-sm gap-0 p-0"
         >
           <SheetHeader className="border-b border-border px-5 py-4">
             <SheetTitle>{category.title}</SheetTitle>

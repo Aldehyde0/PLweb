@@ -129,6 +129,17 @@
   fill: currentColor;
 }
 
+/* Portals inherit theme tokens without depending on the article shell. */
+[data-theme] .concept-sheet[data-slot='sheet-content'] {
+  border-color: var(--color-learning-rule);
+  background: var(--color-learning-surface);
+  color: var(--color-learning-ink);
+}
+
+.concept-sheet [data-slot='sheet-header'] {
+  padding-inline-end: calc(var(--size-control) + var(--space-sm));
+}
+
 /* Stable sorting controls */
 .sort-control {
   display: flex;

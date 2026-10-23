@@ -56,7 +56,7 @@ export function StandardizationDemo() {
             />
           </Control>
         </div>
-        <div className="rounded-xl border border-border bg-[#141414] p-5">
+        <div className="rounded-xl border border-border bg-[var(--color-learning-surface)] p-5">
           <BlockMath
             latex={`z=\\frac{${x.toFixed(1)}-${mean.toFixed(1)}}{${std.toFixed(1)}}=${z.toFixed(3)}`}
           />
@@ -139,7 +139,7 @@ function NumberLine({
         <span>当前：{value.toFixed(3)}</span>
       </div>
       <div className="relative h-10">
-        <div className="absolute inset-x-0 top-4 h-px bg-[#555]" />
+        <div className="absolute inset-x-0 top-4 h-px bg-[var(--color-learning-rule)]" />
         <div
           className="absolute top-1 h-7 w-0.5 bg-primary"
           style={{ left: `${pos}%` }}
@@ -153,7 +153,7 @@ function NumberLine({
           return (
             <span
               key={tick}
-              className="absolute top-5 -translate-x-1/2 text-[10px] text-[#777]"
+              className="absolute top-5 -translate-x-1/2 text-[10px] text-[var(--color-learning-ink-2)]"
               style={{ left: `${left}%` }}
             >
               {tick}
@@ -166,7 +166,7 @@ function NumberLine({
 }
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-[#1e1e1e] p-2">
+    <div className="rounded-lg bg-[var(--color-learning-surface-raised)] p-2">
       <span className="block text-[10px] text-muted-foreground">{label}</span>
       <strong className="mt-1 block font-mono text-sm">{value}</strong>
     </div>
@@ -180,7 +180,7 @@ function Note({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border-l-2 border-primary bg-[#1d1d1d] p-4">
+    <div className="rounded-lg border-l-2 border-primary bg-[var(--color-learning-surface)] p-4">
       <h3 className="text-sm font-semibold">{title}</h3>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">{children}</p>
     </div>
