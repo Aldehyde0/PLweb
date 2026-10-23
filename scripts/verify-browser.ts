@@ -26,6 +26,7 @@ import {
   type PlanConcept,
   type PlanFormInput,
 } from '../lib/plan-engine.ts';
+import { verifyUx } from './verify-ux.ts';
 
 const baseUrl = (process.argv[2] ?? 'http://127.0.0.1:8788').replace(/\/$/, '');
 
@@ -1112,6 +1113,11 @@ async function main() {
   );
 
   await goto(`/plans/${seededState.planId}`);
+  // Completed phases deliberately reload collapsed. Expand them as a reader
+  // would before asserting that their test entry remains available.
+  await evaluate(
+    `document.querySelectorAll('.plan-phase-body:not([open]) > summary').forEach((summary) => summary.click())`,
+  );
   const afterReloadPlan = await evaluate<string>(
     `JSON.stringify({
       hasPlan: document.body.innerText.includes('浏览器验证计划'),
@@ -1131,6 +1137,8 @@ async function main() {
       planReloadState.taskRows > 0,
     afterReloadPlan,
   );
+
+  await verifyUx({ page, browser, evaluate, goto, waitFor, check });
 
   // ------------------------------------------------------------ console health
   collectNetwork();
