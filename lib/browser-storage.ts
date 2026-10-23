@@ -34,7 +34,8 @@ export type WriteOutcome =
 function area(which: StorageArea): Storage | null {
   if (typeof window === 'undefined') return null;
   try {
-    const store = which === 'local' ? window.localStorage : window.sessionStorage;
+    const store =
+      which === 'local' ? window.localStorage : window.sessionStorage;
     return store ?? null;
   } catch {
     // Accessing the property throws when storage is blocked by policy.

@@ -121,8 +121,14 @@ modern-minimal。产品界面优先，学习状态与下一步行动先于介绍
     "accent-dark": { "$value": "oklch(64% 0.19 268)", "$type": "color" }
   },
   "font": {
-    "display": { "$value": "Geist, Microsoft YaHei, ui-sans-serif, sans-serif", "$type": "fontFamily" },
-    "mono": { "$value": "Geist Mono, Cascadia Code, ui-monospace, monospace", "$type": "fontFamily" }
+    "display": {
+      "$value": "Geist, Microsoft YaHei, ui-sans-serif, sans-serif",
+      "$type": "fontFamily"
+    },
+    "mono": {
+      "$value": "Geist Mono, Cascadia Code, ui-monospace, monospace",
+      "$type": "fontFamily"
+    }
   },
   "space": {
     "md": { "$value": "1.5rem", "$type": "dimension" },
@@ -157,7 +163,6 @@ modern-minimal。产品界面优先，学习状态与下一步行动先于介绍
 - 不继承参考页的斜体标题强调。
 - 不使用无限滚动信息带，除非内容确实表达实时状态。
 - 不使用三张同构功能卡、AI 标准导航、四栏 SaaS 页脚或伪造指标。
-
 
 ## 2026-09-18 · Neutral light learning surfaces
 

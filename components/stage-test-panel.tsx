@@ -135,7 +135,8 @@ function TestUnavailable({
             <p className="eyebrow">题库覆盖不足</p>
             <h1>暂无测试</h1>
             <p>
-              {phase.title} 还没有可判分的题目，因此没有生成测试，也不会记录分数或薄弱概念。
+              {phase.title}{' '}
+              还没有可判分的题目，因此没有生成测试，也不会记录分数或薄弱概念。
             </p>
           </div>
           <Button variant="outline" onClick={onClose}>
@@ -236,9 +237,9 @@ function TestResult({
   onRetry: () => void;
 }) {
   const store = usePlans();
-  const [selfAssessment, setSelfAssessment] = useState<
-    Record<string, boolean>
-  >({});
+  const [selfAssessment, setSelfAssessment] = useState<Record<string, boolean>>(
+    {},
+  );
   const grades = phase.test.grades ?? [];
   // A question is still pending only when its own grade row exists and has not
   // been judged yet, so a coarse phase-level flag cannot mask real self-review.

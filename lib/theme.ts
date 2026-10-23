@@ -1,4 +1,8 @@
-import { readStored, writeStored, type WriteOutcome } from './browser-storage.ts';
+import {
+  readStored,
+  writeStored,
+  type WriteOutcome,
+} from './browser-storage.ts';
 
 export const THEME_STORAGE_KEY = 'how-to-learn-ai-theme';
 

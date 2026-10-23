@@ -62,7 +62,8 @@ const stats: RewriteStats = {
  */
 function rewriteSrc(srcValue: string, family: string) {
   const entries: string[] = [];
-  const pattern = /url\(\s*(['"]?)(?:\.\/)?fonts\/([^'")]+)\1\s*\)\s*format\(\s*(['"]?)([a-z0-9-]+)\3\s*\)/gi;
+  const pattern =
+    /url\(\s*(['"]?)(?:\.\/)?fonts\/([^'")]+)\1\s*\)\s*format\(\s*(['"]?)([a-z0-9-]+)\3\s*\)/gi;
   let matched = false;
   for (const match of srcValue.matchAll(pattern)) {
     matched = true;
@@ -91,7 +92,8 @@ function rewriteSrc(srcValue: string, family: string) {
 const rewritten = katexCss.replace(
   /@font-face\s*\{([^}]*)\}/gi,
   (whole, body: string) => {
-    const family = /font-family:\s*("?)([^;"]+)\1/i.exec(body)?.[2] ?? 'unknown';
+    const family =
+      /font-family:\s*("?)([^;"]+)\1/i.exec(body)?.[2] ?? 'unknown';
     const next = body.replace(/src:\s*([^;}]+)/i, (full, srcValue: string) => {
       const resolved = rewriteSrc(srcValue, family);
       return resolved ? `src:${resolved}` : full;

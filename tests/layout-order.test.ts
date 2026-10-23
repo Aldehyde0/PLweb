@@ -11,5 +11,8 @@ void test('renders the study reminder after page content so the floating header 
   const reminderIndex = layout.indexOf('<StudyReminderBanner />');
 
   assert.ok(contentIndex >= 0, 'layout should render its page content');
-  assert.ok(reminderIndex > contentIndex, 'reminder should follow page content');
+  assert.ok(
+    reminderIndex > contentIndex,
+    'reminder should follow page content',
+  );
 });

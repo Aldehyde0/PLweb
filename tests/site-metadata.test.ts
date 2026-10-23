@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { resolveSiteOrigin, type HeaderLookup } from '../lib/site-metadata.ts';
 
-const lookupOf = (record: Record<string, string>): HeaderLookup => (name) =>
-  record[name.toLowerCase()] ?? null;
+const lookupOf =
+  (record: Record<string, string>): HeaderLookup =>
+  (name) =>
+    record[name.toLowerCase()] ?? null;
 
 void test('SITE_ORIGIN wins over the request host', () => {
   const origin = resolveSiteOrigin(
@@ -26,7 +28,10 @@ void test('a bare host in SITE_ORIGIN is treated as https', () => {
 
 void test('an unusable SITE_ORIGIN is reported instead of masked by the host', () => {
   assert.equal(
-    resolveSiteOrigin(lookupOf({ host: 'fallback.example.com' }), 'http://[bad'),
+    resolveSiteOrigin(
+      lookupOf({ host: 'fallback.example.com' }),
+      'http://[bad',
+    ),
     null,
   );
 });
@@ -70,7 +75,10 @@ void test('a missing host yields null so metadataBase stays unset', () => {
 
 void test('a malformed forwarded host does not throw', () => {
   assert.equal(
-    resolveSiteOrigin(lookupOf({ 'x-forwarded-host': 'not a host' }), undefined),
+    resolveSiteOrigin(
+      lookupOf({ 'x-forwarded-host': 'not a host' }),
+      undefined,
+    ),
     null,
   );
 });

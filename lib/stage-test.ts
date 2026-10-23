@@ -76,28 +76,30 @@ export function normalizeAnswer(value: string) {
     .normalize('NFKC')
     .toLowerCase()
     .replace(/\s+/g, '')
-    .replace(/[，。；：！？、“”‘’（）【】《》]/g, (char) =>
-      (
-        {
-          '，': ',',
-          '。': '.',
-          '；': ';',
-          '：': ':',
-          '！': '!',
-          '？': '?',
-          '、': ',',
-          '“': '"',
-          '”': '"',
-          '‘': "'",
-          '’': "'",
-          '（': '(',
-          '）': ')',
-          '【': '[',
-          '】': ']',
-          '《': '<',
-          '》': '>',
-        } as Record<string, string>
-      )[char] ?? char,
+    .replace(
+      /[，。；：！？、“”‘’（）【】《》]/g,
+      (char) =>
+        (
+          ({
+            '，': ',',
+            '。': '.',
+            '；': ';',
+            '：': ':',
+            '！': '!',
+            '？': '?',
+            '、': ',',
+            '“': '"',
+            '”': '"',
+            '‘': "'",
+            '’': "'",
+            '（': '(',
+            '）': ')',
+            '【': '[',
+            '】': ']',
+            '《': '<',
+            '》': '>',
+          }) as Record<string, string>
+        )[char] ?? char,
     )
     .replace(/[\\$]/g, '')
     .replace(/[{}]/g, '')
@@ -124,9 +126,10 @@ export function parseNumeric(value: string): number | null {
     .replace(/[，,](?=\d{3}\b)/g, '')
     .replace(/\s+/g, '')
     .replace(/^[a-zα-ω]+=/i, '');
-  const match = /^(-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)(?:[a-z%°℃个条元秒分时天次]*)$/i.exec(
-    cleaned,
-  );
+  const match =
+    /^(-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)(?:[a-z%°℃个条元秒分时天次]*)$/i.exec(
+      cleaned,
+    );
   if (!match) return null;
   const parsed = Number(match[1]);
   return Number.isFinite(parsed) ? parsed : null;
@@ -146,7 +149,11 @@ export function parseRatio(value: string): number | null {
   if (!match) return null;
   const numerator = Number(match[1]);
   const denominator = Number(match[2]);
-  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator === 0)
+  if (
+    !Number.isFinite(numerator) ||
+    !Number.isFinite(denominator) ||
+    denominator === 0
+  )
     return null;
   return numerator / denominator;
 }
@@ -159,10 +166,14 @@ function numbersMatch(left: string, right: string) {
   const pairs: Array<[number, number]> = [];
   // A plain number may stand in for an equal fraction and vice versa; the two
   // readings are never mixed with unrelated text.
-  if (leftNumber !== null && rightNumber !== null) pairs.push([leftNumber, rightNumber]);
-  if (leftRatio !== null && rightRatio !== null) pairs.push([leftRatio, rightRatio]);
-  if (leftRatio !== null && rightNumber !== null) pairs.push([leftRatio, rightNumber]);
-  if (leftNumber !== null && rightRatio !== null) pairs.push([leftNumber, rightRatio]);
+  if (leftNumber !== null && rightNumber !== null)
+    pairs.push([leftNumber, rightNumber]);
+  if (leftRatio !== null && rightRatio !== null)
+    pairs.push([leftRatio, rightRatio]);
+  if (leftRatio !== null && rightNumber !== null)
+    pairs.push([leftRatio, rightNumber]);
+  if (leftNumber !== null && rightRatio !== null)
+    pairs.push([leftNumber, rightRatio]);
   return pairs.some(([a, b]) => {
     const tolerance = Math.max(1e-6, Math.abs(b) * 1e-3);
     return Math.abs(a - b) <= tolerance;
@@ -209,9 +220,10 @@ export function isPlaceholderStageQuestion(question: {
 }): boolean {
   if (!question || typeof question.prompt !== 'string') return true;
   const prompt = question.prompt.trim();
-  const genericPrompt = /^请完成关于.+的(单选题|多选题|判断题|概念解释题|公式填写题|代码阅读题|代码输出判断题|简单计算题)。?$/.test(
-    prompt,
-  );
+  const genericPrompt =
+    /^请完成关于.+的(单选题|多选题|判断题|概念解释题|公式填写题|代码阅读题|代码输出判断题|简单计算题)。?$/.test(
+      prompt,
+    );
   const answers = Array.isArray(question.correctAnswers)
     ? question.correctAnswers.filter(
         (item): item is string => typeof item === 'string',

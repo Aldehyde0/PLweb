@@ -39,7 +39,10 @@ void test('every KaTeX font request is an absolute /fonts URL', () => {
   const urls = [...css.matchAll(/url\(([^)]*)\)/g)].map((match) =>
     match[1]!.replace(/['"]/g, '').trim(),
   );
-  assert.ok(urls.length >= 20, `expected the full KaTeX font set, got ${urls.length}`);
+  assert.ok(
+    urls.length >= 20,
+    `expected the full KaTeX font set, got ${urls.length}`,
+  );
   for (const url of urls) {
     assert.ok(
       url.startsWith('/fonts/'),
@@ -56,8 +59,8 @@ void test('every KaTeX font request is an absolute /fonts URL', () => {
 });
 
 void test('every referenced font file exists in public/fonts', () => {
-  const referenced = [...css.matchAll(/url\(\/fonts\/([^)]+)\)/g)].map((match) =>
-    match[1]!.replace(/['"]/g, '').trim(),
+  const referenced = [...css.matchAll(/url\(\/fonts\/([^)]+)\)/g)].map(
+    (match) => match[1]!.replace(/['"]/g, '').trim(),
   );
   assert.ok(referenced.length > 0);
   for (const fileName of referenced)
@@ -68,7 +71,9 @@ void test('every referenced font file exists in public/fonts', () => {
 });
 
 void test('no font file in public/fonts is left unreferenced', () => {
-  const onDisk = readdirSync(publicFontsDir).filter((name) => name.endsWith('.woff2'));
+  const onDisk = readdirSync(publicFontsDir).filter((name) =>
+    name.endsWith('.woff2'),
+  );
   assert.ok(onDisk.length > 0);
   for (const fileName of onDisk)
     assert.ok(

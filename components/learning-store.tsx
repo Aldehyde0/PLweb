@@ -92,7 +92,9 @@ function isSectionNote(value: unknown): value is SectionNote {
  * default instead of discarding the learner's whole history, and the caller is
  * told when anything had to be repaired.
  */
-function validateStore(parsed: unknown): Store | { value: Store; recovered: true } {
+function validateStore(
+  parsed: unknown,
+): Store | { value: Store; recovered: true } {
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
     throw new Error('learning store is not an object');
   const source = parsed as Record<string, unknown>;
@@ -183,7 +185,11 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
         blocked.current = true;
         reportRead('learning', loaded);
       }
-      const session = readStored('session', HISTORY_STORAGE_KEY, validateHistory);
+      const session = readStored(
+        'session',
+        HISTORY_STORAGE_KEY,
+        validateHistory,
+      );
       if (session.value) setHistory(session.value);
       setReady(true);
     });
@@ -195,16 +201,16 @@ export function LearningProvider({ children }: { children: React.ReactNode }) {
   const saveStore = useCallback(
     (value: Store) => {
       if (blocked.current) return;
-      reportWrite('learning', writeStored('local', LEARNING_STORAGE_KEY, value));
+      reportWrite(
+        'learning',
+        writeStored('local', LEARNING_STORAGE_KEY, value),
+      );
     },
     [reportWrite],
   );
-  const saveHistory = useCallback(
-    (value: VisitHistory) => {
-      writeStored('session', HISTORY_STORAGE_KEY, value);
-    },
-    [],
-  );
+  const saveHistory = useCallback((value: VisitHistory) => {
+    writeStored('session', HISTORY_STORAGE_KEY, value);
+  }, []);
 
   useEffect(() => {
     if (ready) saveStore(store);
