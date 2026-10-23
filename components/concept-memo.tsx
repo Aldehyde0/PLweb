@@ -153,9 +153,7 @@ function MemoContent({
             ))}
           </nav>
         ) : (
-          <p className="memo-empty">
-            点击正文标题旁的“标记重点”，章节会出现在这里。
-          </p>
+          <p className="memo-empty">点击正文标题旁的星标，章节会出现在这里。</p>
         )}
       </section>
       <section className="memo-section">
