@@ -1,3 +1,26 @@
+.progress-backup {
+  margin-block-start: var(--space-2xs);
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+.progress-backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+.progress-backup-actions button {
+  min-block-size: var(--size-control);
+  text-decoration: underline;
+  text-underline-offset: var(--space-3xs);
+}
+.progress-backup-actions button:disabled {
+  opacity: 0.5;
+}
+.progress-backup > p {
+  margin-block-start: var(--space-2xs);
+  color: var(--color-error);
+}
+
 .exercise-pagination {
   display: flex;
   flex-wrap: wrap;
