@@ -18,6 +18,7 @@ import { exerciseFilterSchema } from '@/lib/filter-query';
 import { useFilterQuery } from '@/hooks/use-filter-query';
 import { useLearning } from '@/components/learning-store';
 import { EmptyState } from '@/components/empty-state';
+import { ExerciseAnswer } from '@/components/exercise-answer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -241,9 +242,7 @@ export function ExercisesView() {
                       <p className="text-xs font-semibold text-primary">
                         参考答案
                       </p>
-                      <p className="mt-2 whitespace-pre-line text-sm leading-7 text-foreground/85">
-                        {item.answer}
-                      </p>
+                      <ExerciseAnswer answer={item.answer} />
                       <Link
                         href={`/concept/${item.conceptSlug}`}
                         className="exercise-answer-link mt-4 inline-flex rounded-md text-xs font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring"
