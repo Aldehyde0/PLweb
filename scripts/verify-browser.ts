@@ -27,6 +27,11 @@ import {
   type PlanFormInput,
 } from '../lib/plan-engine.ts';
 import { verifyUx } from './verify-ux.ts';
+import {
+  RscRequestTracker,
+  isVerifiedNavigationCancellation,
+  type NetworkFailure,
+} from './browser-network.ts';
 
 const baseUrl = (process.argv[2] ?? 'http://127.0.0.1:8788').replace(/\/$/, '');
 
@@ -311,7 +316,25 @@ async function main() {
     return result.result.value as T;
   };
 
-  /** Polls an expression until it is truthy, instead of guessing a delay. */
+  const rsc = new RscRequestTracker();
+  let networkCursor = 0;
+  const waitForRscIdle = async () => {
+    const deadline = Date.now() + 20000;
+    let quietSince = Date.now();
+    while (Date.now() < deadline) {
+      const revision = rsc.revision;
+      while (networkCursor < page.events.length)
+        rsc.record(page.events[networkCursor++]);
+      if (rsc.revision !== revision) quietSince = Date.now();
+      if (rsc.pending.size === 0 && Date.now() - quietSince >= 200) return;
+      await sleep(50);
+    }
+    throw new Error(
+      `RSC requests did not settle: ${[...rsc.pending.values()].join(', ')}`,
+    );
+  };
+
+  /** Check the final UI after RSC bodies finish, then allow the next action. */
   const waitFor = async (
     expression: string,
     timeoutMs = 15000,
@@ -319,10 +342,15 @@ async function main() {
   ) => {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
+      let matched = false;
       try {
-        if (await evaluate<boolean>(`Boolean(${expression})`)) return true;
+        matched = await evaluate<boolean>(`Boolean(${expression})`);
       } catch {
         /* navigation in flight */
+      }
+      if (matched) {
+        await waitForRscIdle();
+        if (await evaluate<boolean>(`Boolean(${expression})`)) return true;
       }
       await sleep(150);
     }
@@ -334,18 +362,36 @@ async function main() {
 
   const navigateMarker = `window.__dshMarker = (window.__dshMarker ?? 0) + 1; window.__dshMarker;`;
 
+  const verifyRoute = async (label: string) => {
+    const url = await evaluate<string>('location.href');
+    const { frameTree } = await page.send<{
+      frameTree: { frame: { id: string; loaderId: string } };
+    }>('Page.getFrameTree');
+    page.events.push({
+      method: 'Verification.routeVerified',
+      params: {
+        url,
+        frameId: frameTree.frame.id,
+        loaderId: frameTree.frame.loaderId,
+        label,
+      },
+    });
+  };
+
   const goto = async (path: string, waitMs = 400) => {
+    await waitForRscIdle();
     await page.send('Page.navigate', { url: `${baseUrl}${path}` });
     // Wait for real content rather than a fixed delay: a shell that has not
     // hydrated yet would make the assertions below flaky. The threshold is low
     // because some routes legitimately render mostly empty states.
     await waitFor(
-      `document.body && document.querySelector('main') && document.body.innerText.trim().length > 40`,
+      `location.href === ${JSON.stringify(new URL(`${baseUrl}${path}`).href)} && document.body && document.querySelector('main') && document.body.innerText.trim().length > 40`,
       20000,
       `content on ${path}`,
     );
     if (waitMs) await sleep(waitMs);
     await evaluate(navigateMarker);
+    await verifyRoute(`rendered ${path}`);
     return evaluate<{
       status: number;
       title: string;
@@ -359,10 +405,46 @@ async function main() {
     }))()`);
   };
 
-  const failedRequests: string[] = [];
+  const failedRequests: NetworkFailure[] = [];
+  const networkEvidence: CdpMessage[] = [];
   const requestUrls = new Map<string, string>();
   const collectNetwork = () => {
     for (const event of page.events) {
+      if (
+        [
+          'Network.requestWillBeSent',
+          'Network.loadingFailed',
+          'Network.loadingFinished',
+          'Page.frameNavigated',
+          'Page.navigatedWithinDocument',
+          'Verification.routeVerified',
+        ].includes(event.method ?? '')
+      ) {
+        const params = event.params ?? {};
+        const request = params.request as
+          | { url?: string; headers?: Record<string, unknown> }
+          | undefined;
+        networkEvidence.push(
+          event.method === 'Network.requestWillBeSent'
+            ? {
+                method: event.method,
+                params: {
+                  requestId: params.requestId,
+                  loaderId: params.loaderId,
+                  frameId: params.frameId,
+                  timestamp: params.timestamp,
+                  type: params.type,
+                  request: {
+                    url: request?.url,
+                    headers: {
+                      RSC: request?.headers?.RSC ?? request?.headers?.rsc,
+                    },
+                  },
+                },
+              }
+            : event,
+        );
+      }
       if (event.method === 'Network.requestWillBeSent') {
         const params = event.params as {
           requestId?: string;
@@ -376,6 +458,7 @@ async function main() {
           errorText?: string;
           type?: string;
           requestId?: string;
+          canceled?: boolean;
         };
         if (
           params.type !== 'Font' ||
@@ -384,9 +467,13 @@ async function main() {
           const url = params.requestId
             ? (requestUrls.get(params.requestId) ?? 'unknown-url')
             : 'unknown-url';
-          failedRequests.push(
-            `${params.type}:${params.errorText}:${url.replace(baseUrl, '')}`,
-          );
+          failedRequests.push({
+            requestId: params.requestId ?? '',
+            type: params.type ?? 'unknown',
+            errorText: params.errorText ?? 'unknown',
+            canceled: params.canceled === true,
+            url,
+          });
         }
       }
       if (event.method === 'Runtime.consoleAPICalled') {
@@ -408,6 +495,7 @@ async function main() {
       }
     }
     page.events.length = 0;
+    networkCursor = 0;
   };
 
   // ------------------------------------------------------------ route rendering
@@ -502,6 +590,13 @@ async function main() {
     navigation.ok,
     navigated,
   );
+  if (
+    navigation.ok &&
+    (await evaluate<boolean>(
+      `document.querySelector('main')?.textContent.includes('学习资料参考库')`,
+    ))
+  )
+    await verifyRoute('client resource navigation rendered its library');
 
   // ------------------------------------------------------------ 404 page
   await goto('/definitely-not-a-page', 1200);
@@ -1138,10 +1233,28 @@ async function main() {
     afterReloadPlan,
   );
 
-  await verifyUx({ page, browser, evaluate, goto, waitFor, check });
+  await verifyUx({
+    page,
+    browser,
+    evaluate,
+    goto,
+    waitFor,
+    check,
+    verifyRoute,
+  });
+  await waitForRscIdle();
 
   // ------------------------------------------------------------ console health
   collectNetwork();
+  mkdirSync('outputs/ux', { recursive: true });
+  writeFileSync(
+    'outputs/ux/network-events.json',
+    JSON.stringify(networkEvidence, null, 2),
+  );
+  writeFileSync(
+    'outputs/ux/rsc-failures.json',
+    JSON.stringify(rsc.failures, null, 2),
+  );
   const rejectionDetail = await evaluate<string>(
     `JSON.stringify((window.__dshRejections ?? []).slice(0, 3))`,
   );
@@ -1163,18 +1276,38 @@ async function main() {
   const deliveredPaths = new Set(
     delivered.map((url) => url.replace(baseUrl, '')),
   );
+  const expectedCancellations: NetworkFailure[] = [];
+  const describeFailure = (entry: NetworkFailure) =>
+    `${entry.type}:${entry.errorText}:${entry.url.replace(baseUrl, '')}`;
   const realFailures = failedRequests.filter((entry) => {
-    const path = entry.slice(entry.lastIndexOf(':') + 1);
+    if (isVerifiedNavigationCancellation(entry, networkEvidence)) {
+      expectedCancellations.push(entry);
+      console.log(
+        `  (verified navigation cancellation: ${describeFailure(entry)})`,
+      );
+      return false;
+    }
+    const path = entry.url.replace(baseUrl, '');
     const benign =
-      entry.includes('ERR_CACHE_MISS') &&
+      entry.errorText.includes('ERR_CACHE_MISS') &&
       (path === 'unknown-url' || deliveredPaths.has(path));
-    if (benign) console.log(`  (ignored benign preload miss: ${entry})`);
+    if (benign)
+      console.log(`  (ignored benign preload miss: ${describeFailure(entry)})`);
     return !benign;
   });
   check(
-    'no failed network requests during the run',
+    'no unexpected failed network requests during the run',
     realFailures.length === 0,
-    realFailures.slice(0, 5).join(' | ') || 'none',
+    realFailures.slice(0, 5).map(describeFailure).join(' | ') ||
+      `${expectedCancellations.length} verified navigation cancellations; no unexpected failures`,
+  );
+  writeFileSync(
+    'outputs/ux/network-classification.json',
+    JSON.stringify(
+      { expectedCancellations, unexpectedFailures: realFailures },
+      null,
+      2,
+    ),
   );
 
   page.close();

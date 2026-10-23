@@ -19,6 +19,7 @@ interface Verification {
     label?: string,
   ) => Promise<boolean>;
   check: (name: string, condition: boolean, detail?: string) => void;
+  verifyRoute: (label: string) => Promise<void>;
 }
 
 export async function verifyUx({
@@ -28,6 +29,7 @@ export async function verifyUx({
   goto,
   waitFor,
   check,
+  verifyRoute,
 }: Verification) {
   const directory = resolve('outputs/ux');
   mkdirSync(directory, { recursive: true });
@@ -215,6 +217,7 @@ export async function verifyUx({
       await waitFor(
         `JSON.parse(localStorage.getItem('what-is-learning')).recent[0] === ${JSON.stringify(navigation.next.split('/').at(-1))}`,
       );
+      await verifyRoute('next concept rendered and visit recorded');
       check(
         `${mode} ${width}px sequential concept navigation records a visit`,
         true,
@@ -283,6 +286,7 @@ export async function verifyUx({
   await waitFor(
     `new URLSearchParams(location.search).get('page') === '2' && document.querySelectorAll('main section > article').length === 12`,
   );
+  await verifyRoute('exercise page 2 rendered its 12 questions');
   await goto('/exercises?page=2');
   check(
     'exercise page 2 survives reload',
@@ -301,8 +305,9 @@ export async function verifyUx({
     `document.querySelector('select[aria-label="难度筛选"]').value='入门';document.querySelector('select[aria-label="难度筛选"]').dispatchEvent(new Event('change',{bubbles:true}))`,
   );
   await waitFor(
-    `new URLSearchParams(location.search).get('level') === '入门' && !new URLSearchParams(location.search).has('page')`,
+    `new URLSearchParams(location.search).get('level') === '入门' && !new URLSearchParams(location.search).has('page') && document.querySelectorAll('main article').length > 0 && [...document.querySelectorAll('main article .difficulty')].every((badge) => badge.textContent.trim() === '入门')`,
   );
+  await verifyRoute('difficulty URL and rendered exercise badges agree');
   await page.send('Input.dispatchKeyEvent', {
     type: 'keyDown',
     key: 'Alt',
@@ -311,8 +316,9 @@ export async function verifyUx({
   });
   await evaluate('history.back()');
   await waitFor(
-    `new URLSearchParams(location.search).get('page') === '2' && document.querySelector('select[aria-label="难度筛选"]').value === '全部'`,
+    `new URLSearchParams(location.search).get('page') === '2' && document.querySelector('select[aria-label="难度筛选"]').value === '全部' && document.querySelectorAll('main article').length === 12`,
   );
+  await verifyRoute('back restored page 2 and its filter controls');
   check('back restores exercise filter controls and page position', true);
   await page.send('Input.dispatchKeyEvent', {
     type: 'keyUp',
@@ -335,18 +341,34 @@ export async function verifyUx({
     ),
   );
   await snapshot('exercise-inline-code-light-375');
+  await page.send('Network.emulateNetworkConditions', {
+    offline: false,
+    latency: 300,
+    downloadThroughput: -1,
+    uploadThroughput: -1,
+  });
   await evaluate(
     `[...document.querySelectorAll('main article button')].find((button) => button.textContent.trim().startsWith('#')).click()`,
   );
   await waitFor(
-    `new URLSearchParams(location.search).get('q')?.length > 0 && new URLSearchParams(location.search).get('q') !== 'axis'`,
+    `new URLSearchParams(location.search).get('q')?.length > 0 && new URLSearchParams(location.search).get('q') !== 'axis' && document.querySelector('#exercise-search').value === new URLSearchParams(location.search).get('q') && document.querySelectorAll('main article').length > 0 && [...document.querySelectorAll('main article')].every((article) => article.textContent.includes(new URLSearchParams(location.search).get('q')))`,
   );
+  await verifyRoute('tag search URL, input and filtered exercise cards agree');
   check('exercise tag search writes the URL', true);
   await evaluate(
     `[...document.querySelectorAll('main button')].find((button) => button.textContent.trim()==='清除筛选').click()`,
   );
-  await waitFor(`location.search === ''`);
+  await waitFor(
+    `location.search === '' && document.querySelector('#exercise-search').value === '' && document.querySelectorAll('main article').length === 20`,
+  );
+  await verifyRoute('exercise filters cleared and first 20 questions rendered');
   check('clearing exercise filters removes their URL parameters', true);
+  await page.send('Network.emulateNetworkConditions', {
+    offline: false,
+    latency: 0,
+    downloadThroughput: -1,
+    uploadThroughput: -1,
+  });
 
   await goto(
     '/resources?dir=deep-learning&type=官方文档&level=进阶&lang=英语&cost=free&rank=A&sort=updated&q=PyTorch',
@@ -360,7 +382,10 @@ export async function verifyUx({
   await evaluate(
     `document.querySelector('.resources-result-row button').click()`,
   );
-  await waitFor(`location.search === ''`);
+  await waitFor(
+    `location.search === '' && document.querySelector('#resource-search').value === '' && document.querySelectorAll('.resource-card').length > 0 && [...document.querySelectorAll('.resource-filter select')].every((select) => select.value === 'all' || select.value === 'recommendation')`,
+  );
+  await verifyRoute('resource filters cleared and library rendered');
   check('clearing resource filters removes their URL parameters', true);
 
   // Verify a genuine JSON download, cancel, invalid input and successful import.
