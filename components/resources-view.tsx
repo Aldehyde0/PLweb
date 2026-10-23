@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { LibraryBig, Search, SlidersHorizontal } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { categories, type CategorySlug, type Difficulty } from '@/lib/content';
 import {
   filterResources,
@@ -15,20 +15,13 @@ import {
 } from '@/lib/resources';
 import { ResourceCard } from '@/components/resource-card';
 import { Input } from '@/components/ui/input';
+import { resourceFilterSchema, defaultFilters } from '@/lib/filter-query';
+import { useFilterQuery } from '@/hooks/use-filter-query';
 
-const initialFilters: ResourceFilters = {
-  query: '',
-  category: 'all',
-  type: 'all',
-  difficulty: 'all',
-  language: 'all',
-  cost: 'all',
-  recommendation: 'all',
-  sort: 'recommendation',
-};
+const initialFilters = defaultFilters(resourceFilterSchema);
 
 export function ResourcesView() {
-  const [filters, setFilters] = useState(initialFilters);
+  const { filters, update, clear } = useFilterQuery(resourceFilterSchema);
   const resources = useMemo(
     () => filterResources(learningResources, filters),
     [filters],
@@ -37,7 +30,7 @@ export function ResourcesView() {
     key: K,
     value: ResourceFilters[K],
   ) {
-    setFilters((current) => ({ ...current, [key]: value }));
+    update({ [key]: value }, key === 'query');
   }
   return (
     <main className="resources-page">
@@ -176,7 +169,7 @@ export function ResourcesView() {
             {resources.length} 条结果
           </span>
           {JSON.stringify(filters) !== JSON.stringify(initialFilters) && (
-            <button type="button" onClick={() => setFilters(initialFilters)}>
+            <button type="button" onClick={clear}>
               清除筛选
             </button>
           )}
