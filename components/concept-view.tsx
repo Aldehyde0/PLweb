@@ -26,7 +26,7 @@ import {
   DesktopConceptMemo,
   MobileConceptMemo,
 } from '@/components/concept-memo';
-import { HistoryNavigation } from '@/components/history-navigation';
+import { ConceptNavigation } from '@/components/concept-navigation';
 import { ImportantSection } from '@/components/important-section';
 import { LongFormBody } from '@/components/long-form-body';
 import { BlockMath } from '@/components/math';
@@ -140,7 +140,7 @@ export function ConceptView({
           <LegacyBody concept={concept} />
         )}
         <ConceptResources conceptSlug={concept.slug} />
-        <HistoryNavigation current={concept} />
+        <ConceptNavigation current={concept} concepts={categoryConcepts} />
       </article>
       <DesktopConceptMemo concept={concept} sections={sections} />
     </main>

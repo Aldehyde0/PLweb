@@ -1,8 +1,12 @@
-import type { Concept, Difficulty } from './content';
+import type { Concept } from './content';
 import { conceptMap, concepts } from './content';
 
-export type ConceptSortMode = 'difficulty-asc' | 'difficulty-desc';
-import { difficultyOrder } from './difficulty.ts';
+import type { ConceptSortMode } from './concept-order.ts';
+export {
+  sortConcepts,
+  getDifficultyRank,
+  type ConceptSortMode,
+} from './concept-order.ts';
 export { difficultyOrder } from './difficulty.ts';
 
 const aliases: Record<string, string> = {
@@ -70,33 +74,6 @@ export function resolveConceptLink(identifier: string) {
 }
 export function hasConceptRoute(identifier: string) {
   return resolveConceptLink(identifier).exists;
-}
-
-export function getDifficultyRank(difficulty: Difficulty | undefined) {
-  return difficultyOrder[difficulty ?? ''] ?? 2;
-}
-export function sortConcepts(
-  items: Concept[],
-  bookmarks: string[],
-  mode: ConceptSortMode = 'difficulty-asc',
-) {
-  const saved = new Set(bookmarks);
-  const direction = mode === 'difficulty-desc' ? -1 : 1;
-  return items
-    .map((concept, index) => ({ concept, index }))
-    .sort((a, b) => {
-      const bookmarkDifference =
-        Number(saved.has(b.concept.slug)) - Number(saved.has(a.concept.slug));
-      if (bookmarkDifference !== 0) return bookmarkDifference;
-      const difficultyDifference =
-        (getDifficultyRank(a.concept.difficulty) -
-          getDifficultyRank(b.concept.difficulty)) *
-        direction;
-      return difficultyDifference !== 0
-        ? difficultyDifference
-        : a.index - b.index;
-    })
-    .map(({ concept }) => concept);
 }
 
 export function sectionIdFromTitle(title: string) {
