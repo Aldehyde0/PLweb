@@ -62,7 +62,7 @@ export function MobileConceptMemo({
         </SheetTrigger>
         <SheetContent
           side="right"
-          className="w-[92vw] max-w-md gap-0 border-[#343434] bg-[#1c1c1c] p-0"
+          className="concept-sheet w-[92vw] max-w-md gap-0 p-0"
         >
           <SheetHeader className="border-b border-border px-5 py-4">
             <SheetTitle>{concept.title} · 备忘录</SheetTitle>
@@ -181,7 +181,7 @@ function MemoContent({
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           placeholder="写下自己的理解、疑问或复习提示…"
-          className="mt-3 min-h-24 resize-y bg-[#181818]"
+          className="mt-3 min-h-24 resize-y bg-[var(--color-input-surface)]"
         />
         <Button
           className="mt-3 w-full"
@@ -224,7 +224,7 @@ function MemoContent({
                       <Textarea
                         value={editingText}
                         onChange={(event) => setEditingText(event.target.value)}
-                        className="mt-2 min-h-20 bg-[#171717]"
+                        className="mt-2 min-h-20 bg-[var(--color-input-surface)]"
                       />
                       <div className="mt-2 flex gap-2">
                         <Button

@@ -62,7 +62,7 @@ function status(rate: number, points: Point[]) {
   };
 }
 const chartConfig = {
-  loss: { label: '当前损失', color: '#8da6b8' },
+  loss: { label: '当前损失', color: 'var(--color-article-ink)' },
 } satisfies ChartConfig;
 
 export function LearningRateDemo() {
@@ -149,7 +149,7 @@ export function LearningRateDemo() {
             <p>{state.detail}</p>
           </div>
         </div>
-        <div className="min-w-0 rounded-xl border border-border bg-[#141414] p-3">
+        <div className="min-w-0 rounded-xl border border-border bg-[var(--color-learning-surface)] p-3">
           <ChartContainer
             config={chartConfig}
             className="h-[300px] w-full aspect-auto"
@@ -181,9 +181,10 @@ export function LearningRateDemo() {
               />
               <Tooltip
                 contentStyle={{
-                  background: '#1e1e1e',
-                  border: '1px solid #3a3a3a',
-                  borderRadius: 8,
+                  background: 'var(--color-learning-surface-raised)',
+                  color: 'var(--color-learning-ink)',
+                  border: 'var(--rule-hair) solid var(--color-learning-rule)',
+                  borderRadius: 'var(--radius-input)',
                 }}
                 formatter={(value) => [Number(value).toExponential(3), '损失']}
               />
@@ -269,7 +270,7 @@ function Control({
 }
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-border bg-[#1c1c1c] p-4">
+    <div className="rounded-xl border border-border bg-[var(--color-learning-surface)] p-4">
       <span className="text-xs text-muted-foreground">{label}</span>
       <strong className="mt-1 block font-mono text-base text-foreground">
         {value}
@@ -285,7 +286,7 @@ function Explain({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border-l-2 border-[#718da0] bg-[#1d1d1d] p-4">
+    <div className="rounded-xl border-l-2 border-[var(--color-learning-rule)] bg-[var(--color-learning-surface)] p-4">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
         <Gauge size={15} />
         {title}

@@ -153,7 +153,7 @@ void test('selection and hover stay different from each other', () => {
   assert.match(active, /color:\s*var\(--color-focus\)/);
 });
 
-void test('covers every dark literal used by the legacy feature styles', () => {
+void test('portal drawers and learning demos use semantic surfaces', () => {
   const components = [
     'components/concept-memo.tsx',
     'components/concept-directory.tsx',
@@ -168,20 +168,16 @@ void test('covers every dark literal used by the legacy feature styles', () => {
       match[1]!.toLowerCase(),
     ),
   );
-  assert.ok(
-    literals.size > 0,
-    'expected dark literals in the legacy components',
+  assert.equal(
+    literals.size,
+    0,
+    'learning panels must follow both themes, including portals',
   );
-
-  const escaped = (value: string) =>
-    `.bg-\\[\\${value.toUpperCase()}\\]`.toUpperCase();
-  const covered = lightTheme.toUpperCase();
-  for (const literal of literals) {
-    assert.ok(
-      covered.includes(escaped(literal)),
-      `light-theme.css does not cover the dark surface ${literal}`,
-    );
-  }
+  const learning = readProjectFile('app/learning-features.css');
+  assert.match(
+    learning,
+    /\[data-theme\] \.concept-sheet\[data-slot='sheet-content'\][\s\S]*?background: var\(--color-learning-surface\)/,
+  );
 });
 
 void test('code blocks are deliberately left dark', () => {
