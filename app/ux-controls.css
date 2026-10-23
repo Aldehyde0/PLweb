@@ -1,0 +1,24 @@
+/* Compact desktop controls keep their existing appearance. Touch controls use
+   the shared minimum size, including Base UI buttons rendered as links. */
+@media (pointer: coarse), (max-width: 40rem) {
+  button,
+  [role='button'],
+  [data-slot='button'],
+  select,
+  summary,
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='hidden']),
+  .concept-list-link,
+  .reference-available,
+  .breadcrumbs a,
+  .exercise-answer-link {
+    min-block-size: var(--size-control);
+    min-inline-size: var(--size-control);
+  }
+
+  .breadcrumbs a,
+  .exercise-answer-link {
+    display: inline-flex;
+    align-items: center;
+    white-space: normal;
+  }
+}

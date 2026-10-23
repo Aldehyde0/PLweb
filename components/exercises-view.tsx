@@ -233,7 +233,7 @@ export function ExercisesView() {
                       </p>
                       <Link
                         href={`/concept/${item.conceptSlug}`}
-                        className="mt-4 inline-flex rounded-md text-xs font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                        className="exercise-answer-link mt-4 inline-flex rounded-md text-xs font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         学习对应概念 · {item.source}
                       </Link>

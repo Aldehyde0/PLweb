@@ -22,6 +22,7 @@ import './plan-features.css';
 import './resource-features.css';
 import './light-theme.css';
 import './mindmap.css';
+import './ux-controls.css';
 
 const title = 'how to learn AI · 个人学习知识库';
 const description =
