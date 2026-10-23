@@ -36,10 +36,16 @@ const lightTheme = readProjectFile('app/light-theme.css');
 void test('defines a neutral reading surface distinct from form controls', () => {
   const tokens = readProjectFile('tokens.css');
 
-  assert.match(tokens, /--color-learning-surface:\s*oklch\(96\.5% 0\.004 258\)/);
+  assert.match(
+    tokens,
+    /--color-learning-surface:\s*oklch\(96\.5% 0\.004 258\)/,
+  );
   assert.match(tokens, /--color-input-surface:\s*oklch\(99% 0\.004 258\)/);
   // The light reading surface must no longer be the warm ivory palette.
-  assert.doesNotMatch(tokens, /--color-learning-surface:\s*oklch\(97% 0\.015 85\)/);
+  assert.doesNotMatch(
+    tokens,
+    /--color-learning-surface:\s*oklch\(97% 0\.015 85\)/,
+  );
 });
 
 void test('uses the learning surface for content cards while keeping code blocks dark', () => {
@@ -47,10 +53,16 @@ void test('uses the learning surface for content cards while keeping code blocks
   const learning = readProjectFile('app/learning-features.css');
   const conceptCard = readProjectFile('components/concept-card.tsx');
 
-  assert.match(globals, /\.definition-callout[\s\S]*var\(--color-learning-surface\)/);
+  assert.match(
+    globals,
+    /\.definition-callout[\s\S]*var\(--color-learning-surface\)/,
+  );
   assert.match(learning, /\.note-card[\s\S]*var\(--color-learning-surface\)/);
   assert.match(conceptCard, /className="[^"]*concept-card/);
-  assert.match(learning, /\.concept-card[\s\S]*var\(--color-learning-surface\)/);
+  assert.match(
+    learning,
+    /\.concept-card[\s\S]*var\(--color-learning-surface\)/,
+  );
   assert.doesNotMatch(globals, /\.code-figure\s*\{[^}]*color-learning-surface/);
 });
 
@@ -67,19 +79,29 @@ void test('semantic demo states keep distinct hues instead of collapsing to one 
   const warn = ruleFor(lightTheme, "[data-theme='light'] .demo-status-warn");
   assert.match(warn, /border-color:\s*var\(--color-warning\)/);
 
-  const danger = ruleFor(lightTheme, "[data-theme='light'] .demo-status-danger");
+  const danger = ruleFor(
+    lightTheme,
+    "[data-theme='light'] .demo-status-danger",
+  );
   assert.match(danger, /border-color:\s*var\(--color-error\)/);
 
   // The three tones must not resolve to the same token.
   const used = [good, warn, danger].map(
     (body) => /border-color:\s*var\((--[a-z-]+)\)/.exec(body)?.[1],
   );
-  assert.deepEqual(used, ['--color-success', '--color-warning', '--color-error']);
+  assert.deepEqual(used, [
+    '--color-success',
+    '--color-warning',
+    '--color-error',
+  ]);
   assert.equal(new Set(used).size, 3, 'status tones lost their distinction');
 });
 
 void test('grid-world states stay distinguishable in light mode', () => {
-  const blocked = ruleFor(lightTheme, "[data-theme='light'] .grid-world .blocked");
+  const blocked = ruleFor(
+    lightTheme,
+    "[data-theme='light'] .grid-world .blocked",
+  );
   const goal = ruleFor(lightTheme, "[data-theme='light'] .grid-world .goal");
   const path = ruleFor(lightTheme, "[data-theme='light'] .grid-world .path");
 
@@ -124,7 +146,10 @@ void test('selection and hover stay different from each other', () => {
   // is derived from the accent rather than from the neutral hover surface.
   assert.match(active, /border-color:\s*var\(--color-accent\)/);
   assert.match(active, /background:\s*color-mix\([^)]*var\(--color-accent\)/);
-  assert.doesNotMatch(active, /background:\s*var\(--color-learning-surface-raised\)/);
+  assert.doesNotMatch(
+    active,
+    /background:\s*var\(--color-learning-surface-raised\)/,
+  );
   assert.match(active, /color:\s*var\(--color-focus\)/);
 });
 
@@ -143,7 +168,10 @@ void test('covers every dark literal used by the legacy feature styles', () => {
       match[1]!.toLowerCase(),
     ),
   );
-  assert.ok(literals.size > 0, 'expected dark literals in the legacy components');
+  assert.ok(
+    literals.size > 0,
+    'expected dark literals in the legacy components',
+  );
 
   const escaped = (value: string) =>
     `.bg-\\[\\${value.toUpperCase()}\\]`.toUpperCase();

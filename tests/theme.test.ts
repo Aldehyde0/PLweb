@@ -79,18 +79,33 @@ void test('the boot script reads the JSON form the app now writes', () => {
     stored: JSON.stringify('light'),
     prefersDark: true,
   });
-  assert.equal(applied.theme, 'light', 'a saved light theme must win over the OS');
+  assert.equal(
+    applied.theme,
+    'light',
+    'a saved light theme must win over the OS',
+  );
   assert.equal(applied.darkClass, false);
 });
 
 void test('the boot script still reads the bare string older builds wrote', () => {
   const applied = runBootScript({ stored: 'light', prefersDark: true });
-  assert.equal(applied.theme, 'light', 'legacy stored values must keep working');
+  assert.equal(
+    applied.theme,
+    'light',
+    'legacy stored values must keep working',
+  );
   assert.equal(applied.darkClass, false);
 });
 
 void test('the boot script falls back to the OS preference for junk values', () => {
-  for (const stored of [null, 'system', '"system"', '{', '""', '"dark" '.trim()])
+  for (const stored of [
+    null,
+    'system',
+    '"system"',
+    '{',
+    '""',
+    '"dark" '.trim(),
+  ])
     assert.equal(
       runBootScript({ stored, prefersDark: true }).theme,
       'dark',

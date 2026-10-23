@@ -56,7 +56,10 @@ const baseInput: PlanFormInput = {
 
 void test('question bank has no placeholder prompts and no fixed "正确" answer', () => {
   const entries = Object.values(questionBank).flat();
-  assert.ok(entries.length > 100, `expected a substantial bank, got ${entries.length}`);
+  assert.ok(
+    entries.length > 100,
+    `expected a substantial bank, got ${entries.length}`,
+  );
   for (const question of entries) {
     assert.equal(
       isPlaceholderStageQuestion(question),
@@ -81,8 +84,15 @@ void test('every banked question has a checkable answer shape', () => {
     for (const question of questions) {
       assert.ok(!ids.has(question.id), `duplicate question id ${question.id}`);
       ids.add(question.id);
-      assert.equal(question.conceptSlug, slug, `wrong conceptSlug on ${question.id}`);
-      assert.ok(question.explanation.length > 0, `missing explanation on ${question.id}`);
+      assert.equal(
+        question.conceptSlug,
+        slug,
+        `wrong conceptSlug on ${question.id}`,
+      );
+      assert.ok(
+        question.explanation.length > 0,
+        `missing explanation on ${question.id}`,
+      );
       if (
         question.type === 'concept-explanation' ||
         question.type === 'code-reading'
@@ -106,7 +116,10 @@ void test('every banked question has a checkable answer shape', () => {
       const answers = questionBankAcceptedAnswers(question);
       assert.ok(answers.length > 0, `no accepted answer on ${question.id}`);
       for (const answer of answers)
-        assert.ok(answer.trim().length > 0, `blank accepted answer on ${question.id}`);
+        assert.ok(
+          answer.trim().length > 0,
+          `blank accepted answer on ${question.id}`,
+        );
     }
   }
 });
@@ -195,9 +208,14 @@ void test('generated stage test uses real questions instead of placeholders', ()
   for (const question of phase.test.questions) {
     assert.equal(isPlaceholderStageQuestion(question), false);
     assert.ok(question.prompt.length > 8);
-    assert.ok(question.grading === 'objective' || question.grading === 'self-assessed');
+    assert.ok(
+      question.grading === 'objective' || question.grading === 'self-assessed',
+    );
     if (question.grading === 'objective')
-      assert.ok(question.correctAnswers.length > 0, `${question.id} has no answer`);
+      assert.ok(
+        question.correctAnswers.length > 0,
+        `${question.id} has no answer`,
+      );
     else assert.ok((question.exampleAnswer ?? '').length > 0);
   }
 });
@@ -222,7 +240,10 @@ void test('answering "正确" everywhere no longer scores 100', () => {
   );
   const result = scored.phases[0]!.test;
   assert.notEqual(result.score, 100);
-  assert.ok(result.score !== null && result.score < 100, `score was ${result.score}`);
+  assert.ok(
+    result.score !== null && result.score < 100,
+    `score was ${result.score}`,
+  );
   assert.ok(result.incorrectQuestionIds.length > 0);
   assert.ok(result.weakConcepts.length > 0);
 });
@@ -235,7 +256,13 @@ void test('a fully empty submission never scores above zero', () => {
     new Date('2026-09-01T08:00:00'),
   );
   const phase = plan.phases[0]!;
-  const scored = scoreStageTest(plan, phase.id, {}, false, new Date('2026-09-01T10:00:00'));
+  const scored = scoreStageTest(
+    plan,
+    phase.id,
+    {},
+    false,
+    new Date('2026-09-01T10:00:00'),
+  );
   assert.equal(scored.phases[0]!.test.score, 0);
   assert.equal(
     scored.phases[0]!.test.incorrectQuestionIds.length,
@@ -257,7 +284,9 @@ void test('correct answers score 100 and self-assessed questions stay out of the
   const answers = Object.fromEntries(
     phase.test.questions.map((question) => [
       question.id,
-      question.grading === 'self-assessed' ? ['我的解释'] : question.correctAnswers,
+      question.grading === 'self-assessed'
+        ? ['我的解释']
+        : question.correctAnswers,
     ]),
   );
   const scored = scoreStageTest(
@@ -271,8 +300,14 @@ void test('correct answers score 100 and self-assessed questions stay out of the
   assert.equal(result.score, 100);
   assert.equal(result.hasUngradedQuestions, selfAssessed.length > 0);
   for (const question of selfAssessed) {
-    const grade = result.grades?.find((item) => item.questionId === question.id);
-    assert.equal(grade?.correct, null, 'self-assessed question must not be auto-graded');
+    const grade = result.grades?.find(
+      (item) => item.questionId === question.id,
+    );
+    assert.equal(
+      grade?.correct,
+      null,
+      'self-assessed question must not be auto-graded',
+    );
     assert.equal(grade?.autoGraded, false);
   }
 });
@@ -292,10 +327,18 @@ void test('self-assessment changes the score and can add the concept to review',
   const answers = Object.fromEntries(
     phase.test.questions.map((question) => [
       question.id,
-      question.grading === 'self-assessed' ? ['我的解释'] : question.correctAnswers,
+      question.grading === 'self-assessed'
+        ? ['我的解释']
+        : question.correctAnswers,
     ]),
   );
-  const scored = scoreStageTest(plan, phase.id, answers, true, new Date('2026-09-01T10:00:00'));
+  const scored = scoreStageTest(
+    plan,
+    phase.id,
+    answers,
+    true,
+    new Date('2026-09-01T10:00:00'),
+  );
   const judgedWrong = applyStageSelfAssessment(
     scored,
     phase.id,
@@ -313,7 +356,8 @@ void test('self-assessment changes the score and can add the concept to review',
   assert.ok(result.weakConcepts.includes(bankedConcept.slug));
   assert.ok(
     judgedWrong.phases[0]!.tasks.some(
-      (task) => task.type === 'review' && task.conceptSlug === bankedConcept.slug,
+      (task) =>
+        task.type === 'review' && task.conceptSlug === bankedConcept.slug,
     ),
     'self-assessed weak concept should be added to review',
   );
@@ -321,7 +365,10 @@ void test('self-assessment changes the score and can add the concept to review',
 
 void test('derived questions are only used when a concept has no curated entry', () => {
   const questions = buildStageQuestions([unbankedConcept]);
-  assert.ok(questions.length >= 3, `expected derived questions, got ${questions.length}`);
+  assert.ok(
+    questions.length >= 3,
+    `expected derived questions, got ${questions.length}`,
+  );
   for (const question of questions) {
     assert.equal(question.conceptSlug, unbankedConcept.slug);
     assert.equal(isPlaceholderStageQuestion(question), false);
@@ -331,7 +378,10 @@ void test('derived questions are only used when a concept has no curated entry',
   const definitionQuestion = questions.find((question) =>
     question.correctAnswers.includes(unbankedConcept.definition![0]!),
   );
-  assert.ok(definitionQuestion, 'derived questions must quote the real definition');
+  assert.ok(
+    definitionQuestion,
+    'derived questions must quote the real definition',
+  );
   // Curated concepts never fall back to metadata-only questions.
   const curatedPrompts = new Set(
     questionBank[bankedConcept.slug]!.map((entry) => entry.prompt),
@@ -442,8 +492,16 @@ void test('legacy placeholder tests lose their score, weak concepts and review t
     }),
   );
   const test_ = migrated.plans[0]!.phases[0]!.test;
-  assert.deepEqual(test_.questions, [], 'placeholder questions must be dropped');
-  assert.equal(test_.score, null, 'a placeholder-derived score is not a measurement');
+  assert.deepEqual(
+    test_.questions,
+    [],
+    'placeholder questions must be dropped',
+  );
+  assert.equal(
+    test_.score,
+    null,
+    'a placeholder-derived score is not a measurement',
+  );
   assert.equal(test_.completedAt, null);
   assert.deepEqual(test_.weakConcepts, []);
   assert.deepEqual(test_.incorrectQuestionIds, []);
@@ -507,9 +565,18 @@ void test('a real question set is preserved through migration', () => {
   );
   const phase = plan.phases[0]!;
   const answers = Object.fromEntries(
-    phase.test.questions.map((question) => [question.id, question.correctAnswers]),
+    phase.test.questions.map((question) => [
+      question.id,
+      question.correctAnswers,
+    ]),
   );
-  const scored = scoreStageTest(plan, phase.id, answers, false, new Date('2026-09-01T10:00:00'));
+  const scored = scoreStageTest(
+    plan,
+    phase.id,
+    answers,
+    false,
+    new Date('2026-09-01T10:00:00'),
+  );
   const migrated = migratePlanState(
     JSON.stringify({
       version: 1,

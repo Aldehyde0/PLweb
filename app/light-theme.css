@@ -174,7 +174,10 @@
 [data-theme='light'] .rl-extra-fields dt,
 [data-theme='light'] .rl-stage svg,
 [data-theme='light'] .preference-grid article code,
-[data-theme='light'] .important-section[data-important='true'] > .section-heading-row h2 {
+[data-theme='light']
+  .important-section[data-important='true']
+  > .section-heading-row
+  h2 {
   color: var(--color-article-ink);
 }
 
@@ -262,8 +265,12 @@
 [data-theme='light'] .demo-pipeline button.done,
 [data-theme='light'] .concept-list-link[data-learned='true'] > span:first-child,
 [data-theme='light'] .learned-directory-state,
-[data-theme='light'] .concept-list-link[data-learned='true']:hover > span:first-child,
-[data-theme='light'] .concept-list-link[data-learned='true'][aria-current='page'] > span:first-child {
+[data-theme='light']
+  .concept-list-link[data-learned='true']:hover
+  > span:first-child,
+[data-theme='light']
+  .concept-list-link[data-learned='true'][aria-current='page']
+  > span:first-child {
   color: var(--color-success);
 }
 
@@ -421,8 +428,16 @@
 /* Components such as concept-memo, concept-directory and the demos used literal
    dark hex values; without these rules those panels stay black in light mode. */
 
-[data-theme='light'] .concept-shell
-  :is(.bg-\[\#181818\], .bg-\[\#171717\], .bg-\[\#1c1c1c\], .bg-\[\#141414\], .bg-\[\#1d1d1d\], .bg-\[\#1e1e1e\]) {
+[data-theme='light']
+  .concept-shell
+  :is(
+    .bg-\[\#181818\],
+    .bg-\[\#171717\],
+    .bg-\[\#1c1c1c\],
+    .bg-\[\#141414\],
+    .bg-\[\#1d1d1d\],
+    .bg-\[\#1e1e1e\]
+  ) {
   background: var(--color-learning-surface);
   color: var(--color-learning-ink);
 }

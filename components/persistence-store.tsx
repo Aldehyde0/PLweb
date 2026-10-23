@@ -86,12 +86,9 @@ export function PersistenceProvider({
     [],
   );
 
-  const registerSaver = useCallback(
-    (key: PersistenceKey, save: () => void) => {
-      savers.current.set(key, save);
-    },
-    [],
-  );
+  const registerSaver = useCallback((key: PersistenceKey, save: () => void) => {
+    savers.current.set(key, save);
+  }, []);
 
   const retry = useCallback(() => {
     setDismissedAt(null);
@@ -123,14 +120,7 @@ export function PersistenceProvider({
       retry,
       dismiss,
     }),
-    [
-      visibleIssues,
-      reportWrite,
-      reportRead,
-      registerSaver,
-      retry,
-      dismiss,
-    ],
+    [visibleIssues, reportWrite, reportRead, registerSaver, retry, dismiss],
   );
 
   return (

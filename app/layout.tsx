@@ -67,7 +67,9 @@ export default function RootLayout({
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
         <script
-          dangerouslySetInnerHTML={{ __html: themeBootScript(THEME_STORAGE_KEY) }}
+          dangerouslySetInnerHTML={{
+            __html: themeBootScript(THEME_STORAGE_KEY),
+          }}
         />
       </head>
       <body>

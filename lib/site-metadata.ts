@@ -60,7 +60,7 @@ function isLocalHost(host: string): boolean {
   // IPv6 hosts are bracketed (`[::1]:8788`), so the port separator can only be
   // looked for after the closing bracket.
   const name = host.startsWith('[')
-    ? (host.slice(1, host.indexOf(']')).toLowerCase() || host.toLowerCase())
+    ? host.slice(1, host.indexOf(']')).toLowerCase() || host.toLowerCase()
     : (host.split(':')[0]?.toLowerCase() ?? '');
   return (
     name === 'localhost' ||

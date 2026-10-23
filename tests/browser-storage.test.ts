@@ -18,7 +18,8 @@ class FakeStorage {
   failure: Error | null = null;
 
   constructor(initial: Record<string, string> = {}) {
-    for (const [key, value] of Object.entries(initial)) this.items.set(key, value);
+    for (const [key, value] of Object.entries(initial))
+      this.items.set(key, value);
   }
 
   getItem(key: string) {
@@ -112,7 +113,10 @@ void test('every storage problem has a user-facing message', () => {
 void test('readStored reports empty, ok, recovered, corrupt and unavailable', () => {
   const { localStorage } = installWindow({});
   try {
-    assert.equal(readStored('local', 'missing', (value) => value).status, 'empty');
+    assert.equal(
+      readStored('local', 'missing', (value) => value).status,
+      'empty',
+    );
 
     localStorage.setItem('ok', JSON.stringify({ a: 1 }));
     const ok = readStored('local', 'ok', (value) => value);
@@ -194,7 +198,10 @@ void test('writeStored reports failure when the value cannot be serialized', () 
 
 void test('writeStored and readStored work without a window (server render)', () => {
   clearWindow();
-  assert.equal(readStored('local', 'x', (value) => value).status, 'unavailable');
+  assert.equal(
+    readStored('local', 'x', (value) => value).status,
+    'unavailable',
+  );
   assert.equal(writeStored('local', 'x', 1).ok, false);
   assert.equal(removeStored('session', 'x').ok, false);
 });
@@ -215,8 +222,13 @@ void test('session storage failures are isolated from local storage', () => {
 void test('validators keep good fields and drop only the broken ones', () => {
   assert.deepEqual(asStringArray(['a', 1, null, 'b']), ['a', 'b']);
   assert.equal(asStringArray('nope'), null);
-  assert.deepEqual(asStringRecord({ a: 'x', b: 2, c: 'y' }), { a: 'x', c: 'y' });
+  assert.deepEqual(asStringRecord({ a: 'x', b: 2, c: 'y' }), {
+    a: 'x',
+    c: 'y',
+  });
   assert.equal(asStringRecord(['a']), null);
-  assert.deepEqual(asRecordOfStringArrays({ s: ['a', 1], t: 'no' }), { s: ['a'] });
+  assert.deepEqual(asRecordOfStringArrays({ s: ['a', 1], t: 'no' }), {
+    s: ['a'],
+  });
   assert.equal(asRecordOfStringArrays(null), null);
 });

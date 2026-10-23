@@ -10,7 +10,14 @@
  *   node --experimental-strip-types scripts/verify-browser.ts http://127.0.0.1:8788
  */
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  rmSync,
+  mkdirSync,
+  writeFileSync,
+  realpathSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 import {
@@ -69,7 +76,12 @@ function buildVerificationPlanState(title: string) {
     includeTests: true,
     includeReview: true,
   };
-  const plan = generatePlan(input, concepts, { learned: [], bookmarks: [] }, new Date());
+  const plan = generatePlan(
+    input,
+    concepts,
+    { learned: [], bookmarks: [] },
+    new Date(),
+  );
   return {
     version: PLAN_STATE_VERSION,
     plans: [plan],
@@ -97,7 +109,9 @@ const CHROME_CANDIDATES = [
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
 ].filter((value): value is string => Boolean(value));
 
-const resolvedChromePath = CHROME_CANDIDATES.find((candidate) => existsSync(candidate));
+const resolvedChromePath = CHROME_CANDIDATES.find((candidate) =>
+  existsSync(candidate),
+);
 if (!resolvedChromePath) {
   console.error(
     `No Chrome/Edge binary found. Set CHROME_PATH to run the browser verification.\nTried:\n  ${CHROME_CANDIDATES.join('\n  ')}`,
@@ -129,7 +143,9 @@ function isInsideTempDirectory(directory: string): boolean {
 }
 
 function check(name: string, condition: boolean, detail = '') {
-  checks.push(`${condition ? 'PASS' : 'FAIL'} ${name}${detail ? ` — ${detail}` : ''}`);
+  checks.push(
+    `${condition ? 'PASS' : 'FAIL'} ${name}${detail ? ` — ${detail}` : ''}`,
+  );
   if (!condition) failures.push(name);
 }
 
@@ -183,7 +199,8 @@ class CdpClient {
     const id = this.nextId++;
     return new Promise<T>((resolve, reject) => {
       this.pending.set(id, (message) => {
-        if (message.error) reject(new Error(`${method}: ${message.error.message}`));
+        if (message.error)
+          reject(new Error(`${method}: ${message.error.message}`));
         else resolve((message.result ?? {}) as T);
       });
       this.socket.send(JSON.stringify({ id, method, params }));
@@ -241,9 +258,11 @@ async function main() {
     { url: 'about:blank' },
   );
   const page = await CdpClient.attach(
-    (await waitForJson<Array<{ id: string; webSocketDebuggerUrl: string }>>(
-      `http://127.0.0.1:${port}/json/list`,
-    )).find((target) => target.id === targetId)!.webSocketDebuggerUrl,
+    (
+      await waitForJson<Array<{ id: string; webSocketDebuggerUrl: string }>>(
+        `http://127.0.0.1:${port}/json/list`,
+      )
+    ).find((target) => target.id === targetId)!.webSocketDebuggerUrl,
   );
 
   await page.send('Page.enable');
@@ -357,7 +376,10 @@ async function main() {
           type?: string;
           requestId?: string;
         };
-        if (params.type !== 'Font' || !/aborted/i.test(params.errorText ?? '')) {
+        if (
+          params.type !== 'Font' ||
+          !/aborted/i.test(params.errorText ?? '')
+        ) {
           const url = params.requestId
             ? (requestUrls.get(params.requestId) ?? 'unknown-url')
             : 'unknown-url';
@@ -367,14 +389,19 @@ async function main() {
         }
       }
       if (event.method === 'Runtime.consoleAPICalled') {
-        const params = event.params as { type?: string; args?: Array<{ value?: unknown }> };
+        const params = event.params as {
+          type?: string;
+          args?: Array<{ value?: unknown }>;
+        };
         if (params.type === 'error')
           consoleErrors.push(
             params.args?.map((arg) => String(arg.value)).join(' ') ?? '',
           );
       }
       if (event.method === 'Log.entryAdded') {
-        const params = event.params as { entry?: { level?: string; text?: string } };
+        const params = event.params as {
+          entry?: { level?: string; text?: string };
+        };
         if (params.entry?.level === 'error')
           consoleErrors.push(params.entry.text ?? '');
       }
@@ -384,7 +411,9 @@ async function main() {
 
   // ------------------------------------------------------------ route rendering
   const report = (name: string, passed: boolean, detail: string) =>
-    console.log(`${passed ? 'PASS' : 'FAIL'} ${name}${detail ? ` — ${detail}` : ''}`);
+    console.log(
+      `${passed ? 'PASS' : 'FAIL'} ${name}${detail ? ` — ${detail}` : ''}`,
+    );
 
   const routeExpectations: Array<[string, RegExp]> = [
     ['/', /从理解概念|个人 AI 学习工作台/],
@@ -424,7 +453,11 @@ async function main() {
   const fontRequests = await evaluate<number>(
     `performance.getEntriesByType('resource').filter((e) => e.name.includes('/fonts/') && e.name.endsWith('.woff2')).length`,
   );
-  check('font requests target /fonts/*.woff2', fontRequests > 0, `${fontRequests} requests`);
+  check(
+    'font requests target /fonts/*.woff2',
+    fontRequests > 0,
+    `${fontRequests} requests`,
+  );
 
   // ------------------------------------------------------------ client navigation
   // Clicking a real link must be handled by the client router: no document
@@ -471,7 +504,9 @@ async function main() {
 
   // ------------------------------------------------------------ 404 page
   await goto('/definitely-not-a-page', 1200);
-  const notFoundText = await evaluate<string>('document.body.innerText.slice(0, 300)');
+  const notFoundText = await evaluate<string>(
+    'document.body.innerText.slice(0, 300)',
+  );
   check(
     'an unknown path renders the 404 page',
     /404|找不到|不存在/.test(notFoundText),
@@ -480,8 +515,14 @@ async function main() {
 
   // ------------------------------------------------------------ theme toggle
   await goto('/');
-  await waitFor(`Boolean(document.querySelector('.theme-toggle'))`, 15000, 'theme toggle');
-  const themeBefore = await evaluate<string>('document.documentElement.dataset.theme ?? ""');
+  await waitFor(
+    `Boolean(document.querySelector('.theme-toggle'))`,
+    15000,
+    'theme toggle',
+  );
+  const themeBefore = await evaluate<string>(
+    'document.documentElement.dataset.theme ?? ""',
+  );
   const themeAfter = await evaluate<string>(
     `(async () => {
       const button = document.querySelector('.theme-toggle');
@@ -666,10 +707,13 @@ async function main() {
         );
 
         if (theme === 'light' && (width === 375 || width === 1440)) {
-          const shot = await page.send<{ data: string }>('Page.captureScreenshot', {
-            format: 'png',
-            captureBeyondViewport: false,
-          });
+          const shot = await page.send<{ data: string }>(
+            'Page.captureScreenshot',
+            {
+              format: 'png',
+              captureBeyondViewport: false,
+            },
+          );
           writeFileSync(
             join(REVIEW_DIR, `${route.replaceAll('/', '_')}-${width}.png`),
             Buffer.from(shot.data, 'base64'),
@@ -753,13 +797,19 @@ async function main() {
     })()`,
   );
   if (hoverState.available) {
-    const { root } = await page.send<{ root: { nodeId: number } }>('DOM.getDocument', {
-      depth: -1,
-    });
-    const { nodeId } = await page.send<{ nodeId: number }>('DOM.querySelector', {
-      nodeId: root.nodeId,
-      selector: '.ai-directory-tabs button:not(.active)',
-    });
+    const { root } = await page.send<{ root: { nodeId: number } }>(
+      'DOM.getDocument',
+      {
+        depth: -1,
+      },
+    );
+    const { nodeId } = await page.send<{ nodeId: number }>(
+      'DOM.querySelector',
+      {
+        nodeId: root.nodeId,
+        selector: '.ai-directory-tabs button:not(.active)',
+      },
+    );
     await page.send('CSS.enable');
     await page.send('CSS.forcePseudoState', {
       nodeId,
@@ -785,7 +835,10 @@ async function main() {
           : false,
       };
     })()`);
-    await page.send('CSS.forcePseudoState', { nodeId, forcedPseudoClasses: [] });
+    await page.send('CSS.forcePseudoState', {
+      nodeId,
+      forcedPseudoClasses: [],
+    });
     check(
       'hovered map tab stays neutral and differs from the selected tab',
       hover.hoverIsNeutral &&
@@ -797,7 +850,10 @@ async function main() {
   // --- keyboard focus must stay visible on the primary controls
   await goto('/');
   await applyTheme('light');
-  const focusVisible = await evaluate<{ focusRing: boolean; checked: number }>(`(() => {
+  const focusVisible = await evaluate<{
+    focusRing: boolean;
+    checked: number;
+  }>(`(() => {
     const targets = [...document.querySelectorAll('a.direction-card, .theme-toggle, a[href="/resources"]')];
     let focusRing = true;
     let checked = 0;
@@ -844,7 +900,10 @@ async function main() {
       bodyShowsSaved: /已收藏|已学习/.test(document.body.innerText),
     })`,
   );
-  const reloadState = JSON.parse(afterReload) as { hasSlug: boolean; bodyShowsSaved: boolean };
+  const reloadState = JSON.parse(afterReload) as {
+    hasSlug: boolean;
+    bodyShowsSaved: boolean;
+  };
   check(
     'saved learning state survives a reload',
     reloadState.hasSlug && reloadState.bodyShowsSaved,

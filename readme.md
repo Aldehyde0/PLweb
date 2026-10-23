@@ -24,22 +24,22 @@ npm run dev       # 开发服务器
 
 ## 可重复的命令
 
-| 命令 | 作用 |
-| --- | --- |
-| `npm ci` | 依据 `package-lock.json` 严格安装（验证依赖可复现） |
-| `npm run dev` | 开发服务器（含 HMR） |
-| `npm test` | Node 内置测试运行器，`tests/*.test.ts` |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm run lint` | oxlint（0 error / 0 warning 为通过标准） |
-| `npm run build` | 生成 `dist/`（server + client），并先生成 KaTeX 字体样式 |
-| `npm start` | 用 `wrangler dev` 在本地 Workers 运行时跑**构建产物** |
-| `npm run preview` | `build` + `start` 一步完成 |
-| `npm run deploy:dry-run` | 构建后只做 dry-run，不发布（发布前检查用） |
-| `npm run deploy` | `build` + `wrangler deploy` 发布到现有 Worker `plweb` |
-| `npm run deployments` | 查看 `plweb` 的部署历史（拿到可回滚的 version id） |
-| `npm run rollback` | 回滚到上一个部署（交互式选择） |
-| `npm run generate:katex-fonts` | 从 `katex/dist/katex.min.css` 重新生成 `app/katex-fonts.css` |
-| `node --experimental-strip-types scripts/verify-browser.ts <url>` | 用本机 Chrome 做真实浏览器验收（见下） |
+| 命令                                                              | 作用                                                         |
+| ----------------------------------------------------------------- | ------------------------------------------------------------ |
+| `npm ci`                                                          | 依据 `package-lock.json` 严格安装（验证依赖可复现）          |
+| `npm run dev`                                                     | 开发服务器（含 HMR）                                         |
+| `npm test`                                                        | Node 内置测试运行器，`tests/*.test.ts`                       |
+| `npm run typecheck`                                               | `tsc --noEmit`                                               |
+| `npm run lint`                                                    | oxlint（0 error / 0 warning 为通过标准）                     |
+| `npm run build`                                                   | 生成 `dist/`（server + client），并先生成 KaTeX 字体样式     |
+| `npm start`                                                       | 用 `wrangler dev` 在本地 Workers 运行时跑**构建产物**        |
+| `npm run preview`                                                 | `build` + `start` 一步完成                                   |
+| `npm run deploy:dry-run`                                          | 构建后只做 dry-run，不发布（发布前检查用）                   |
+| `npm run deploy`                                                  | `build` + `wrangler deploy` 发布到现有 Worker `plweb`        |
+| `npm run deployments`                                             | 查看 `plweb` 的部署历史（拿到可回滚的 version id）           |
+| `npm run rollback`                                                | 回滚到上一个部署（交互式选择）                               |
+| `npm run generate:katex-fonts`                                    | 从 `katex/dist/katex.min.css` 重新生成 `app/katex-fonts.css` |
+| `node --experimental-strip-types scripts/verify-browser.ts <url>` | 用本机 Chrome 做真实浏览器验收（见下）                       |
 
 ## 部署到 Cloudflare Workers
 
@@ -47,12 +47,12 @@ npm run dev       # 开发服务器
 
 线上对应关系（已核对）：
 
-| 项目 | 值 |
-| --- | --- |
-| Worker 名 | `plweb` |
-| 自定义域 | `https://ruliks.org` |
+| 项目               | 值                                              |
+| ------------------ | ----------------------------------------------- |
+| Worker 名          | `plweb`                                         |
+| 自定义域           | `https://ruliks.org`                            |
 | 账号内 Worker 数量 | 仅 `plweb`（不存在第二个同名或近似名的 Worker） |
-| 发布命令 | `npm run deploy` |
+| 发布命令           | `npm run deploy`                                |
 
 Worker 名来自 `package.json` 的 `name` 字段，由 `@cloudflare/vite-plugin` 生成到
 `dist/server/wrangler.json`；改名字要改源文件后重新构建，不要手改 `dist`。
