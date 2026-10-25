@@ -1,0 +1,152 @@
+---
+id: overfitting-diagnosis
+slug: overfitting-diagnosis
+title: 过拟合诊断与解决顺序
+category: machine-learning
+difficulty: 进阶
+summary: 先排除欠拟合、泄漏和分布变化，再用训练/验证差距、折间波动与学习曲线确认过拟合。
+prerequisites:
+  - 偏差方差
+  - 交叉验证
+relatedConcepts:
+  - underfitting-overfitting
+  - bias-variance-learning-curves
+order: 79
+directory: 评估与模型选择
+kind: long-form
+preserved:
+  codeExplanation:
+    - 示例用于阅读、复制和本地运行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/12_overfitting_solutions.md
+      title: 12｜过拟合：诊断与解决方法
+      kind: 原始文档
+  sourceSections:
+    - §1 什么是过拟合
+    - §2 先排除其他问题
+    - §3 可靠诊断
+    - §4 通用解决顺序
+    - §15 各模型优先调整什么
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+验证差也可能是标签错、特征不足、时间漂移或划分不代表真实使用，不能立刻加正则。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+过拟合是学到无法推广的训练细节；泛化差距是信号而非跨任务固定阈值。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+先排除考试流程作弊和题型变化，再判断是不是背题。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+通用顺序：审计划分→检查分布/标签→同折比较→清理噪声→降低复杂度/增强正则→增加代表性数据。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+G=Eval-Etrain（误差）；或 Scoretrain-Scoreval
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+通用顺序：审计划分→检查分布/标签→同折比较→清理噪声→降低复杂度/增强正则→增加代表性数据。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 同时记录训练验证
+2. 检查泄漏
+3. 检查时间/来源变化
+4. 学习曲线
+5. 按模型识别复杂度参数
+6. CV 验证改进
+7. 最终测试
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 过拟合诊断与解决顺序 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的可靠评价或训练流程。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+r=cross_validate(model,X,y,cv=5,return_train_score=True)
+print(r["train_score"].mean()-r["test_score"].mean())
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 数据边界和划分方式是代码含义的一部分。
+- 结果应报告平均、波动或业务对应的指标。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+输出平均训练与验证分数差距。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 所有监督模型
+- 复杂度控制
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 训练 100% 即过拟合
+- 差距小即好
+- 测试集验证每次修正
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

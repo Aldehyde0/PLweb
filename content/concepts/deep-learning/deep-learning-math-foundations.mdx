@@ -1,0 +1,226 @@
+---
+id: deep-learning-math-foundations
+slug: deep-learning-math-foundations
+title: 深度学习数学基础
+category: deep-learning
+difficulty: 入门
+summary: 用张量、矩阵乘法、梯度、概率、交叉熵和 KL 理解模型计算。
+prerequisites:
+  - 基础代数
+relatedConcepts:
+  - pytorch-tensor-shape-device
+  - pytorch-autograd
+order: 139
+directory: 数学基础
+kind: long-form
+preserved:
+  subcategory: 数学基础
+  codeExplanation:
+    - 标量 loss 可直接 backward
+    - Autograd 得到手算梯度
+  sourceDocuments:
+    - path: 学习资料/deeplearning/09_深度学习数学基础速查.md
+      title: 09_深度学习数学基础速查
+      kind: 原始文档
+  sourceSections:
+    - §2–10 线代与微积分
+    - §11–17 概率信息论
+    - §18 数值稳定
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 判断矩阵形状
+- 手算梯度
+- 解释交叉熵/KL
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+理解公式与代码
+
+培养形状和数值稳定性意识
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+前向由线性代数描述，反向由链式法则描述，分类和生成由概率信息量描述。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+深度学习数学重点是形状、局部变化和概率目标，而非先完成全部证明。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+矩阵描述数据流，梯度描述如何改参数，概率描述不确定性。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+每个公式都应对应张量形状、计算轴和稳定实现。
+
+框架组合损失用 log-sum-exp 等技巧避免直接 exp/log 溢出。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+H(P,Q)=H(P)+D_{KL}(P\|Q)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+真实分布固定时，最小化交叉熵等价于最小化 KL。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| P | 真实分布 |
+| Q | 模型分布 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 链式梯度
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- ŷ=wx
+- L=(ŷ-y)^2
+- x=2,y=6,w=1
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. ŷ=2
+2. dL/dw=2(2-6)×2
+:::
+
+:::field{path="numericalExample.result" type="text"}
+梯度 -16
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 标注形状
+2. 前向计算
+3. 损失
+4. 链式求导
+5. 稳定实现
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 深度学习数学基础 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证深度学习数学基础的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+w=torch.tensor(1.,requires_grad=True)
+x=torch.tensor(2.);target=torch.tensor(6.)
+loss=(w*x-target)**2
+loss.backward();print(w.grad)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 标量 loss 可直接 backward
+- Autograd 得到手算梯度
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+tensor(-16.)。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 所有深度模型
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 忽略广播
+- 概率直接 log0
+- 矩阵内维不匹配
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### 必须先学完高数吗？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+不必，但要理解当前公式、形状和用途。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### KL 是距离吗？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+通常不对称，严格说不是普通距离。
+:::
+

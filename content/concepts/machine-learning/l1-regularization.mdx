@@ -1,0 +1,153 @@
+---
+id: l1-regularization
+slug: l1-regularization
+title: L1 正则化与稀疏性
+category: machine-learning
+difficulty: 进阶
+summary: 以权重绝对值之和惩罚复杂度，几何尖角与软阈值使部分权重精确变为零。
+prerequisites:
+  - 线性模型
+  - 标准化
+relatedConcepts:
+  - proximal-gradient-soft-thresholding
+  - lasso-regression
+  - elastic-net
+order: 74
+directory: 评估与模型选择
+kind: long-form
+preserved:
+  codeExplanation:
+    - 示例用于阅读、复制和本地运行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/11_l1_regularization.md
+      title: 11｜L1 正则化：稀疏模型与特征选择
+      kind: 原始文档
+  sourceSections:
+    - §1 为什么需要正则化
+    - §2 L1 数学形式
+    - §3 为什么产生稀疏权重
+    - §5 为什么要标准化
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+高维、小样本和噪声特征会造成不稳定大权重。L1 同时拟合与做嵌入式特征选择。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+L1 范数为 Σ\|wⱼ\|；线性回归加入 L1 称 Lasso。零点不可导，使用次梯度、坐标下降或近端方法。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+每个非零权重都要付固定边际成本，小贡献权重更容易被压成零。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+先标准化；λ 越大稀疏越强但可能欠拟合。零权重只表示当前模型未使用，不代表无现实因果。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+J=Jdata+λ||w||₁；||w||₁=Σ|wⱼ|
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+先标准化；λ 越大稀疏越强但可能欠拟合。零权重只表示当前模型未使用，不代表无现实因果。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 划分数据
+2. 标准化
+3. 设置 λ/alpha/C 范围
+4. 折内选择
+5. 检查非零数与验证表现
+6. 分析稳定性
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### L1 正则化与稀疏性 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的可靠评价或训练流程。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.linear_model import LassoCV
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+model=make_pipeline(StandardScaler(),LassoCV(cv=5,max_iter=20000))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 数据边界和划分方式是代码含义的一部分。
+- 结果应报告平均、波动或业务对应的指标。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+交叉验证选出 alpha，并产生可能稀疏的 coef\_。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 稀疏回归
+- 特征选择
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 未标准化
+- 零权重当因果结论
+- 完整数据先选择
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

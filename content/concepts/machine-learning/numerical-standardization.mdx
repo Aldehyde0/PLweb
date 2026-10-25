@@ -27,7 +27,7 @@ preserved:
     - NumPy 示例对应公式本身，适合检查 axis、广播和逆变换。
     - scikit-learn 示例对应真实项目边界：StandardScaler 不是独立提前运行，而是 Pipeline 的一部分。
     - 示例只展示和复制代码，不在网页中执行。
-  sourceDocuments: &a1
+  sourceDocuments:
     - path: 学习资料/learning_tech/02_preprocessing_feature_engineering.md
       title: 02｜数据预处理与特征工程
       kind: 原始文档
@@ -37,7 +37,7 @@ preserved:
     - path: 学习资料/learning_tech/11_l1_regularization.md
       title: 11｜L1 正则化：稀疏模型与特征选择
       kind: 原始文档
-  sourceSections: &a2
+  sourceSections:
     - 02 / §1 先划分，再学习预处理参数
     - 02 / §5 数值标准化与特征缩放
     - 02 / §12 使用 Pipeline 防止泄漏
@@ -45,10 +45,6 @@ preserved:
     - 01 / §5.2 为什么距离模型需要标准化
     - 11 / §5 使用 L1 前为什么要标准化
   extensionNotes: []
-sources:
-  documents: *a1
-  sections: *a2
-  urls: []
 anchorAliases:
   sources: related
 ---
@@ -197,12 +193,12 @@ $$
 - 使用总体标准差，即分母为 m=3
 :::
 
-:::field{path="numericalExample.steps" type="list"}
-- 均值 μ=(50+60+70)/3=60。
-- 平方偏差分别为 (50-60)²=100、(60-60)²=0、(70-60)²=100。
-- 总体方差为 (100+0+100)/3=66.667，标准差 σ≈8.165。
-- 训练集 Z-score 约为 \[-1.225, 0, 1.225\]。
-- 验证值 80 必须复用训练参数：z=(80-60)/8.165≈2.449，不能用验证集重新计算均值。
+:::field{path="numericalExample.steps" type="ordered"}
+1. 均值 μ=(50+60+70)/3=60。
+2. 平方偏差分别为 (50-60)²=100、(60-60)²=0、(70-60)²=100。
+3. 总体方差为 (100+0+100)/3=66.667，标准差 σ≈8.165。
+4. 训练集 Z-score 约为 \[-1.225, 0, 1.225\]。
+5. 验证值 80 必须复用训练参数：z=(80-60)/8.165≈2.449，不能用验证集重新计算均值。
 :::
 
 :::field{path="numericalExample.result" type="text"}
@@ -218,14 +214,14 @@ $$
 
 ## 计算与实现步骤 {#algorithm-steps}
 
-:::field{path="algorithmSteps" type="list"}
-- 先按真实使用场景划分训练集、验证集和测试集。
-- 只在训练集上检查缺失值和常量列。缺失值应先按 Pipeline 中约定方式处理。
-- 对训练集每一列计算并保存均值与标准差，即执行 scaler.fit(X\_train)。
-- 使用保存的参数转换训练集，即 scaler.transform(X\_train)。
-- 对验证集、测试集和未来数据只调用 transform，不再重新拟合。
-- 把 StandardScaler 与需要缩放的模型放在同一个 Pipeline 中，使每个交叉验证训练折独立拟合参数。
-- 记录特征顺序和列名；部署时必须以相同结构输入。
+:::field{path="algorithmSteps" type="ordered"}
+1. 先按真实使用场景划分训练集、验证集和测试集。
+2. 只在训练集上检查缺失值和常量列。缺失值应先按 Pipeline 中约定方式处理。
+3. 对训练集每一列计算并保存均值与标准差，即执行 scaler.fit(X\_train)。
+4. 使用保存的参数转换训练集，即 scaler.transform(X\_train)。
+5. 对验证集、测试集和未来数据只调用 transform，不再重新拟合。
+6. 把 StandardScaler 与需要缩放的模型放在同一个 Pipeline 中，使每个交叉验证训练折独立拟合参数。
+7. 记录特征顺序和列名；部署时必须以相同结构输入。
 :::
 
 
@@ -277,7 +273,7 @@ print("restored:", X_train_restored.ravel().round(3))
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-mean: \[60.\]；std: \[8.165\]；train scaled: \[-1.225 0. 1.225\]；valid scaled: \[2.449\]；restored: \[50. 60. 70.\]
+mean\: \[60.\]；std\: \[8.165\]；train scaled\: \[-1.225 0. 1.225\]；valid scaled\: \[2.449\]；restored\: \[50. 60. 70.\]
 :::
 
 ::::

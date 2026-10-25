@@ -1,0 +1,158 @@
+---
+id: tool-selection-filtering
+slug: tool-selection-filtering
+title: Tool Selection 与 Tool Filtering
+category: artificial-intelligence
+difficulty: 挑战
+summary: 用描述帮助模型选对工具，用过滤和策略确保只暴露当前任务允许的工具。
+prerequisites:
+  - tools
+  - mcp-overview
+relatedConcepts:
+  - agent-security
+  - mcp-security
+order: 183
+directory: Tool
+kind: long-form
+preserved:
+  subcategory: Tool
+  entityType: tool
+  workflow:
+    - 按身份和任务生成允许集合
+    - 提供清晰描述
+    - 模型选择工具
+    - 执行层再次授权
+    - 记录选择与拒绝
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls:
+    - https://developers.openai.com/api/docs/guides/tools-connectors-mcp
+    - https://openai.github.io/openai-agents-js/guides/context/
+  versionDate: 2026-08-30
+  inputsSchema: 全部工具目录；用户权限；当前任务
+  outputsSchema: 最小可见工具集
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+anchorAliases:
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明Tool Selection 与 Tool Filtering解决什么问题，以及何时适用。
+- 能解释为什么“向模型暴露全部写工具”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+工具越多，选择成本与误调用概率越高；隐藏不允许工具比仅在提示中说“不要用”更可靠。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Selection 是模型在可见工具中选择；Filtering 是应用在模型看到之前按身份、任务和风险缩小集合。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+菜单说明帮助点菜，门禁决定哪些房间根本不会出现在可进入列表。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+工具名和描述要区分用途与返回形状。
+
+过滤必须发生在可信应用层。
+
+Remote MCP 可用 allowed\_tools 缩小导入集合；敏感动作结合 require\_approval。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 按身份和任务生成允许集合
+2. 提供清晰描述
+3. 模型选择工具
+4. 执行层再次授权
+5. 记录选择与拒绝
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 大型工具库
+- MCP 集成
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 向模型暴露全部写工具
+- 描述高度相似
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 全部工具目录
+- 用户权限
+- 当前任务
+:::
+
+:::field{path="outputs" type="list"}
+- 最小可见工具集
+:::
+
+:::field{path="capabilities" type="list"}
+- 大型工具库
+- MCP 集成
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

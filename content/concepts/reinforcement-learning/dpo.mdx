@@ -1,0 +1,336 @@
+---
+id: dpo
+slug: dpo
+title: DPO：Direct Preference Optimization
+category: reinforcement-learning
+difficulty: 挑战
+summary: 直接用 chosen/rejected 偏好对优化策略相对 reference 的概率差，不运行传统在线 RL 循环。
+prerequisites:
+  - 概率基础
+  - Python 与 NumPy
+relatedConcepts:
+  - ppo
+  - grpo
+  - reward-model-rlhf-rlaif-rft
+order: 228
+directory: 现代策略与偏好优化
+kind: long-form
+preserved:
+  subcategory: 现代策略与偏好优化
+  workflow:
+    - 准备 prompt/chosen/rejected
+    - 计算 policy 序列 log-prob
+    - 计算 reference log-prob
+    - 构造相对 margin
+    - log-sigmoid loss
+    - 离线优化并评测
+  algorithmType: Offline preference optimization objective
+  onPolicy: false
+  offPolicy: false
+  actionSpace: 文本响应序列
+  modelFree: true
+  modelBased: false
+  inputs:
+    - 状态或观察
+    - 动作
+    - 奖励
+    - 下一状态或轨迹
+  outputs:
+    - 价值估计、策略参数或训练诊断
+  codeExplanation:
+    - 代码与本页第一条公式逐项对应。
+    - 网站只展示、复制代码，不执行用户输入或训练真实模型。
+  expectedOutput: 打印两个 preference logits 和一个有限正 DPO loss。
+  sourceDocuments:
+    - path: 外部原始教材或论文
+      title: 强化学习可靠资料
+      kind: 扩展资料
+  sourceSections:
+    - DPO 原论文 / §4 Direct Preference Optimization
+    - DPO 原论文 / Eq. 7
+  sourceUrls:
+    - https://arxiv.org/abs/2305.18290
+  versionDate: 2026-08-30
+anchorAliases:
+  sources: related
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 定义DPO：Direct Preference Optimization并复述输入输出。
+- 从公式计算一个最小数值例子。
+- 说明它与相邻算法的区别、失败模式和适用场景。
+:::
+
+
+## 为什么重要 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+DPO：Direct Preference Optimization位于“状态—行动—反馈—更新”学习链中的关键位置。
+
+掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
+
+同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+DPO 将带 KL 约束的 RLHF 最优策略关系转写为二分类式偏好目标。
+
+本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+让策略相对参考模型更偏向 chosen、远离 rejected，而不是先训练显式 Reward Model 再在线采样优化。
+
+把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+输入是离线 preference pairs。
+
+不需要显式训练独立 Reward Model。
+
+训练时不需要传统在线环境采样循环。
+
+DPO 不应简单描述为标准 MDP 在线 RL 算法。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### DPO loss
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+\mathcal{L}_{DPO}=-\mathbb{E}_{(x,y_w,y_l)}\log\sigma(\beta[\log\frac{\pi_\theta(y_w|x)}{\pi_{ref}(y_w|x)}-\log\frac{\pi_\theta(y_l|x)}{\pi_{ref}(y_l|x)}])
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+提高 chosen 相对 reference 的优势，并降低 rejected。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| y\_w | chosen response。 |
+| y\_l | rejected response。 |
+| π\_ref | 冻结参考策略。 |
+| β | 偏好间隔缩放/隐含 KL 强度相关参数。 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### DPO：Direct Preference Optimization的最小计算
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- 即时奖励为 1
+- 下一状态估计为 2
+- 折扣因子 γ=0.9
+- 当前估计为 0.5
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 计算 bootstrap 目标：1+0.9×2=2.8。
+2. 目标与当前估计差为 2.8−0.5=2.3。
+3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+:::
+
+:::field{path="numericalExample.result" type="text"}
+一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+- 较大 α 更新快但噪声和震荡更强。
+- 较大 γ 更重视远期奖励，但误差传播范围更长。
+- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 准备 prompt/chosen/rejected
+2. 计算 policy 序列 log-prob
+3. 计算 reference log-prob
+4. 构造相对 margin
+5. log-sigmoid loss
+6. 离线优化并评测
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### DPO loss：chosen / rejected 与 reference 的对数概率差
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+根据 DPO 原论文目标计算一个偏好对损失，不训练 Reward Model、不采样在线轨迹。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+import torch
+import torch.nn.functional as F
+
+beta = 0.1
+policy_chosen = torch.tensor([-1.2, -0.8], requires_grad=True)
+policy_rejected = torch.tensor([-2.0, -1.1], requires_grad=True)
+reference_chosen = torch.tensor([-1.4, -0.9])
+reference_rejected = torch.tensor([-1.8, -1.0])
+
+policy_margin = policy_chosen - policy_rejected
+reference_margin = reference_chosen - reference_rejected
+logits = beta * (policy_margin - reference_margin)
+loss = -F.logsigmoid(logits).mean()
+loss.backward()
+print('preference logits:', logits.detach())
+print('DPO loss:', round(loss.item(), 4))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 每行数据包含 chosen 与 rejected 响应的序列对数概率。
+- 策略偏好 margin 与 reference margin 的差经 beta 缩放。
+- 负 log-sigmoid 是二分类式偏好损失；这不是标准 MDP 在线交互循环。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+打印两个 preference logits 和一个有限正 DPO loss。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 序贯决策
+- 控制与资源分配
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 只报告最好的一次随机种子
+- 训练回报与评测回报混用
+- 终止状态仍错误 bootstrap
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 扩展内容说明 {#extension}
+
+:::field{path="extensionNotes" type="paragraphs"}
+未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+:::
+
+
+## 算法属性与数据边界 {#algorithm-profile}
+
+<ArticleFlags />
+:::field{path="objectiveFunction" type="text"}
+二分类式 DPO loss
+:::
+:::field{path="referencePolicy" type="text"}
+冻结 reference model
+:::
+:::field{path="rewardModel" type="text"}
+不显式训练独立 Reward Model
+:::
+:::field{path="preferenceData" type="text"}
+prompt + chosen + rejected 离线偏好对
+:::
+:::field{path="klConstraint" type="text"}
+通过相对 reference 的目标隐式体现
+:::
+
+## 与 DQN、SAC 及相邻方法对照 {#algorithm-comparison}
+
+:::field{path="comparisonNotes" type="list"}
+- 不是传统在线 MDP RL
+- 无需 rollout/replay buffer
+- 高度依赖偏好数据覆盖与质量
+:::
+
+
+## 失败模式、风险与性能 {#failure-performance}
+
+:::field{path="failureModes" type="list"}
+- 探索不足
+- 目标漂移
+- 函数近似不稳定
+:::
+
+:::field{path="securityRisks" type="list"}
+- 奖励函数与真实目标不一致会诱发奖励黑客。
+- 部署策略的行动权限必须由环境和应用层约束。
+:::
+
+:::field{path="performanceNotes" type="list"}
+- 样本效率、墙钟时间和显存占用需要分别报告。
+- 应使用多个随机种子、置信区间和固定评测策略。
+:::
+
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### DPO：Direct Preference Optimization是 on-policy 还是 off-policy？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+这是基础或比较概念，具体归属取决于所讨论算法。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 网页是否会训练模型？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
+:::
+

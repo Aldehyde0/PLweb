@@ -1,5 +1,7 @@
 'use client';
 
+import { planConcepts } from '@/lib/plan-content';
+
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -14,11 +16,8 @@ import {
   Save,
   Sparkles,
 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
-import { categories, concepts, type CategorySlug } from '@/lib/content';
-import { conceptDirectory, directoryConcepts } from '@/lib/category-directory';
-import { resolveConceptLink } from '@/lib/concept-utils';
-import { longFormMap, type LongFormConcept } from '@/lib/long-form-content';
+import { useRef, useState } from 'react';
+import { categories, type CategorySlug } from '@/lib/content';
 import {
   buildLocalDate,
   daysInMonth,
@@ -32,7 +31,6 @@ import {
   type PlanLevel,
   type PlanMethod,
 } from '@/lib/plan-engine';
-import { resourcesForConcept } from '@/lib/resources';
 import { useLearning } from '@/components/learning-store';
 import { usePlans } from '@/components/plan-store';
 import { Button } from '@/components/ui/button';
@@ -76,62 +74,6 @@ export function PlanCreateView() {
   });
   const [draft, setDraft] = useState<LearningPlan | null>(null);
   const previewRef = useRef<HTMLHeadingElement>(null);
-  const planConcepts = useMemo(
-    () =>
-      directoryConcepts(concepts).map((concept) => {
-        const long = longFormMap[concept.slug] as
-          | (LongFormConcept & {
-              interactiveDemo?: string;
-              inputs?: string[];
-              outputs?: string[];
-            })
-          | undefined;
-        return {
-          slug: concept.slug,
-          subcategory: conceptDirectory(concept),
-          title: concept.title,
-          category: concept.category,
-          difficulty: concept.difficulty,
-          prerequisites: concept.prerequisites.map(
-            (identifier) =>
-              resolveConceptLink(identifier).concept?.slug ?? identifier,
-          ),
-          hasCode: Boolean(concept.code?.source),
-          hasInteractive: Boolean(long?.interactiveDemo),
-          hasFormula: Boolean(
-            long?.formulas.some((formula) => formula.expression !== '—') ??
-            concept.formula.expression !== '—',
-          ),
-          definition: long?.definition ?? [concept.explanation],
-          summary: concept.summary,
-          principles: long?.corePrinciple ?? [concept.principle],
-          relatedConcepts: concept.relatedConcepts.flatMap((identifier) => {
-            const resolved = resolveConceptLink(identifier).concept;
-            return resolved ? [resolved.title] : [];
-          }),
-          inputs: long?.inputs ?? [],
-          outputs: long?.outputs ?? [],
-          resources: resourcesForConcept(concept.slug).map((resource) => ({
-            id: resource.id,
-            title: resource.title,
-            type: resource.type,
-            url: resource.url,
-            summary: resource.summary,
-            estimatedMinutes:
-              resource.type === '视频' || resource.type === '视频课程'
-                ? 20
-                : resource.type === 'GitHub 仓库' ||
-                    resource.type === '代码教程'
-                  ? 30
-                  : resource.type === '论文'
-                    ? 25
-                    : 12,
-            recommendationLevel: resource.recommendationLevel,
-          })),
-        };
-      }),
-    [],
-  );
 
   function set<K extends keyof PlanFormInput>(key: K, value: PlanFormInput[K]) {
     setForm((current) => ({ ...current, [key]: value }));

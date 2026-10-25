@@ -1,0 +1,337 @@
+---
+id: ppo
+slug: ppo
+title: PPO：Proximal Policy Optimization
+category: reinforcement-learning
+difficulty: 挑战
+summary: 用概率比率裁剪限制策略单次更新幅度的 on-policy Actor-Critic 方法。
+prerequisites:
+  - 概率基础
+  - Python 与 NumPy
+relatedConcepts:
+  - gae
+  - actor-critic
+  - grpo
+  - dpo
+order: 226
+directory: 现代策略与偏好优化
+kind: long-form
+preserved:
+  subcategory: 现代策略与偏好优化
+  workflow:
+    - 用 old policy 收集 rollout
+    - 估计 returns/GAE
+    - 保存 old log probability
+    - 多 epoch mini-batch
+    - 优化 clipped policy loss + value loss − entropy bonus
+    - 丢弃旧 rollout 再采样
+  algorithmType: On-policy Actor-Critic
+  onPolicy: true
+  offPolicy: false
+  actionSpace: 离散或连续
+  modelFree: true
+  modelBased: false
+  inputs:
+    - 状态或观察
+    - 动作
+    - 奖励
+    - 下一状态或轨迹
+  outputs:
+    - 价值估计、策略参数或训练诊断
+  codeExplanation:
+    - 代码与本页第一条公式逐项对应。
+    - 网站只展示、复制代码，不执行用户输入或训练真实模型。
+  expectedOutput: 超出 [0.8,1.2] 的 ratio 被截到边界，并打印可反向传播的 policy loss。
+  sourceDocuments:
+    - path: 外部原始教材或论文
+      title: 强化学习可靠资料
+      kind: 扩展资料
+  sourceSections:
+    - PPO 原论文 / §3 Clipped Surrogate Objective
+    - PPO 原论文 / Algorithm 1
+  sourceUrls:
+    - https://arxiv.org/abs/1707.06347
+  versionDate: 2026-08-30
+  trainingLoop:
+    - rollout
+    - GAE
+    - mini-batch 多 epoch
+    - 重新采样
+anchorAliases:
+  sources: related
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 定义PPO：Proximal Policy Optimization并复述输入输出。
+- 从公式计算一个最小数值例子。
+- 说明它与相邻算法的区别、失败模式和适用场景。
+:::
+
+
+## 为什么重要 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+PPO：Proximal Policy Optimization位于“状态—行动—反馈—更新”学习链中的关键位置。
+
+掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
+
+同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+PPO 交替采样当前策略数据并对 clipped surrogate objective 做多轮 mini-batch 优化。
+
+本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+允许策略改进，但若新策略偏离旧策略太远，就停止继续放大这部分收益。
+
+把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+普通策略梯度更新过大会破坏策略。
+
+ratio 比较新旧策略动作概率。
+
+clip 不是硬性 KL 保证，但构造保守代理目标。
+
+真实训练还组合 value loss、entropy bonus 与 GAE。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### PPO clipped objective
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+L^{CLIP}(\theta)=\mathbb{E}_t[\min(r_t(\theta)\hat A_t,\operatorname{clip}(r_t(\theta),1-\epsilon,1+\epsilon)\hat A_t)]
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+取未裁剪与裁剪目标的较小值。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| r\_t(θ) | 新旧策略对已采样动作的概率比。 |
+| Â\_t | Advantage 估计，常用 GAE。 |
+| ε | clip range。 |
+| π\_old | 收集当前 rollout 的旧策略。 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### PPO：Proximal Policy Optimization的最小计算
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- 即时奖励为 1
+- 下一状态估计为 2
+- 折扣因子 γ=0.9
+- 当前估计为 0.5
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 计算 bootstrap 目标：1+0.9×2=2.8。
+2. 目标与当前估计差为 2.8−0.5=2.3。
+3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+:::
+
+:::field{path="numericalExample.result" type="text"}
+一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+- 较大 α 更新快但噪声和震荡更强。
+- 较大 γ 更重视远期奖励，但误差传播范围更长。
+- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 用 old policy 收集 rollout
+2. 估计 returns/GAE
+3. 保存 old log probability
+4. 多 epoch mini-batch
+5. 优化 clipped policy loss + value loss − entropy bonus
+6. 丢弃旧 rollout 再采样
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### PPO clipped surrogate objective
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+直接计算概率比率、未裁剪目标和裁剪目标。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+import torch
+
+old_log_prob = torch.log(torch.tensor([0.40, 0.55, 0.25]))
+new_log_prob = torch.log(torch.tensor([0.52, 0.45, 0.50], requires_grad=True))
+advantage = torch.tensor([1.2, -0.7, 0.4])
+clip_range = 0.2
+
+ratio = torch.exp(new_log_prob - old_log_prob)
+unclipped = ratio * advantage
+clipped_ratio = torch.clamp(ratio, 1 - clip_range, 1 + clip_range)
+clipped = clipped_ratio * advantage
+policy_loss = -torch.minimum(unclipped, clipped).mean()
+policy_loss.backward()
+
+print('ratio:', ratio.detach())
+print('clipped ratio:', clipped_ratio.detach())
+print('loss:', round(policy_loss.item(), 4))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- ratio 比较新旧策略对同一动作的概率。
+- clamp 将比率限制在 \[1−ε,1+ε\]；minimum 构造保守代理目标。
+- 真实 PPO 还组合 value loss、entropy bonus、GAE 与多轮 mini-batch 更新。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+超出 \[0.8,1.2\] 的 ratio 被截到边界，并打印可反向传播的 policy loss。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 序贯决策
+- 控制与资源分配
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 只报告最好的一次随机种子
+- 训练回报与评测回报混用
+- 终止状态仍错误 bootstrap
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 扩展内容说明 {#extension}
+
+:::field{path="extensionNotes" type="paragraphs"}
+未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+:::
+
+
+## 算法属性与数据边界 {#algorithm-profile}
+
+<ArticleFlags />
+:::field{path="objectiveFunction" type="text"}
+clipped surrogate + value loss + entropy bonus
+:::
+:::field{path="advantageEstimator" type="text"}
+常用 GAE
+:::
+:::field{path="clipRange" type="text"}
+常见 0.1–0.2，需按任务调节
+:::
+
+## 与 DQN、SAC 及相邻方法对照 {#algorithm-comparison}
+
+:::field{path="comparisonNotes" type="list"}
+- 传统意义策略优化算法
+- on-policy
+- 通常不使用跨 rollout replay buffer
+:::
+
+
+## 失败模式、风险与性能 {#failure-performance}
+
+:::field{path="failureModes" type="list"}
+- 探索不足
+- 目标漂移
+- 函数近似不稳定
+:::
+
+:::field{path="securityRisks" type="list"}
+- 奖励函数与真实目标不一致会诱发奖励黑客。
+- 部署策略的行动权限必须由环境和应用层约束。
+:::
+
+:::field{path="performanceNotes" type="list"}
+- 样本效率、墙钟时间和显存占用需要分别报告。
+- 应使用多个随机种子、置信区间和固定评测策略。
+:::
+
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### PPO：Proximal Policy Optimization是 on-policy 还是 off-policy？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+本页算法/方法按 on-policy 组织。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 网页是否会训练模型？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
+:::
+

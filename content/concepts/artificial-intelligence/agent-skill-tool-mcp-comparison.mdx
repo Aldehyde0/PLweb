@@ -1,0 +1,168 @@
+---
+id: agent-skill-tool-mcp-comparison
+slug: agent-skill-tool-mcp-comparison
+title: Agent、Skill、Tool、MCP 的区别
+category: artificial-intelligence
+difficulty: 进阶
+summary: 用职责、流程、行动、连接、权限和复用方式辨析四个常被混用的概念。
+prerequisites:
+  - intelligent-agent
+  - codex-skills
+  - tools
+  - mcp-overview
+relatedConcepts:
+  - agent-architecture
+  - local-mcp-server
+order: 193
+directory: 核心对照
+kind: long-form
+preserved:
+  subcategory: 核心对照
+  entityType: comparison
+  workflow:
+    - 模型理解用户要求
+    - Agent 根据目标组织步骤
+    - 匹配 Skill 并加载流程
+    - 选择 PDF 读取 Tool
+    - 若工具由 MCP Server 提供，则经 Client 调用
+    - 验证读取结果
+    - Agent 按 Skill 生成带来源总结
+  inputs:
+    - 用户任务
+    - Skill 说明
+    - Tool Schema
+    - MCP 能力目录
+  outputs:
+    - 受控执行轨迹
+    - 最终总结
+  codeExplanation: []
+  expectedOutput: ""
+  interactiveDemo: capability-comparison
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls:
+    - https://learn.chatgpt.com/docs/build-skills
+    - https://developers.openai.com/api/docs/guides/function-calling
+    - https://developers.openai.com/api/docs/guides/tools-connectors-mcp
+    - https://openai.github.io/openai-agents-js/
+    - https://modelcontextprotocol.io/specification/2026-07-28
+  versionDate: 2026-08-30
+  capabilities:
+    - 概念对照
+    - 本地 PDF 示例
+    - 职责边界检查
+  permissions: []
+  inputsSchema: 用户任务；Skill 说明；Tool Schema；MCP 能力目录
+  outputsSchema: 受控执行轨迹；最终总结
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+anchorAliases:
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明Agent、Skill、Tool、MCP 的区别解决什么问题，以及何时适用。
+- 能解释为什么“把 Skill 当成可执行 API”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+四者可以组合，但不构成固定产品层级；不同平台的实现细节必须回到各自官方文档。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Agent 组织目标与行动；Skill 提供可复用流程和专业规范；Tool 执行具体动作；MCP 以协议连接 Client 与外部能力。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+读取本地 PDF 时：模型理解意图，Agent 安排任务，Skill 规定阅读和总结流程，PDF Tool 读取文件，MCP 可把外部文件服务统一提供给 Agent。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+Agent：解决“谁推进任务并判断完成”。
+
+Skill：解决“这类任务应遵循什么流程和资料”。
+
+Tool：解决“具体动作如何执行并返回结果”。
+
+MCP：解决“宿主如何用统一协议发现和调用外部能力”。
+
+模型是上述系统的推断与生成组件，但不自动拥有工具权限。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 模型理解用户要求
+2. Agent 根据目标组织步骤
+3. 匹配 Skill 并加载流程
+4. 选择 PDF 读取 Tool
+5. 若工具由 MCP Server 提供，则经 Client 调用
+6. 验证读取结果
+7. Agent 按 Skill 生成带来源总结
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 架构沟通
+- 能力选型
+- 安全审查
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 把 Skill 当成可执行 API
+- 把 MCP 当成 Agent
+- 认为 Tool Schema 自动授权
+- 认为 Plugin 与 Skill 完全同义
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+<AIInteractiveDemo kind="capability-comparison" />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

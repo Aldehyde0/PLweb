@@ -1,0 +1,146 @@
+---
+id: confusion-matrix
+slug: confusion-matrix
+title: 混淆矩阵
+category: machine-learning
+difficulty: 进阶
+summary: 按真实类别与预测类别统计正确、误报和漏报，是分类错误分析的基础。
+prerequisites:
+  - 分类
+relatedConcepts:
+  - classification-metrics
+  - error-analysis
+order: 66
+directory: 评估与模型选择
+kind: long-form
+preserved:
+  codeExplanation:
+    - 示例用于阅读、复制和本地运行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/07_evaluation_tuning.md
+      title: 07｜模型评估与调参
+      kind: 原始文档
+  sourceSections:
+    - §4 混淆矩阵
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+单一准确率无法告诉模型错在哪里，也无法表达不同错误代价。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+二分类包含 TP、FP、FN、TN；多分类主对角线是正确预测，非对角线显示具体混淆方向。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+把每个真实类别的答案流向各预测类别，错误方向一目了然。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+必须明确正类定义和行列约定；同时报告原始数量、归一化比例和每类 support。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+CMᵢⱼ=#{样本 | y=i, ŷ=j}
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+必须明确正类定义和行列约定；同时报告原始数量、归一化比例和每类 support。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 产生独立预测
+2. 固定标签顺序
+3. 计算矩阵
+4. 查看对角/非对角
+5. 按类归一化
+6. 回查错误样本
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 混淆矩阵 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的可靠评价或训练流程。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.metrics import ConfusionMatrixDisplay
+ConfusionMatrixDisplay.from_predictions(y_test,y_pred,normalize=None)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 数据边界和划分方式是代码含义的一部分。
+- 结果应报告平均、波动或业务对应的指标。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+生成完整类别顺序的混淆矩阵图。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 分类评价
+- 错误分析
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 行列含义搞反
+- 不显示样本量
+- 用训练预测绘图
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

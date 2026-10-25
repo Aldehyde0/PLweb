@@ -1,0 +1,107 @@
+---
+id: supervised-learning
+slug: supervised-learning
+title: 监督学习
+category: machine-learning
+difficulty: 入门
+summary: 从带标签样本中学习输入到目标的映射。
+prerequisites:
+  - Python 基础
+  - 高中数学
+relatedConcepts:
+  - linear-regression
+  - overfitting-regularization
+order: 5
+directory: 入门与数学基础
+kind: legacy
+preserved: {}
+---
+
+## 前置知识 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 通俗直觉 {#intuition}
+
+:::field{path="explanation" type="text"}
+像带答案练习：模型看过许多“题目—答案”对，再尝试回答新题。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="principle" type="text"}
+选择参数化函数，用训练样本上的损失衡量预测误差，并通过优化降低平均损失。
+:::
+
+
+## 数学公式 {#formulas}
+
+:::field{path="formula.expression" type="math"}
+$$
+θ* = argminθ (1/n) Σ L(fθ(xᵢ), yᵢ)
+$$
+:::
+
+:::field{path="formula.description" type="text"}
+寻找使平均训练损失最小的模型参数 θ。
+:::
+
+
+## 工作流程 {#algorithm-steps}
+
+:::field{path="workflow" type="list"}
+- 准备带标签数据
+- 拆分训练与验证集
+- 训练模型降低损失
+- 在未见数据上评估
+:::
+
+
+## 代码示例 {#code}
+
+:::field{path="code.language" type="text"}
+Python
+:::
+
+:::field{path="code.source" type="code" trailing="0"}
+```Python
+from sklearn.linear_model import LogisticRegression
+
+X = [[0], [1], [2], [3]]
+y = [0, 0, 1, 1]
+model = LogisticRegression().fit(X, y)
+print(model.predict([[2.5]]))
+```
+:::
+
+:::field{path="code.highlights" type="list"}
+- fit 使用带标签样本学习
+- predict 对新输入进行分类
+:::
+
+:::field{path="codeExplanation" type="text"}
+逻辑回归从四个带标签样本中学习分类边界，并判断新样本 2.5 更接近哪一类。
+:::
+
+
+## 应用场景 {#applications}
+
+:::field{path="applications" type="list"}
+- 垃圾邮件识别
+- 图像分类
+- 销量预测
+:::
+
+
+## 常见误区 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 训练集准确不代表泛化好
+- 标签质量会限制模型上限
+:::
+
+
+## 相关概念 {#related}
+
+<ConceptRelated />

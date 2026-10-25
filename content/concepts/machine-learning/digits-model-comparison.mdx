@@ -1,0 +1,158 @@
+---
+id: digits-model-comparison
+slug: digits-model-comparison
+title: Digits 候选模型公平比较
+category: machine-learning
+difficulty: 挑战
+summary: 统一比较 Dummy、标准化逻辑回归、标准化 KNN、决策树以及随机森林或 SVM。
+prerequisites:
+  - 机器学习基本流程
+  - Pipeline
+  - 交叉验证
+  - 分类指标
+relatedConcepts:
+  - baseline-models
+  - model-family-comparison
+  - hyperparameter-search
+order: 96
+directory: 项目与部署
+kind: long-form
+preserved:
+  codeExplanation:
+    - 实际项目还需保存图表、版本和报告。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/practice_project_digits\README.md
+      title: 综合练习项目｜传统机器学习手写数字识别
+      kind: 原始文档
+  sourceSections:
+    - §6 必须完成的模型
+    - §7 推荐增加的模型
+    - §12 FR-04–FR-07
+    - §14 验收评分
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+逻辑回归/KNN/SVM 需要标准化，树通常不需要。K 和 max\_depth 还需观察训练/验证差距。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+模型注册表让所有候选共享同一 CV 与指标，同时保留各自必要的 Pipeline。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+把项目当作一条可复现、可审计的实验链，而不是追求一次最高分。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+主要按训练部分 CV macro F1 选择，不读取测试结果；报告均值、标准差、训练和验证耗时。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 项目主线
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+任务 → 数据 → 协议 → 基线 → 比较 → 测试 → 错误分析 → 交付
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+主要按训练部分 CV macro F1 选择，不读取测试结果；报告均值、标准差、训练和验证耗时。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 注册 Dummy
+2. LR Pipeline
+3. KNN Pipeline 并比较 K
+4. 树比较深度
+5. 增加 RF/SVM
+6. 同一五折 cross\_validate
+7. 锁定最终模型
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### Digits 候选模型公平比较 核心代码
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应项目要求中的可运行核心步骤。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+models={
+ "dummy":DummyClassifier(strategy="most_frequent"),
+ "lr":make_pipeline(StandardScaler(),LogisticRegression(max_iter=3000)),
+ "knn":make_pipeline(StandardScaler(),KNeighborsClassifier()),
+ "tree":DecisionTreeClassifier(random_state=42),
+}
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 固定数据协议保证模型公平比较。
+- 测试集在方案锁定前保持不可见。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+得到名称到估计器的统一映射，后续同折比较。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 多模型实验
+- 算法选型
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 不同折比较
+- 省略 Dummy
+- 需要缩放的模型脱离 Pipeline
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

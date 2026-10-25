@@ -1,0 +1,147 @@
+---
+id: cross-validation-scoring
+slug: cross-validation-scoring
+title: cross_validate 与 scoring
+category: machine-learning
+difficulty: 进阶
+summary: cross_validate 可同时返回多指标、训练分数和耗时；scoring 必须匹配任务与错误成本。
+prerequisites:
+  - 评价指标
+relatedConcepts:
+  - classification-metrics
+  - regression-metrics
+  - cross-validation-reporting
+order: 87
+directory: 评估与模型选择
+kind: long-form
+preserved:
+  codeExplanation:
+    - 示例用于阅读、复制和本地运行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/13_cross_validation.md
+      title: 13｜交叉验证：可靠评估与模型选择
+      kind: 原始文档
+  sourceSections:
+    - §10 cross_val_score 与 cross_validate
+    - §11 如何选择 scoring
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+sklearn 对误差类 scoring 取负以统一越大越好；不同指标数值不可直接大小比较。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+cross\_val\_score 适合单指标，cross\_validate 支持字典指标、return\_train\_score、fit\_time 和 estimator。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+一场实验同时记录正确率、关键错误、稳定性和成本，而不是只留一项分数。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+预先指定主指标；附加指标用于诊断。return\_estimator 会占内存，仅需要分析每折模型时开启。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+report = scores per fold + mean ± std + fit/score time
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+预先指定主指标；附加指标用于诊断。return\_estimator 会占内存，仅需要分析每折模型时开启。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 定义主/次指标
+2. cross\_validate
+3. 转换负误差
+4. 查看训练验证差距
+5. 报告耗时和波动
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### cross\_validate 与 scoring 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的可靠评价或训练流程。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+r=cross_validate(model,X,y,cv=5,scoring={"acc":"accuracy","f1":"f1_macro"},return_train_score=True,n_jobs=-1)
+print(r["test_acc"],r["test_f1"],r["fit_time"])
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 数据边界和划分方式是代码含义的一部分。
+- 结果应报告平均、波动或业务对应的指标。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+每折 accuracy、macro F1 和训练耗时。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 多指标实验
+- 模型成本比较
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 负误差未还原
+- 指标数值直接互比
+- 事后挑主指标
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

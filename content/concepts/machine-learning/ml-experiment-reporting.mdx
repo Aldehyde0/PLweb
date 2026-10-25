@@ -1,0 +1,161 @@
+---
+id: ml-experiment-reporting
+slug: ml-experiment-reporting
+title: 机器学习实验报告
+category: machine-learning
+difficulty: 挑战
+summary: 用结构化报告记录任务、环境、数据、协议、基线、候选、搜索、测试、错误、交付与限制。
+prerequisites:
+  - 机器学习基本流程
+  - Pipeline
+  - 交叉验证
+  - 分类指标
+relatedConcepts:
+  - cross-validation-reporting
+  - digits-project-delivery
+order: 99
+directory: 项目与部署
+kind: long-form
+preserved:
+  codeExplanation:
+    - 实际项目还需保存图表、版本和报告。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/practice_project_digits\REPORT_TEMPLATE.md
+      title: 手写数字识别项目报告模板
+      kind: 原始文档
+  sourceSections:
+    - §1–4 摘要、环境、数据与协议
+    - §5–8 模型、搜索与测试
+    - §9–13 错误、交付、限制与结论
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+缺少随机种子、数据划分和预处理边界时，即使最终指标相同也无法判断实验是否可靠。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+报告不是结果截图集合，而是让读者能够复现并审查每个决策的实验档案。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+把项目当作一条可复现、可审计的实验链，而不是追求一次最高分。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+预先写主要指标和协议；结果部分同时记录训练、验证、测试与限制，不隐藏未达预期或错误样本。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 项目主线
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+任务 → 数据 → 协议 → 基线 → 比较 → 测试 → 错误分析 → 交付
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+预先写主要指标和协议；结果部分同时记录训练、验证、测试与限制，不隐藏未达预期或错误样本。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 摘要与最终结果
+2. 环境版本和命令
+3. 数据规模与分布
+4. 划分/CV/泄漏边界
+5. 基线和候选
+6. 搜索空间
+7. 最终测试
+8. 错误分析
+9. 保存/输入检查
+10. 限制和结论
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 机器学习实验报告 核心代码
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应项目要求中的可运行核心步骤。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+report={
+ "random_state":42,
+ "cv":"5-fold stratified",
+ "primary_metric":"macro_f1",
+ "test_used_once":True,
+}
+print(report)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 固定数据协议保证模型公平比较。
+- 测试集在方案锁定前保持不可见。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+输出实验协议的可审计摘要。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 课程报告
+- 模型审查
+- 复现
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 只报最好结果
+- 省略失败实验和限制
+- 无运行命令
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

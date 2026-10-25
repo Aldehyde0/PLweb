@@ -1,0 +1,112 @@
+---
+id: generative-ai
+slug: generative-ai
+title: 生成式人工智能
+category: artificial-intelligence
+difficulty: 入门
+summary: 学习数据分布，并从中采样生成新的文本、图像、音频或代码。
+prerequisites:
+  - Python 基础
+  - 高中数学
+relatedConcepts:
+  - transformer
+  - knowledge-representation
+order: 3
+directory: 基础概念
+kind: legacy
+preserved: {}
+---
+
+## 前置知识 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 通俗直觉 {#intuition}
+
+:::field{path="explanation" type="text"}
+生成模型像读过许多例子的创作者：它不直接复制某一个样本，而是学习常见模式并组合出新的结果。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="principle" type="text"}
+自回归模型把复杂序列的联合概率拆成逐个预测下一个元素的条件概率。
+:::
+
+
+## 数学公式 {#formulas}
+
+:::field{path="formula.expression" type="math"}
+$$
+P(x₁…xₙ) = ∏ᵢ P(xᵢ | x₁…xᵢ₋₁)
+$$
+:::
+
+:::field{path="formula.description" type="text"}
+整个序列的概率等于每一步条件概率的乘积。
+:::
+
+
+## 工作流程 {#algorithm-steps}
+
+:::field{path="workflow" type="list"}
+- 收集并清理训练数据
+- 学习数据分布参数
+- 根据上下文预测概率
+- 按采样策略生成内容
+:::
+
+
+## 代码示例 {#code}
+
+:::field{path="code.language" type="text"}
+Python
+:::
+
+:::field{path="code.source" type="code" trailing="0"}
+```Python
+import random
+
+next_word = {
+    "人工智能": ["正在", "可以"],
+    "正在": ["改变", "学习"],
+}
+text = ["人工智能"]
+for _ in range(2):
+    choices = next_word.get(text[-1], ["未来"] )
+    text.append(random.choice(choices))
+print("".join(text))
+```
+:::
+
+:::field{path="code.highlights" type="list"}
+- 词表保存简化条件分布
+- 采样让输出具有多样性
+:::
+
+:::field{path="codeExplanation" type="text"}
+这是极简的词级生成器：只看前一个词并随机选择下一个词。大模型使用 Transformer 和大规模参数学习更长上下文。
+:::
+
+
+## 应用场景 {#applications}
+
+:::field{path="applications" type="list"}
+- 内容创作
+- 代码补全
+- 智能检索
+:::
+
+
+## 常见误区 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 认为生成内容天然正确
+- 混淆流畅度与事实可靠性
+:::
+
+
+## 相关概念 {#related}
+
+<ConceptRelated />

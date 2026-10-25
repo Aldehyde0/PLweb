@@ -1,0 +1,156 @@
+---
+id: sklearn-pipeline-column-transformer
+slug: sklearn-pipeline-column-transformer
+title: Pipeline 与 ColumnTransformer
+category: machine-learning
+difficulty: 进阶
+summary: 用 Pipeline 固化步骤顺序，用 ColumnTransformer 为不同列类型建立独立处理分支。
+prerequisites:
+  - 缺失值
+  - 类别编码
+  - 标准化
+relatedConcepts:
+  - preprocessing-fit-transform-boundary
+  - missing-value-imputation
+  - categorical-encoding
+  - numerical-standardization
+order: 40
+directory: 数据预处理与特征工程
+kind: long-form
+preserved:
+  codeExplanation:
+    - 两个分支分别处理列类型。
+    - 总 Pipeline 保证训练、验证、测试与保存加载一致。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/02_preprocessing_feature_engineering.md
+      title: 02｜数据预处理与特征工程
+      kind: 原始文档
+  sourceSections:
+    - §12 使用 Pipeline 防止泄漏
+    - §13 同时处理数值和类别列
+  extensionNotes: []
+  formulas: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+真实表格同时含数值、类别与缺失。若训练和预测靠手工脚本分别处理，很容易出现顺序、列空间和统计参数不一致。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Pipeline 把一系列 transform 和最终 estimator 组合成一个可 fit/predict 的对象；ColumnTransformer 按列选择不同变换后拼接结果。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+ColumnTransformer 像分流器，数值走填补+缩放，类别走填补+One-Hot；Pipeline 再把汇合后的特征送入模型。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+所有有状态步骤都随 Pipeline 在训练折内 fit；保存完整 Pipeline 可同时保存预处理器和分类器。参数搜索用“步骤名\_\_参数名”访问内部配置。
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 列出数值和类别列。
+2. 为每类列定义子 Pipeline。
+3. 用 ColumnTransformer 组合。
+4. 与模型组成总 Pipeline。
+5. 在训练数据 fit。
+6. 用 CV 搜索内部参数。
+7. 保存完整对象并验证加载预测。
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 混合列完整 Pipeline
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+实现文档中的数值和类别双分支。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
+numeric_pipeline = Pipeline([
+    ("imputer", SimpleImputer(strategy="median")),
+    ("scaler", StandardScaler()),
+])
+categorical_pipeline = Pipeline([
+    ("imputer", SimpleImputer(strategy="most_frequent")),
+    ("one_hot", OneHotEncoder(handle_unknown="ignore")),
+])
+preprocessor = ColumnTransformer([
+    ("numeric", numeric_pipeline, numeric_columns),
+    ("categorical", categorical_pipeline, categorical_columns),
+])
+model = Pipeline([
+    ("preprocessor", preprocessor),
+    ("classifier", LogisticRegression(max_iter=2000)),
+])
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 两个分支分别处理列类型。
+- 总 Pipeline 保证训练、验证、测试与保存加载一致。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+fit 后模型可直接接收包含原始列名的 DataFrame，并输出预测。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 混合类型表格
+- 交叉验证与调参
+- 模型保存交付
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 手工对训练和测试分别 get\_dummies
+- 忘记未知类别
+- 只保存分类器不保存预处理
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

@@ -104,7 +104,8 @@ function DirectoryContent({
           {category.title}
         </h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          {completed.size} 已学习 · {concepts.length} 个概念
+          {concepts.filter((concept) => completed.has(concept.slug)).length}{' '}
+          已学习 · {concepts.length} 个概念
         </p>
         <ConceptSortControl compact />
       </div>

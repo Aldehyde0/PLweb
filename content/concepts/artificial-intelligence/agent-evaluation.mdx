@@ -1,0 +1,154 @@
+---
+id: agent-evaluation
+slug: agent-evaluation
+title: Agent 评估
+category: artificial-intelligence
+difficulty: 进阶
+summary: 同时评估最终答案、过程轨迹、工具选择、安全边界和资源消耗。
+prerequisites:
+  - agent-loop
+  - model-evaluation
+relatedConcepts:
+  - tracing-observability
+  - guardrails-prompt-injection
+order: 177
+directory: Agent
+kind: long-form
+preserved:
+  subcategory: Agent
+  entityType: agent
+  workflow:
+    - 定义任务与评分规则
+    - 保存基线轨迹
+    - 运行代表性评测集
+    - 分析失败步骤
+    - 修改后回归
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls: []
+  versionDate: 2026-08-30
+  inputsSchema: 任务集；期望结果；轨迹
+  outputsSchema: 成功率、错误分类、成本与延迟
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明Agent 评估解决什么问题，以及何时适用。
+- 能解释为什么“只看主观好不好”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+最终文本可能看似正确但调用了错误工具、泄露数据或消耗过多步骤。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Agent 评估用代表性任务集和可检查标准衡量端到端系统，而不只评价单次语言输出。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+不仅看项目交付物，还检查过程是否合规、证据是否真实、成本是否可接受。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+任务级成功率与步骤级诊断指标同时需要。
+
+评测集应包含正常、边界、对抗和权限拒绝案例。
+
+版本、模型、工具和提示变化都需回归评测。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 定义任务与评分规则
+2. 保存基线轨迹
+3. 运行代表性评测集
+4. 分析失败步骤
+5. 修改后回归
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 发布门槛
+- 回归测试
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 只看主观好不好
+- 评测数据泄漏到开发提示
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 任务集
+- 期望结果
+- 轨迹
+:::
+
+:::field{path="outputs" type="list"}
+- 成功率、错误分类、成本与延迟
+:::
+
+:::field{path="capabilities" type="list"}
+- 发布门槛
+- 回归测试
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

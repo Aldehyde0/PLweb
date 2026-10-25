@@ -1,0 +1,222 @@
+---
+id: agent-loop
+slug: agent-loop
+title: Agent 工作循环
+category: artificial-intelligence
+difficulty: 进阶
+summary: 用“理解—计划—行动—观察—判断”循环推进任务，并受停止条件约束。
+prerequisites:
+  - intelligent-agent
+  - tool-calling
+relatedConcepts:
+  - agent-architecture
+  - tracing-observability
+  - agent-error-handling
+order: 174
+directory: Agent
+kind: long-form
+preserved:
+  subcategory: Agent
+  entityType: agent
+  workflow:
+    - 接收任务
+    - 分析任务
+    - 制定计划
+    - 选择工具
+    - 调用工具
+    - 接收工具结果
+    - 判断是否完成
+    - 输出结果或继续
+  codeExplanation:
+    - 工具返回观察结果和完成标记。
+    - 循环保留历史观察，完成后立即返回；未完成时受最大步数限制。
+    - 这是确定性的循环骨架，不包含模型推理或自主规划。
+  expectedOutput: 第 1 步完成：Agent 组织模型、状态与工具来完成目标。
+  interactiveDemo: agent-loop
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls: []
+  versionDate: 2026-08-30
+  inputsSchema: 当前状态；工具列表；上一步观察
+  outputsSchema: 工具调用、状态更新或最终输出
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明Agent 工作循环解决什么问题，以及何时适用。
+- 能解释为什么“没有最大步数”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+一次模型调用无法处理依赖外部结果的多步任务；循环把每个新结果变成下一步决策的证据。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Agent loop 是运行器重复执行模型决策、工具调用与结果反馈，直到产生最终输出、错误、审批中断或达到限制。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+像做实验：提出下一步、动手、观察、判断，再决定继续还是结束。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+每轮必须消费新信息或缩小未完成范围，否则可能空转。
+
+终止条件至少包括任务完成、最大步数、超时、不可恢复错误和权限拒绝。
+
+工具结果需要验证后才能更新完成状态。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 接收任务
+2. 分析任务
+3. 制定计划
+4. 选择工具
+5. 调用工具
+6. 接收工具结果
+7. 判断是否完成
+8. 输出结果或继续
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 有停止条件的本地工作循环
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+Python
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+观察任务状态、工具返回和最大步数如何共同决定循环何时结束。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```Python
+from dataclasses import dataclass
+
+@dataclass
+class StepResult:
+    observation: str
+    done: bool
+
+def search_notes(topic: str) -> StepResult:
+    notes = {"Agent": "Agent 组织模型、状态与工具来完成目标。"}
+    text = notes.get(topic, "本地资料中没有结果")
+    return StepResult(text, topic in notes)
+
+def run_agent(task: str, max_steps: int = 4) -> str:
+    state = {"task": task, "step": 0, "observations": []}
+    while state["step"] < max_steps:
+        state["step"] += 1
+        result = search_notes("Agent")
+        state["observations"].append(result.observation)
+        if result.done:
+            return f"第 {state['step']} 步完成：{result.observation}"
+    return "达到步数上限，安全停止"
+
+print(run_agent("解释 Agent"))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 工具返回观察结果和完成标记。
+- 循环保留历史观察，完成后立即返回；未完成时受最大步数限制。
+- 这是确定性的循环骨架，不包含模型推理或自主规划。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+第 1 步完成：Agent 组织模型、状态与工具来完成目标。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 多步研究
+- 本地自动化
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 没有最大步数
+- 重复调用同一工具
+- 把“看起来完成”当作验收
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+<AIInteractiveDemo kind="agent-loop" />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 当前状态
+- 工具列表
+- 上一步观察
+:::
+
+:::field{path="outputs" type="list"}
+- 工具调用、状态更新或最终输出
+:::
+
+:::field{path="capabilities" type="list"}
+- 多步研究
+- 本地自动化
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

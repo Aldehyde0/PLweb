@@ -1,0 +1,204 @@
+---
+id: single-vs-multi-agent
+slug: single-vs-multi-agent
+title: 单 Agent 与多 Agent
+category: artificial-intelligence
+difficulty: 进阶
+summary: 比较一个 Agent 统一处理与多个专业 Agent 分工的收益、成本和控制方式。
+prerequisites:
+  - intelligent-agent
+relatedConcepts:
+  - manager-pattern
+  - handoffs
+  - agents-as-tools
+  - agent-orchestration
+order: 175
+directory: Agent
+kind: long-form
+preserved:
+  subcategory: Agent
+  entityType: comparison
+  workflow:
+    - 评估任务是否可分解
+    - 定义每个角色的输入输出
+    - 选择 Manager、Handoff 或并行
+    - 聚合并验证结果
+    - 记录跨 Agent 轨迹
+  inputs:
+    - 主任务
+    - 角色定义
+    - 共享或隔离状态
+  outputs:
+    - 子任务结果
+    - 聚合答案
+    - 交接记录
+  codeExplanation: []
+  expectedOutput: ""
+  interactiveDemo: single-multi
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls:
+    - https://openai.github.io/openai-agents-js/guides/multi-agent/
+  versionDate: 2026-08-30
+  capabilities:
+    - 研究分工
+    - 多领域客服
+  permissions: []
+  inputsSchema: 主任务；角色定义；共享或隔离状态
+  outputsSchema: 子任务结果；聚合答案；交接记录
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+anchorAliases:
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明单 Agent 与多 Agent解决什么问题，以及何时适用。
+- 能解释为什么“为展示复杂度而多 Agent”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+多 Agent 能缩小每个角色的上下文，却会增加路由、状态同步、延迟、成本和失败组合。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+单 Agent 由一个活动决策主体完成流程；多 Agent 把任务分给多个具有不同指令或工具的 Agent。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+单人完成沟通少；团队分工专业，但需要负责人、交接标准与共享记录。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+只有任务可清晰分解且专业化收益大于协调成本时才应增加 Agent。
+
+并行适合相互独立的子任务；存在数据依赖的步骤应顺序执行。
+
+Manager 保留最终控制，Handoff 则把会话控制转给专家。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 评估任务是否可分解
+2. 定义每个角色的输入输出
+3. 选择 Manager、Handoff 或并行
+4. 聚合并验证结果
+5. 记录跨 Agent 轨迹
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### Manager 并行调用两个专业 Agent
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+TypeScript
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+展示独立子任务并行和 Manager 聚合的边界；代码遵循 Agents SDK 当前 Agent/run 基本结构。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```TypeScript
+import { Agent, run } from '@openai/agents';
+
+const evidenceAgent = new Agent({
+  name: 'Evidence reviewer',
+  instructions: 'Return claims with supporting evidence only.',
+});
+const riskAgent = new Agent({
+  name: 'Risk reviewer',
+  instructions: 'List security and reliability risks.',
+});
+
+const task = 'Review this local design summary.';
+const [evidence, risks] = await Promise.all([
+  run(evidenceAgent, task),
+  run(riskAgent, task),
+]);
+
+const managerInput = JSON.stringify({
+  evidence: evidence.finalOutput,
+  risks: risks.finalOutput,
+});
+console.log(managerInput);
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 两个子任务独立，因此用 Promise.all 并行。
+- 每个 run 有自己的 Agent 指令和结果。
+- 聚合数据先结构化；真实 Manager 还应验证证据、处理失败与限制敏感信息。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+包含 evidence 与 risks 两个字段的 JSON 字符串；内容取决于所配置模型。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 研究分工
+- 多领域客服
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 为展示复杂度而多 Agent
+- 多个 Agent 共享过多敏感上下文
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+<AIInteractiveDemo kind="single-multi" />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

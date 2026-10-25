@@ -1,0 +1,109 @@
+---
+id: unsupervised-learning
+slug: unsupervised-learning
+title: 无监督学习
+category: machine-learning
+difficulty: 入门
+summary: 在没有人工标签的数据中发现结构、分组或低维表示。
+prerequisites:
+  - Python 基础
+  - 高中数学
+relatedConcepts:
+  - supervised-learning
+  - overfitting-regularization
+order: 7
+directory: 入门与数学基础
+kind: legacy
+preserved: {}
+---
+
+## 前置知识 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 通俗直觉 {#intuition}
+
+:::field{path="explanation" type="text"}
+把一盒没有说明书的积木按相似性自动分组，模型只依据数据之间的距离和分布。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="principle" type="text"}
+K-Means 交替执行样本分配与中心更新，使样本到所属簇中心的平方距离总和尽量小。
+:::
+
+
+## 数学公式 {#formulas}
+
+:::field{path="formula.expression" type="math"}
+$$
+J = Σᵢ ||xᵢ - μcᵢ||²
+$$
+:::
+
+:::field{path="formula.description" type="text"}
+目标是让每个样本靠近它所属簇的中心 μ。
+:::
+
+
+## 工作流程 {#algorithm-steps}
+
+:::field{path="workflow" type="list"}
+- 选择表示和相似度
+- 初始化簇中心
+- 分配样本到最近中心
+- 更新中心直到稳定
+:::
+
+
+## 代码示例 {#code}
+
+:::field{path="code.language" type="text"}
+NumPy
+:::
+
+:::field{path="code.source" type="code" trailing="0"}
+```NumPy
+import numpy as np
+
+X = np.array([[1,1], [1,2], [8,8], [9,8]])
+centers = np.array([[1,1], [8,8]], dtype=float)
+for _ in range(5):
+    labels = ((X[:, None] - centers) ** 2).sum(2).argmin(1)
+    centers = np.array([X[labels == k].mean(0) for k in range(2)])
+print(labels, centers)
+```
+:::
+
+:::field{path="code.highlights" type="list"}
+- 广播计算样本到所有中心的距离
+- 按标签重新计算均值
+:::
+
+:::field{path="codeExplanation" type="text"}
+代码手写了 K-Means 的两步迭代。真实任务还需处理初始化、空簇与簇数选择。
+:::
+
+
+## 应用场景 {#applications}
+
+:::field{path="applications" type="list"}
+- 用户分群
+- 异常检测
+- 降维可视化
+:::
+
+
+## 常见误区 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 簇不一定对应真实类别
+- 距离尺度会改变结果
+:::
+
+
+## 相关概念 {#related}
+
+<ConceptRelated />

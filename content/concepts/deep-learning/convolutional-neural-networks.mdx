@@ -1,0 +1,235 @@
+---
+id: convolutional-neural-networks
+slug: convolutional-neural-networks
+title: 卷积神经网络
+category: deep-learning
+difficulty: 进阶
+summary: 利用局部连接和权重共享处理图像等网格结构。
+prerequisites:
+  - 张量
+  - 卷积操作
+relatedConcepts:
+  - convolution-operation
+  - pooling
+  - cnn-shapes-and-parameters
+order: 113
+directory: 计算机视觉
+kind: long-form
+preserved:
+  subcategory: 计算机视觉
+  codeExplanation:
+    - padding 保持卷积尺寸
+    - 池化减半
+    - Flatten 保留 batch
+    - 输出 10 logits
+  sourceDocuments:
+    - path: 学习资料/deeplearning/07_CNN卷积神经网络详解.md
+      title: 07_CNN卷积神经网络详解
+      kind: 原始文档
+  sourceSections:
+    - §1 CNN
+    - §2 全连接问题
+    - §3 形状
+    - §12 层次特征
+    - §15–17 PyTorch 实现
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 解释局部连接/共享
+- 追踪 NCHW
+- 构建简单 CNN
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+视觉模型基础
+
+理解卷积、池化和形状
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+展平大图接全连接层参数巨大且忽略空间邻近结构。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+CNN 用可学习卷积核生成特征图，逐层组合边缘、纹理、部件和语义。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+同一小型检测器在整张图上滑动，寻找相同局部模式。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+卷积参数量与输入高宽无关；浅层高分辨率、深层高语义。
+
+典型模块 Conv→Norm→Activation，下采样由池化或 stride 卷积完成。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+parameters=C_{out}(C_{in}K_hK_w+1)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+启用 bias 时每个输出通道多一个偏置。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| C\_in | 输入通道 |
+| C\_out | 输出通道 |
+| K | 卷积核尺寸 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 3→64 的 3×3 卷积
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- Cin=3
+- Cout=64
+- bias=True
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 64×(3×3×3+1)
+:::
+
+:::field{path="numericalExample.result" type="text"}
+1792 参数
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 输入 NCHW
+2. 卷积提特征
+3. 激活
+4. 下采样
+5. 深层组合
+6. 分类头
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 卷积神经网络 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证卷积神经网络的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+model=nn.Sequential(nn.Conv2d(1,16,3,padding=1),nn.ReLU(),nn.MaxPool2d(2),nn.Flatten(),nn.Linear(16*14*14,10))
+print(model(torch.randn(8,1,28,28)).shape)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- padding 保持卷积尺寸
+- 池化减半
+- Flatten 保留 batch
+- 输出 10 logits
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+torch.Size(\[8,10\])。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 图像分类
+- 频谱/网格数据
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- NCHW 顺序错
+- 通道不匹配
+- Linear 输入算错
+- CE 前 Softmax
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### CNN 参数为何少？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+局部连接与跨位置权重共享。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### CNN 是否平移不变？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+卷积近似等变，池化/汇总提供有限稳健性。
+:::
+

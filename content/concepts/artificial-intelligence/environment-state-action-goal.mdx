@@ -1,0 +1,155 @@
+---
+id: environment-state-action-goal
+slug: environment-state-action-goal
+title: 环境、状态、动作与目标
+category: artificial-intelligence
+difficulty: 入门
+summary: 用环境、可观察状态、候选动作和完成条件描述 Agent 任务。
+prerequisites:
+  - ai-overview
+relatedConcepts:
+  - intelligent-agent
+  - agent-state-memory
+  - agent-loop
+order: 165
+directory: Agent
+kind: long-form
+preserved:
+  subcategory: Agent
+  entityType: agent
+  workflow:
+    - 列出环境中的对象
+    - 定义可观察字段
+    - 定义允许动作及副作用
+    - 写出完成、失败与停止条件
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls: []
+  versionDate: 2026-08-30
+  inputsSchema: 观察；历史状态；用户目标
+  outputsSchema: 下一动作；更新后的状态；完成判断
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明环境、状态、动作与目标解决什么问题，以及何时适用。
+- 能解释为什么“状态缺失关键信息”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+如果没有清楚状态和目标，Agent 可能重复动作、误判完成或把中间结果当成最终结果。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+环境是 Agent 可观察并可能改变的外部世界；状态是当前决策所需信息；动作是允许执行的操作；目标定义成功。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+像导航：地图与道路是环境，当前位置是状态，转弯是动作，到达地址是目标。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+状态应包含决策所需且允许保存的信息。
+
+动作集合同时是能力边界和安全边界。
+
+目标必须可检查，最好有明确的完成谓词和失败条件。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 列出环境中的对象
+2. 定义可观察字段
+3. 定义允许动作及副作用
+4. 写出完成、失败与停止条件
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- Agent 设计
+- 强化学习问题建模
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 状态缺失关键信息
+- 目标无法验证
+- 动作没有副作用说明
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 观察
+- 历史状态
+- 用户目标
+:::
+
+:::field{path="outputs" type="list"}
+- 下一动作
+- 更新后的状态
+- 完成判断
+:::
+
+:::field{path="capabilities" type="list"}
+- Agent 设计
+- 强化学习问题建模
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

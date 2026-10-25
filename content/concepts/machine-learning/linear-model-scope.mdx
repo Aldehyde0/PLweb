@@ -1,0 +1,149 @@
+---
+id: linear-model-scope
+slug: linear-model-scope
+title: 线性模型的适用边界
+category: machine-learning
+difficulty: 进阶
+summary: 线性模型快速稳定且适合稀疏高维，但复杂非线性需特征构造或其他模型。
+prerequisites:
+  - 线性回归
+  - 特征工程
+relatedConcepts:
+  - feature-construction
+  - support-vector-machines
+order: 47
+directory: 模型与算法
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码展示而不在浏览器执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/03_linear_models.md
+      title: 03｜线性模型
+      kind: 原始文档
+  sourceSections:
+    - §6 线性模型的优缺点
+    - §7 什么时候优先尝试
+    - §8 线性与非线性边界
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+模型简单不等于任务简单。文本 TF-IDF 可在高维空间近似线性分开，而环形二维数据则不适合原始线性边界。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+线性边界在原始特征空间是超平面；模型容量由特征表示和正则化共同决定。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+是否线性取决于模型看到的坐标系；改变 φ(x) 可以让弯曲关系在新空间变直。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+先把线性模型作为基线，再通过残差和验证结果决定是否构造特征、用核方法或树。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+f(x)=wᵀφ(x)+b
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+先把线性模型作为基线，再通过残差和验证结果决定是否构造特征、用核方法或树。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 建立线性基线
+2. 检查残差/错误区域
+3. 尝试有意义特征
+4. 交叉验证比较
+5. 权衡解释与成本
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 线性模型的适用边界 实现
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的训练与预测逻辑。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import Ridge
+from sklearn.pipeline import make_pipeline
+model=make_pipeline(PolynomialFeatures(2,include_bias=False),Ridge(alpha=1))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 代码先建立符合输入要求的估计器。
+- 参数应在交叉验证中选择，测试集不参与。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+得到对二阶特征线性的非线性回归器。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 稀疏文本
+- 快速基线
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 复杂模型一定更好
+- 盲目高阶多项式
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

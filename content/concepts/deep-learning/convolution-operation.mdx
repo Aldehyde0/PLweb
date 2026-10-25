@@ -1,0 +1,228 @@
+---
+id: convolution-operation
+slug: convolution-operation
+title: 卷积操作
+category: deep-learning
+difficulty: 进阶
+summary: 卷积核与局部区域逐元素相乘求和，在空间位置生成特征图。
+prerequisites:
+  - 矩阵与张量
+relatedConcepts:
+  - convolutional-neural-networks
+  - cnn-shapes-and-parameters
+order: 136
+directory: 计算机视觉
+kind: long-form
+preserved:
+  subcategory: 计算机视觉
+  codeExplanation:
+    - Cin 必须等于输入通道
+    - Cout 决定特征图数
+    - padding 保持高宽
+  sourceDocuments:
+    - path: 学习资料/deeplearning/07_CNN卷积神经网络详解.md
+      title: 07_CNN卷积神经网络详解
+      kind: 原始文档
+  sourceSections:
+    - §4 卷积核
+    - §6 多通道
+    - §7 超参数
+    - §8 输出尺寸
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 手算局部卷积
+- 计算输出尺寸
+- 解释多通道
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+计算 CNN 数值与尺寸
+
+理解多通道权重
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+卷积是 CNN 的核心局部算子，stride、padding、dilation 控制采样。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+PyTorch Conv2d 实际常做互相关，但深度学习领域仍称卷积。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+把一张小权重模板盖在图像局部，计算匹配响应并滑动。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+每个输出通道拥有覆盖全部输入通道的一组核；同一核跨位置共享。
+
+dilation 扩大有效核，stride 下采样，padding 控制边界。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+H_{out}=\left\lfloor\frac{H+2P-D(K-1)-1}{S}+1\right\rfloor
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+H 输入高，P padding，D dilation，K kernel，S stride。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| K | 核大小 |
+| S | 步幅 |
+| P | 填充 |
+| D | 空洞率 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 保持尺寸卷积
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- H=32,K=3,S=1,P=1,D=1
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. (32+2-2-1)/1+1
+:::
+
+:::field{path="numericalExample.result" type="text"}
+Hout=32
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 取局部窗口
+2. 逐元素乘
+3. 跨通道求和
+4. 加偏置
+5. 移动窗口
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 卷积操作 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证卷积操作的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+conv=nn.Conv2d(3,16,3,stride=1,padding=1)
+x=torch.randn(4,3,32,32)
+print(conv(x).shape)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- Cin 必须等于输入通道
+- Cout 决定特征图数
+- padding 保持高宽
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+torch.Size(\[4,16,32,32\])。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 边缘/纹理检测
+- 特征提取
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 把 NHWC 当 NCHW
+- 公式忘 dilation
+- 核通道理解成二维
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### 卷积核是否人工固定？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+CNN 中通常由反向传播学习。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 参数量依赖图像尺寸吗？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+不依赖高宽，因为权重共享。
+:::
+

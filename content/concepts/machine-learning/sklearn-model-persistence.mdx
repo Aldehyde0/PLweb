@@ -1,0 +1,150 @@
+---
+id: sklearn-model-persistence
+slug: sklearn-model-persistence
+title: sklearn 模型保存与可信加载
+category: machine-learning
+difficulty: 进阶
+summary: 保存完整 Pipeline，确保预处理和模型一起交付；只加载自己生成或可信来源的 joblib。
+prerequisites:
+  - Pipeline
+  - 最终训练
+relatedConcepts:
+  - inference-input-contract
+  - end-to-end-ml-project
+order: 92
+directory: 评估与模型选择
+kind: long-form
+preserved:
+  codeExplanation:
+    - 示例用于阅读、复制和本地运行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/08_end_to_end_project.md
+      title: 08｜端到端机器学习项目
+      kind: 原始文档
+  sourceSections:
+    - §8 保存完整模型
+    - §9 重新加载并预测
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+只保存最后分类器会丢失填补、缩放、编码和特征顺序。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+持久化把已经 fit 的 Python 对象状态写入文件，加载后可直接预测。pickle/joblib 可执行对象构造逻辑，因此不安全文件不能加载。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+交付的不是一个孤立公式，而是从原始输入到预测的完整机器。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+保存模型、依赖版本、特征契约和数据版本；加载后用固定样本验证预测一致。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+artifact = preprocessing state + model state + metadata
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+保存模型、依赖版本、特征契约和数据版本；加载后用固定样本验证预测一致。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 完成最终训练
+2. 记录版本与列名
+3. joblib.dump Pipeline
+4. 新进程加载
+5. 验证固定样本
+6. 检查来源可信
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### sklearn 模型保存与可信加载 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的可靠评价或训练流程。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+import joblib
+joblib.dump(best_model,"models/wine_classifier.joblib")
+loaded=joblib.load("models/wine_classifier.joblib")
+assert (loaded.predict(sample)==best_model.predict(sample)).all()
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 数据边界和划分方式是代码含义的一部分。
+- 结果应报告平均、波动或业务对应的指标。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+模型文件写入，加载前后预测完全一致。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 本地推理
+- 模型交付
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 加载不可信文件
+- 只保存分类器
+- 无依赖和列名记录
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

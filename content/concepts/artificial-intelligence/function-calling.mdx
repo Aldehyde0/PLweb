@@ -1,0 +1,210 @@
+---
+id: function-calling
+slug: function-calling
+title: 函数工具与参数 Schema
+category: artificial-intelligence
+difficulty: 进阶
+summary: 用 JSON Schema 描述函数输入，使模型能生成可验证的结构化参数。
+prerequisites:
+  - tool-calling
+  - JSON 基础
+relatedConcepts:
+  - tools
+  - mcp-overview
+order: 172
+directory: Tool
+kind: long-form
+preserved:
+  subcategory: Tool
+  entityType: tool
+  workflow:
+    - 定义名称和使用描述
+    - 编写 JSON Schema
+    - 开启严格模式
+    - 解析模型参数
+    - 执行语义与权限校验
+    - 调用函数并返回结构化结果
+  codeExplanation:
+    - type 和 name 标识函数工具。
+    - parameters 使用 JSON Schema；strict:true 要求完整且封闭的对象结构。
+    - max_chars 用 null 表达可选语义，但仍位于 required。
+  expectedOutput: 模型工具调用参数只能包含 path 与 max_chars；结构不合法时应拒绝执行。
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls:
+    - https://developers.openai.com/api/docs/guides/function-calling
+  versionDate: 2026-08-30
+  inputsSchema: JSON Schema；模型生成参数
+  outputsSchema: 验证后的参数或结构化错误
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+anchorAliases:
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明函数工具与参数 Schema解决什么问题，以及何时适用。
+- 能解释为什么“description 模糊”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+自由文本参数容易遗漏字段、类型错误或混入额外值；严格 Schema 可提前发现结构问题。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+函数工具是由名称、描述、输入参数 Schema 和执行实现构成的工具接口。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+它像一份机器可读表单：字段、类型、枚举和必填项都明确。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+OpenAI 当前函数调用文档建议启用 strict 模式。
+
+严格模式要求对象关闭 additionalProperties，并把所有 properties 列入 required；可空字段用包含 null 的类型表达。
+
+Schema 只验证结构，路径范围、额度、身份和业务规则仍需应用验证。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 定义名称和使用描述
+2. 编写 JSON Schema
+3. 开启严格模式
+4. 解析模型参数
+5. 执行语义与权限校验
+6. 调用函数并返回结构化结果
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 严格函数工具的参数 Schema
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+JSON
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+展示 OpenAI 当前文档推荐的 strict JSON Schema 约束；仅作静态示例。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```JSON
+{
+  "type": "function",
+  "name": "read_note",
+  "description": "读取允许目录中的一份 Markdown 笔记",
+  "strict": true,
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "path": {"type": "string"},
+      "max_chars": {"type": ["integer", "null"]}
+    },
+    "required": ["path", "max_chars"],
+    "additionalProperties": false
+  }
+}
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- type 和 name 标识函数工具。
+- parameters 使用 JSON Schema；strict\:true 要求完整且封闭的对象结构。
+- max\_chars 用 null 表达可选语义，但仍位于 required。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+模型工具调用参数只能包含 path 与 max\_chars；结构不合法时应拒绝执行。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- API 适配
+- 结构化查询
+- 本地函数调用
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- description 模糊
+- 漏写 additionalProperties\:false
+- 把可选字段从 required 中删除而不使用 null
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- JSON Schema
+- 模型生成参数
+:::
+
+:::field{path="outputs" type="list"}
+- 验证后的参数或结构化错误
+:::
+
+:::field{path="capabilities" type="list"}
+- API 适配
+- 结构化查询
+- 本地函数调用
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

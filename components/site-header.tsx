@@ -27,7 +27,7 @@ export function SiteHeader() {
     <header className="site-header">
       <div className="site-nav">
         <Link href="/" className="site-nav__brand">
-          how to learn AI<span className="text-primary">.</span>
+          Layerwise
         </Link>
         <nav aria-label="主导航" className="site-nav__links">
           {links.map(({ href, label, icon: Icon }) => (
@@ -37,17 +37,19 @@ export function SiteHeader() {
             </Link>
           ))}
         </nav>
-        <MindMapNav />
-        <ThemeToggle />
-        <button
-          type="button"
-          aria-label={open ? '关闭菜单' : '打开菜单'}
-          aria-expanded={open}
-          className="site-nav__menu"
-          onClick={() => setOpen(!open)}
-        >
-          {open ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
-        </button>
+        <div className="site-nav__tools">
+          <MindMapNav />
+          <ThemeToggle />
+          <button
+            type="button"
+            aria-label={open ? '关闭菜单' : '打开菜单'}
+            aria-expanded={open}
+            className="site-nav__menu"
+            onClick={() => setOpen(!open)}
+          >
+            {open ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
+          </button>
+        </div>
       </div>
       {open && (
         <nav aria-label="移动端导航" className="site-nav__mobile">

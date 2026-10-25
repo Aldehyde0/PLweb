@@ -10,7 +10,7 @@ import {
   Star,
   Trash2,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Concept } from '@/lib/content';
 import { useLearning } from '@/components/learning-store';
 import { Button } from '@/components/ui/button';
@@ -33,9 +33,36 @@ export function DesktopConceptMemo({
   concept: Concept;
   sections: SectionDescriptor[];
 }) {
+  const [active, setActive] = useState(sections[0]?.id ?? '');
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries)
+          if (entry.isIntersecting) setActive(entry.target.id);
+      },
+      { rootMargin: '-80px 0px -65% 0px' },
+    );
+    for (const section of sections) {
+      const target = document.getElementById(section.id);
+      if (target) observer.observe(target);
+    }
+    return () => observer.disconnect();
+  }, [sections]);
   return (
     <aside className="concept-memo-desktop">
-      <MemoContent concept={concept} sections={sections} />
+      <p className="eyebrow">本页目录</p>
+      <nav aria-label="本页目录" className="article-toc">
+        {sections.map((section) => (
+          <a
+            key={section.id}
+            href={`#${section.id}`}
+            aria-current={active === section.id ? 'location' : undefined}
+          >
+            {section.title}
+          </a>
+        ))}
+      </nav>
+      <MobileConceptMemo concept={concept} sections={sections} />
     </aside>
   );
 }
@@ -104,9 +131,13 @@ function MemoContent({
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [notes, concept.slug],
   );
-  const marked = (importantSections[concept.slug] ?? [])
-    .map((id) => sections.find((section) => section.id === id))
-    .filter(Boolean) as SectionDescriptor[];
+  const marked = (importantSections[concept.slug] ?? []).map(
+    (id) =>
+      sections.find((section) => section.id === id) ?? {
+        id,
+        title: `原章节：${id}`,
+      },
+  );
   const conceptImportant = importantConcepts.includes(concept.slug);
   function submit() {
     addNote(concept.slug, noteSection, draft);
@@ -202,7 +233,7 @@ function MemoContent({
                 note.sectionId === 'general'
                   ? '整个概念'
                   : (sections.find((section) => section.id === note.sectionId)
-                      ?.title ?? '原章节');
+                      ?.title ?? `原章节：${note.sectionId}`);
               const editing = editingId === note.id;
               return (
                 <article key={note.id} className="note-card">

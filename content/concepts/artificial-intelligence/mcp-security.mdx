@@ -1,0 +1,170 @@
+---
+id: mcp-security
+slug: mcp-security
+title: MCP 权限、安全与信任
+category: artificial-intelligence
+difficulty: 挑战
+summary: 把 Server、能力发现、工具调用、资源内容和远程认证分别置于明确的信任边界。
+prerequisites:
+  - mcp-overview
+  - agent-security
+relatedConcepts:
+  - tool-selection-filtering
+  - guardrails-prompt-injection
+order: 191
+directory: MCP
+kind: long-form
+preserved:
+  subcategory: MCP
+  entityType: mcp
+  workflow:
+    - 验证 Server 来源与所有者
+    - 发现后按 allowlist 过滤工具
+    - 对读取限定路径/数据范围
+    - 写操作逐次审批
+    - 校验结果和副作用
+    - 记录调用与撤销/恢复信息
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls:
+    - https://developers.openai.com/api/docs/guides/tools-connectors-mcp
+    - https://modelcontextprotocol.io/specification/2026-07-28/basic/security_best_practices
+  versionDate: 2026-08-30
+  inputsSchema: Server 身份；工具元数据；调用参数；用户授权
+  outputsSchema: 允许、拒绝或待审批；审计记录
+  executionEnvironment: ""
+  approvalRequired: true
+  readOnly: false
+  importance: []
+  extensionNotes: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+anchorAliases:
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明MCP 权限、安全与信任解决什么问题，以及何时适用。
+- 能解释为什么“信任未知 Server”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+远程 Server 可能返回恶意内容或随时间改变工具行为；写工具还可能造成不可逆副作用。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+MCP 安全不是协议连接成功后的附加项，而是 Server 选择、工具过滤、最小权限、审批、结果校验和审计的组合。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+接上扩展坞不代表里面每个设备都可信，更不代表每次写入都无需确认。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+OpenAI Remote MCP 指南强调只连接受信任 Server，并对敏感动作使用 require\_approval 与 allowed\_tools。
+
+只读和写入能力应分离标记；最小权限同时限制工具集合与资源范围。
+
+Server 返回的文本是数据，不应自动成为高优先级指令。
+
+审批必须显示具体工具、目标和参数，不能只问“是否允许继续”。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 验证 Server 来源与所有者
+2. 发现后按 allowlist 过滤工具
+3. 对读取限定路径/数据范围
+4. 写操作逐次审批
+5. 校验结果和副作用
+6. 记录调用与撤销/恢复信息
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 远程 MCP
+- 企业数据连接
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 信任未知 Server
+- require\_approval 设为 never 后暴露写工具
+- 工具列表变化不审查
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- Server 身份
+- 工具元数据
+- 调用参数
+- 用户授权
+:::
+
+:::field{path="outputs" type="list"}
+- 允许、拒绝或待审批
+- 审计记录
+:::
+
+:::field{path="capabilities" type="list"}
+- 远程 MCP
+- 企业数据连接
+:::
+
+:::field{path="permissions" type="list"}
+- Server allowlist
+- 工具 allowlist
+- 资源级最小权限
+- 敏感动作逐次审批
+:::
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

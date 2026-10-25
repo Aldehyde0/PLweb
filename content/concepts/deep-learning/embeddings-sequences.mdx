@@ -1,0 +1,233 @@
+---
+id: embeddings-sequences
+slug: embeddings-sequences
+title: Embedding 与序列数据
+category: deep-learning
+difficulty: 进阶
+summary: 把 token id 映射为可学习向量，并用 padding、长度和 mask 组成 batch。
+prerequisites:
+  - Tensor
+  - Dataset
+relatedConcepts:
+  - sequence-padding-and-masks
+  - recurrent-neural-network
+  - transformer
+order: 117
+directory: 序列模型
+kind: long-form
+preserved:
+  subcategory: 序列模型
+  codeExplanation:
+    - 输入 long id
+    - 输出多一维 D
+    - padding_idx 行不正常更新
+  sourceDocuments:
+    - path: 学习资料/deeplearning/17_Embedding与序列数据基础.md
+      title: 17_Embedding与序列数据基础
+      kind: 原始文档
+  sourceSections:
+    - §1 序列流程
+    - §2–4 token/词表
+    - §7 Embedding
+    - §9 pooling
+    - §11 位置
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 构建词表
+- 追踪 \[N,L,D\]
+- masked pooling
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+NLP/序列基础
+
+连接词表与模型
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+文本、音频和行为序列有顺序且长度不同。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Embedding 是 \[V,D\] 查找表；id 只是索引，无连续大小意义。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+每个离散 token 从表中取一行向量，训练让有用 token 行逐步更新。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+词表只由训练数据建立，训练/部署编号一致；padding 不参与池化损失指标。
+
+普通 token Embedding 不含顺序，需 RNN/卷积或位置表示。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+E\in\mathbb{R}^{V\times D},\quad Embedding(i)=E_i
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+V 词表大小，D 向量维度。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| V | 词表大小 |
+| D | embedding 维 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 参数量
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- V=30000,D=128
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 30000×128
+:::
+
+:::field{path="numericalExample.result" type="text"}
+3,840,000 参数
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 训练建词表
+2. 编码 id
+3. padding/截断
+4. Embedding
+5. mask pooling
+6. 序列模型
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### Embedding 与序列数据 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证Embedding 与序列数据的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+embedding=nn.Embedding(20000,128,padding_idx=0)
+ids=torch.tensor([[4,8,0],[9,3,5]])
+print(embedding(ids).shape)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 输入 long id
+- 输出多一维 D
+- padding\_idx 行不正常更新
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+torch.Size(\[2,3,128\])。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 文本
+- 推荐 ID
+- 类别特征
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- id 当连续值
+- 测试建词表
+- 词表重建
+- padding 入平均
+- id 越界
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### Embedding 含顺序吗？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+不含。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### padding\_idx 后还需 mask？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+需要，后续偏置和池化仍受 padding 影响。
+:::
+

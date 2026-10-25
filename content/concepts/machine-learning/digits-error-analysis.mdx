@@ -1,0 +1,155 @@
+---
+id: digits-error-analysis
+slug: digits-error-analysis
+title: Digits 可视化与错误分析
+category: machine-learning
+difficulty: 挑战
+summary: 生成样本、分布、模型比较、混淆矩阵和错误样本五类图，并解释主要数字混淆。
+prerequisites:
+  - 机器学习基本流程
+  - Pipeline
+  - 交叉验证
+  - 分类指标
+relatedConcepts:
+  - confusion-matrix
+  - error-analysis
+  - classification-metrics
+order: 97
+directory: 项目与部署
+kind: long-form
+preserved:
+  codeExplanation:
+    - 实际项目还需保存图表、版本和报告。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/practice_project_digits\README.md
+      title: 综合练习项目｜传统机器学习手写数字识别
+      kind: 原始文档
+  sourceSections:
+    - §8 必须完成的可视化
+    - §12 FR-08–FR-09
+    - §17 完成后应能回答
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+总体 macro F1 无法说明哪些数字形状相似、哪些类别召回低或是否存在模糊标签。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+错误分析把 y\_pred!=y\_test 的索引还原到 8×8 图像，标注真实值与预测值。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+把项目当作一条可复现、可审计的实验链，而不是追求一次最高分。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+图表必须保存为 PNG、包含完整标签与标题；错误少于 20 条时展示全部，不得删除不利样本。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 项目主线
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+任务 → 数据 → 协议 → 基线 → 比较 → 测试 → 错误分析 → 交付
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+图表必须保存为 PNG、包含完整标签与标题；错误少于 20 条时展示全部，不得删除不利样本。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 展示至少 20 个样本
+2. 画 0–9 分布
+3. 画 CV 平均与误差线
+4. 最终模型混淆矩阵
+5. 定位错误索引
+6. 画至少 20 个错误
+7. 总结混淆对
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### Digits 可视化与错误分析 核心代码
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应项目要求中的可运行核心步骤。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+error_idx=np.flatnonzero(y_pred!=y_test)
+for idx in error_idx[:20]:
+    image=X_test[idx].reshape(8,8)
+    print("true",y_test[idx],"pred",y_pred[idx])
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 固定数据协议保证模型公平比较。
+- 测试集在方案锁定前保持不可见。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+打印前 20 个错误样本的真实和预测数字，可用于绘图。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 分类错误诊断
+- 报告图表
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 只挑易解释错误
+- 图不保存
+- 只有分数无样本
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

@@ -1,0 +1,150 @@
+---
+id: model-family-comparison
+slug: model-family-comparison
+title: KNN、贝叶斯与 SVM 对比
+category: machine-learning
+difficulty: 进阶
+summary: 三类模型分别依赖邻居、概率假设和最大间隔，应在同一验证协议下公平比较。
+prerequisites:
+  - 交叉验证
+relatedConcepts:
+  - knn
+  - naive-bayes
+  - support-vector-machines
+order: 51
+directory: 模型与算法
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码展示而不在浏览器执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/04_neighbors_bayes_svm.md
+      title: 04｜近邻、贝叶斯与支持向量机
+      kind: 原始文档
+  sourceSections:
+    - §4 三种模型的直接比较
+    - §5 在同一数据上公平比较
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+不同预处理要求必须由各自 Pipeline 体现，不能为了统一而省略必要步骤。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+模型比较不是只看最高平均分，还要比较尺度需求、训练/预测成本、稳定性、概率和解释方式。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+让每位选手使用合法装备、在同一赛道和计分规则下比赛。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+固定折、指标和随机种子；报告平均、标准差和耗时；测试集不参与候选选择。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+选择 = 性能 + 波动 + 成本 + 解释 + 部署约束
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+固定折、指标和随机种子；报告平均、标准差和耗时；测试集不参与候选选择。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 注册候选 Pipeline
+2. 固定 StratifiedKFold
+3. cross\_validate 多指标
+4. 比较均值/波动/耗时
+5. 锁定模型
+6. 最终测试
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### KNN、贝叶斯与 SVM 对比 实现
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的训练与预测逻辑。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+models={"knn":knn,"gnb":gnb,"svm":svm}
+for name,model in models.items():
+    scores=cross_val_score(model,X,y,cv=cv)
+    print(name,scores.mean(),scores.std())
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 代码先建立符合输入要求的估计器。
+- 参数应在交叉验证中选择，测试集不参与。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+每个模型的交叉验证平均分和标准差。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 算法选型
+- 基线比较
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 不同折比较
+- 测试分数选模型
+- 忽略预处理成本
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

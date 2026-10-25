@@ -1,0 +1,156 @@
+---
+id: guardrails-prompt-injection
+slug: guardrails-prompt-injection
+title: Guardrails 与 Prompt Injection
+category: artificial-intelligence
+difficulty: 挑战
+summary: 在输入、输出和工具执行边界验证内容，并把外部指令视为不可信数据。
+prerequisites:
+  - agent-security
+relatedConcepts:
+  - mcp-security
+  - tool-selection-filtering
+order: 185
+directory: 安全
+kind: long-form
+preserved:
+  subcategory: 安全
+  entityType: agent
+  workflow:
+    - 标记不可信来源
+    - 执行前输入与权限校验
+    - 敏感动作审批
+    - 执行后输出校验
+    - 记录拒绝原因
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls:
+    - https://openai.github.io/openai-agents-js/guides/guardrails/
+  versionDate: 2026-08-30
+  inputsSchema: 用户输入；外部内容；工具参数和结果
+  outputsSchema: 允许、拒绝、替换或人工升级
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+anchorAliases:
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明Guardrails 与 Prompt Injection解决什么问题，以及何时适用。
+- 能解释为什么“把护栏当万能沙箱”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+单纯提醒模型“忽略恶意内容”不能提供强安全保证，尤其在工具能产生副作用时。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Guardrail 是阻止或转换不符合策略的输入、输出或工具调用的确定性/模型化检查；Prompt Injection 是不可信内容试图改变 Agent 指令或诱导越权。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+护栏像安检和权限网关，不是贴在墙上的“请勿进入”。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+OpenAI Agents SDK 区分 input、output 和 function tool guardrails，作用边界不同。
+
+工具护栏不自动覆盖 Handoff 或所有托管工具，应逐类确认。
+
+审批发生前后都可能需要校验，且外部副作用不可被事后护栏撤销。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 标记不可信来源
+2. 执行前输入与权限校验
+3. 敏感动作审批
+4. 执行后输出校验
+5. 记录拒绝原因
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 文件与网页 Agent
+- 业务写操作
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 把护栏当万能沙箱
+- 只检查最终文本
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 用户输入
+- 外部内容
+- 工具参数和结果
+:::
+
+:::field{path="outputs" type="list"}
+- 允许、拒绝、替换或人工升级
+:::
+
+:::field{path="capabilities" type="list"}
+- 文件与网页 Agent
+- 业务写操作
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

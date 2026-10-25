@@ -1,0 +1,168 @@
+---
+id: skewed-and-cyclical-features
+slug: skewed-and-cyclical-features
+title: 偏态与周期特征变换
+category: machine-learning
+difficulty: 进阶
+summary: 用 log1p 缓和非负长尾分布，用正弦/余弦保留小时、星期等周期相邻关系。
+prerequisites:
+  - 对数函数
+  - 三角函数
+relatedConcepts:
+  - feature-construction
+  - robust-scaling-and-outliers
+order: 37
+directory: 数据预处理与特征工程
+kind: long-form
+preserved:
+  codeExplanation:
+    - log1p 在接近 0 时更稳定。
+    - 周期必须用两列，否则无法唯一表示位置。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/02_preprocessing_feature_engineering.md
+      title: 02｜数据预处理与特征工程
+      kind: 原始文档
+  sourceSections:
+    - §10 偏态特征变换
+    - §10 日期和周期特征
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+金额和次数常有长尾；小时直接编码 0～23 会错误地认为 23 与 0 很远。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+偏态变换改变数值分布形状；周期编码把首尾相接的变量映射到单位圆。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+log1p 压缩大值而保留顺序；sin/cos 把钟表时间放在圆上，让 23 点与 0 点自然接近。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+log1p 适用于非负值；周期 T 的编码为 sin(2πx/T)、cos(2πx/T)，两列共同确定相位。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 长尾变换
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+x'=log(1+x)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+非负数据中压缩大值。
+:::
+
+::::
+
+::::formula{index="1"}
+:::field{path="formulas.1.label" type="text"}
+### 周期编码
+:::
+
+:::field{path="formulas.1.expression" type="math"}
+$$
+xsin=sin(2πx/T)，xcos=cos(2πx/T)
+$$
+:::
+
+:::field{path="formulas.1.description" type="text"}
+T 是周期长度。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 检查变量定义与范围。
+2. 非负长尾比较 log1p 前后分布。
+3. 确定周期 T。
+4. 同时生成 sin/cos 两列。
+5. 在验证集比较效果。
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 金额与小时变换
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+NumPy
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+实现文档中的 log1p 和 24 小时周期编码。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```NumPy
+import numpy as np
+
+amount_log = np.log1p(amount)
+hour_sin = np.sin(2 * np.pi * hour / 24)
+hour_cos = np.cos(2 * np.pi * hour / 24)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- log1p 在接近 0 时更稳定。
+- 周期必须用两列，否则无法唯一表示位置。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+一个压缩后的金额特征，以及范围在 \[-1,1\] 的 hour\_sin/hour\_cos。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 金额与访问次数
+- 小时、星期与季节
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 对含负数数据直接 log1p
+- 只用 sin 或 cos 一列
+- 没有明确真实周期
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

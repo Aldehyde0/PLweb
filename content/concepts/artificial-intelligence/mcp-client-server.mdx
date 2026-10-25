@@ -1,0 +1,157 @@
+---
+id: mcp-client-server
+slug: mcp-client-server
+title: MCP Client、Server、Tool、Resource 与 Prompt
+category: artificial-intelligence
+difficulty: 进阶
+summary: 拆分 MCP 各角色及发现、请求、响应和控制权。
+prerequisites:
+  - mcp-overview
+relatedConcepts:
+  - mcp-transports
+  - mcp-security
+order: 189
+directory: MCP
+kind: long-form
+preserved:
+  subcategory: MCP
+  entityType: mcp
+  workflow:
+    - 建立连接与能力协商
+    - 列出 tools/resources/prompts
+    - 按任务与权限过滤
+    - 发出带 id 的请求
+    - 接收 result 或 error
+    - 把结果交回宿主
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls:
+    - https://modelcontextprotocol.io/specification/2026-07-28
+    - https://modelcontextprotocol.io/specification/2026-07-28/server
+  versionDate: 2026-08-30
+  inputsSchema: JSON-RPC 请求；能力与参数
+  outputsSchema: JSON-RPC 响应；内容块或错误
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+anchorAliases:
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明MCP Client、Server、Tool、Resource 与 Prompt解决什么问题，以及何时适用。
+- 能解释为什么“Server 宣告即自动授权”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+把所有 MCP 能力都叫“工具”会忽略资源读取、用户选择 Prompt 和不同权限模型。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Client 位于宿主应用中并连接 Server；Server 暴露 Tool、Resource 与 Prompt；Tool 执行动作，Resource 提供上下文，Prompt 提供可参数化模板。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+Client 像前台，Server 像服务柜台；Tool 是办理业务，Resource 是可查资料，Prompt 是预制申请模板。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+当前 MCP 规范把 Tools 描述为模型控制、Resources 为应用控制、Prompts 为用户控制的教学性控制层次。
+
+能力发现先于调用，Client 可以过滤 Server 宣告的集合。
+
+Server 宣告能力不等于用户已授权每次调用。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 建立连接与能力协商
+2. 列出 tools/resources/prompts
+3. 按任务与权限过滤
+4. 发出带 id 的请求
+5. 接收 result 或 error
+6. 把结果交回宿主
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 插件式能力接入
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- Server 宣告即自动授权
+- 工具、资源和 Prompt 混用
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- JSON-RPC 请求
+- 能力与参数
+:::
+
+:::field{path="outputs" type="list"}
+- JSON-RPC 响应
+- 内容块或错误
+:::
+
+:::field{path="capabilities" type="list"}
+- 插件式能力接入
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

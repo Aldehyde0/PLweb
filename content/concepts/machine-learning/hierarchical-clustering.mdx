@@ -1,0 +1,148 @@
+---
+id: hierarchical-clustering
+slug: hierarchical-clustering
+title: 层次聚类
+category: machine-learning
+difficulty: 进阶
+summary: 凝聚式方法从单样本簇开始按 linkage 逐步合并，形成可切割的树状层级。
+prerequisites:
+  - 距离
+  - 聚类
+relatedConcepts:
+  - kmeans-and-silhouette
+  - unsupervised-evaluation
+order: 60
+directory: 模型与算法
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码展示而不在浏览器执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/06_unsupervised_learning.md
+      title: 06｜无监督学习
+      kind: 原始文档
+  sourceSections:
+    - §5 层次聚类
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+无需算法开始时固定最终簇数，适合小数据层级分析，但早期错误合并通常不可撤销。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+single、complete、average 和 ward 用不同规则定义簇间距离。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+先每人一组，再不断合并最相似的两个组，记录完整家谱树。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+linkage 改变簇形状偏好；特征缩放和距离选择决定结果。大数据的距离矩阵成本高。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+Ward: 选择使簇内方差增加最少的合并
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+linkage 改变簇形状偏好；特征缩放和距离选择决定结果。大数据的距离矩阵成本高。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 标准化
+2. 选择距离和 linkage
+3. 每点成簇
+4. 寻找最近簇
+5. 合并并更新距离
+6. 切割树状图
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 层次聚类 实现
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的训练与预测逻辑。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.cluster import AgglomerativeClustering
+model=AgglomerativeClustering(n_clusters=3,linkage="ward")
+labels=model.fit_predict(X_scaled)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 代码先建立符合输入要求的估计器。
+- 参数应在交叉验证中选择，测试集不参与。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+每条样本一个 0～2 的簇编号。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 层级客户分群
+- 小样本探索
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 忽略 linkage
+- 大数据直接使用
+- 簇号语义化
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

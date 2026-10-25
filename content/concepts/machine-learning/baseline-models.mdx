@@ -1,0 +1,145 @@
+---
+id: baseline-models
+slug: baseline-models
+title: Dummy 基线模型
+category: machine-learning
+difficulty: 进阶
+summary: 用最常见类别或训练均值建立最低参照，复杂模型必须证明真正超过简单策略。
+prerequisites:
+  - 评价指标
+relatedConcepts:
+  - classification-metrics
+  - digits-model-comparison
+order: 69
+directory: 评估与模型选择
+kind: long-form
+preserved:
+  codeExplanation:
+    - 示例用于阅读、复制和本地运行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/07_evaluation_tuning.md
+      title: 07｜模型评估与调参
+      kind: 原始文档
+  sourceSections:
+    - §7 基线模型
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+没有基线时，0.90 准确率可能只是类别 90% 不平衡，R² 也缺少参照。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+DummyClassifier/Regressor 不学习特征规律，只按标签频率、常数或简单随机策略预测。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+先问“完全不看特征能做到多好”，再评价模型增加了多少价值。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+基线使用与候选模型相同的划分和指标；基线差距、成本与稳定性共同决定是否值得部署。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+模型价值≈Score(model)-Score(dummy)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+基线使用与候选模型相同的划分和指标；基线差距、成本与稳定性共同决定是否值得部署。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 选择符合任务的 Dummy
+2. 相同 CV
+3. 记录指标与波动
+4. 比较候选模型
+5. 分析增益是否业务有意义
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### Dummy 基线模型 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的可靠评价或训练流程。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.dummy import DummyClassifier
+baseline=DummyClassifier(strategy="most_frequent")
+print(cross_val_score(baseline,X,y,cv=cv,scoring="f1_macro"))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 数据边界和划分方式是代码含义的一部分。
+- 结果应报告平均、波动或业务对应的指标。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+输出各折 Dummy macro F1。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 任何模型比较
+- 项目验收
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 跳过基线
+- 基线和模型使用不同折
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

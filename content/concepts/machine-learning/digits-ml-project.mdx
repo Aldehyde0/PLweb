@@ -1,0 +1,159 @@
+---
+id: digits-ml-project
+slug: digits-ml-project
+title: Digits 传统机器学习项目
+category: machine-learning
+difficulty: 挑战
+summary: 使用 1797 张 8×8 灰度数字图、64 个像素特征完成十分类传统机器学习项目。
+prerequisites:
+  - 机器学习基本流程
+  - Pipeline
+  - 交叉验证
+  - 分类指标
+relatedConcepts:
+  - digits-model-comparison
+  - digits-error-analysis
+  - digits-project-delivery
+order: 95
+directory: 项目与部署
+kind: long-form
+preserved:
+  codeExplanation:
+    - 实际项目还需保存图表、版本和报告。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/practice_project_digits\README.md
+      title: 综合练习项目｜传统机器学习手写数字识别
+      kind: 原始文档
+  sourceSections:
+    - §1 项目定位
+    - §2 背景
+    - §3 数据说明
+    - §4 核心问题
+    - §5 固定实验协议
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+类别数和特征数均高于 Wine，需要 macro F1、混淆矩阵和错误图，而不只是准确率。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+输入是展平后的 64 维像素，输出 0～9；项目明确禁止神经网络，用于巩固传统模型完整流程。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+把项目当作一条可复现、可审计的实验链，而不是追求一次最高分。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+固定 test\_size=0.2、random\_state=42、stratify=y；训练内部五折分层 CV，macro F1 为主指标。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 项目主线
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+任务 → 数据 → 协议 → 基线 → 比较 → 测试 → 错误分析 → 交付
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+固定 test\_size=0.2、random\_state=42、stratify=y；训练内部五折分层 CV，macro F1 为主指标。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. load\_digits
+2. 核对 data/images 对应
+3. 固定分层划分
+4. 锁定测试集
+5. 建立 Dummy
+6. 比较传统模型
+7. 错误分析
+8. 模型交付
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### Digits 传统机器学习项目 核心代码
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应项目要求中的可运行核心步骤。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split
+X,y=load_digits(return_X_y=True)
+X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=.2,random_state=42,stratify=y)
+print(X.shape, y.shape)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 固定数据协议保证模型公平比较。
+- 测试集在方案锁定前保持不可见。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+X.shape=(1797,64)，y.shape=(1797,)。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 第一次综合分类项目
+- 图像像素传统建模
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 使用 CNN 违反任务
+- 根据测试结果挑随机种子
+- 删除错误样本
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

@@ -1,0 +1,148 @@
+---
+id: training-prediction-generalization
+slug: training-prediction-generalization
+title: 训练、预测与泛化
+category: machine-learning
+difficulty: 入门
+summary: fit 学习状态，predict 使用已学状态；泛化衡量模型对未见数据的有效性。
+prerequisites:
+  - 训练测试划分
+relatedConcepts:
+  - train-validation-test-split
+  - underfitting-overfitting
+order: 10
+directory: 入门与数学基础
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码用于验证概念，不在网页中直接执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/00_introduction.md
+      title: 00｜机器学习导论
+      kind: 原始文档
+  sourceSections:
+    - §5 训练与预测
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+不同模型的 fit 学习内容不同：逻辑回归学习权重，树学习结构，朴素贝叶斯学习统计量，KNN 保存样本。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+训练改变模型内部参数或保存训练样本；预测通常不继续学习；泛化是新数据表现而非训练记忆。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+训练像整理笔记，预测像闭卷答题；考试成绩而不是抄笔记速度决定学习是否有效。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+预测阶段必须冻结训练状态。只有明确支持增量学习的 partial\_fit 才会更新；任何评价都需确认样本未参与相应 fit。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+θ*=fit(Xtrain,ytrain)，ŷtest=predict(Xtest;θ*)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+预测阶段必须冻结训练状态。只有明确支持增量学习的 partial\_fit 才会更新；任何评价都需确认样本未参与相应 fit。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 明确模型学习状态
+2. 仅在训练集 fit
+3. 检查训练完成标志
+4. 对新数据 predict
+5. 使用合适指标评估
+6. 监控分布变化
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 训练、预测与泛化：最小可验证示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+Python
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+把正文原理映射为可检查的代码行为。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```Python
+model.fit(X_train, y_train)
+state_before = model.get_params()
+y_pred = model.predict(X_test)
+assert len(y_pred) == len(X_test)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 先确认输入形状和数据边界。
+- 把输出与公式或定义逐项对照。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+产生与测试样本数一致的预测；predict 不重新拟合模型。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 所有监督模型
+- 部署推理
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 在测试集 fit
+- 以为 predict 自动学习
+- 训练高分等同泛化好
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

@@ -1,0 +1,146 @@
+---
+id: gradient-boosting-trees
+slug: gradient-boosting-trees
+title: 梯度提升树
+category: machine-learning
+difficulty: 进阶
+summary: 按顺序添加树，拟合当前损失的负梯度方向，逐步修正已有模型。
+prerequisites:
+  - 决策树
+  - 梯度概念
+relatedConcepts:
+  - adaboost
+  - bagging-vs-boosting
+order: 56
+directory: 模型与算法
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码展示而不在浏览器执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/05_tree_and_ensemble.md
+      title: 05｜决策树与集成学习
+      kind: 原始文档
+  sourceSections:
+    - §9 梯度提升树
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+小学习率配更多弱树通常稳定，但训练成本增加；树过深或迭代过多会拟合噪声。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+梯度提升是加法模型，初始预测后每棵新树贡献 learning\_rate×hₘ。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+每一轮专门学习当前模型还没解释好的残差方向。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+learning\_rate、迭代数和单树复杂度联动；验证早停与子采样用于控制过拟合。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+Fₘ(x)=Fₘ₋₁(x)+ηhₘ(x)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+learning\_rate、迭代数和单树复杂度联动；验证早停与子采样用于控制过拟合。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 初始化常数模型
+2. 计算损失负梯度
+3. 训练弱树拟合
+4. 按 η 加入
+5. 验证早停
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 梯度提升树 实现
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的训练与预测逻辑。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.ensemble import HistGradientBoostingClassifier
+model=HistGradientBoostingClassifier(learning_rate=0.05,max_iter=200,max_leaf_nodes=15,early_stopping=True,random_state=42)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 代码先建立符合输入要求的估计器。
+- 参数应在交叉验证中选择，测试集不参与。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+得到带早停的直方图梯度提升分类器。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 高性能表格模型
+- 非线性分类回归
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 学习率和轮数分开调
+- 树过深
+- 测试集决定停止
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

@@ -1,0 +1,151 @@
+---
+id: linear-regression
+slug: linear-regression
+title: 线性回归
+category: machine-learning
+difficulty: 进阶
+summary: 用特征加权和预测连续数值，通过最小化平方误差学习权重与偏置。
+prerequisites:
+  - 点积
+  - MSE
+relatedConcepts:
+  - mse-rmse
+  - regularization-l1-l2
+  - linear-model-interpretation
+order: 43
+directory: 模型与算法
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码展示而不在浏览器执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/03_linear_models.md
+      title: 03｜线性模型
+      kind: 原始文档
+  sourceSections:
+    - §1 什么是线性模型
+    - §2 线性回归
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+它是回归任务的重要基线，可用解析方法或梯度优化求参数。加入多项式特征后仍对转换后特征线性。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+多元线性回归假设预测值是输入特征的仿射组合。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+寻找一条线或超平面，使所有样本到预测面的平方偏差总体最小。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+权重和偏置由训练数据 fit；MSE 强调大误差。尺度、异常值、共线性和高维会影响稳定性。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+ŷ=Xw+b；MSE=(1/n)||y-ŷ||²
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+权重和偏置由训练数据 fit；MSE 强调大误差。尺度、异常值、共线性和高维会影响稳定性。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 检查连续目标
+2. 划分数据
+3. 建立均值基线
+4. 拟合线性回归
+5. 查看权重与残差
+6. 用 MAE/RMSE/R² 评价
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 线性回归 实现
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的训练与预测逻辑。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.linear_model import LinearRegression
+model=LinearRegression().fit(X_train,y_train)
+print(model.coef_, model.intercept_)
+print(model.score(X_test,y_test))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 代码先建立符合输入要求的估计器。
+- 参数应在交叉验证中选择，测试集不参与。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+输出特征权重、偏置和测试 R²。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 房价预测
+- 趋势基线
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 相关性当因果
+- 异常值主导 MSE
+- 非线性关系仍强行解释
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

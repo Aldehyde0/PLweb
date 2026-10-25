@@ -1,0 +1,223 @@
+---
+id: pooling
+slug: pooling
+title: 池化与下采样
+category: deep-learning
+difficulty: 入门
+summary: 用局部最大值、平均值或自适应汇总缩小空间尺寸。
+prerequisites:
+  - 卷积形状
+relatedConcepts:
+  - convolution-operation
+  - cnn-shapes-and-parameters
+order: 137
+directory: 计算机视觉
+kind: long-form
+preserved:
+  subcategory: 计算机视觉
+  codeExplanation:
+    - 输入为 NCHW
+    - 窗口覆盖 2×2
+    - 输出保留最大值
+  sourceDocuments:
+    - path: 学习资料/deeplearning/07_CNN卷积神经网络详解.md
+      title: 07_CNN卷积神经网络详解
+      kind: 原始文档
+  sourceSections:
+    - §9 池化层
+    - §11 感受野
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 手算 MaxPool
+- 比较平均/最大
+- 使用自适应池化
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+控制计算和感受野
+
+理解 CNN 形状变化
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+深层特征不需要一直保持原始分辨率。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+池化通常无可学习权重，降低 H/W、减少计算并扩大后续感受野。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+把邻近小区域浓缩成一个代表值。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+普通池化不改变 batch 和通道；MaxPool(2,2) 常使高宽减半。
+
+现代网络也用 stride 卷积下采样；池化不会凭空恢复丢失信息。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+y_{c,i,j}=\max_{(u,v)\in\Omega_{ij}}x_{c,u,v}
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+Ω 是当前池化窗口。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| Ω | 局部窗口 |
+| c | 通道 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 2×2 MaxPool
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- \[\[1,3\],\[2,0\]\]
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 取局部最大值
+:::
+
+:::field{path="numericalExample.result" type="text"}
+3
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 划分窗口
+2. 局部汇总
+3. 按 stride 移动
+4. 得到缩小特征图
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 池化与下采样 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证池化与下采样的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+pool=nn.MaxPool2d(2,2)
+x=torch.tensor([[[[1.,3.],[2.,0.]]]])
+print(pool(x))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 输入为 NCHW
+- 窗口覆盖 2×2
+- 输出保留最大值
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+tensor(\[\[\[\[3.\]\]\]\])。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- CNN 下采样
+- 全局特征汇总
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 池化过多尺寸归零
+- 以为池化可学习
+- 忽略边界公式
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### 池化是必需层吗？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+不是，可用 stride 卷积替代。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### AdaptiveAvgPool 的优势？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+可指定固定输出尺寸，分类头不写死输入高宽。
+:::
+

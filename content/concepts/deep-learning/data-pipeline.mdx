@@ -1,0 +1,229 @@
+---
+id: data-pipeline
+slug: data-pipeline
+title: 深度学习数据管道与预处理
+category: deep-learning
+difficulty: 进阶
+summary: 划分、拟合训练统计、变换、组批、传输和输入模型的完整链路。
+prerequisites:
+  - Dataset 与 DataLoader
+relatedConcepts:
+  - pytorch-dataset-dataloader
+  - numerical-standardization
+order: 104
+directory: 数据管道
+kind: long-form
+preserved:
+  subcategory: 数据管道
+  codeExplanation:
+    - 每个样本权重一致
+    - 尾批不偏置平均
+  sourceDocuments:
+    - path: 学习资料/deeplearning/11_数据管道与预处理.md
+      title: 11_数据管道与预处理
+      kind: 原始文档
+  sourceSections:
+    - §5 划分
+    - §6 transform
+    - §9 设备
+    - §11 完整训练
+    - §13 错误
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 区分训练/验证 transform
+- 只用训练统计
+- 正确统计 epoch loss
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+防止数据泄漏
+
+保证训练/推理一致
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+错误归一化、增强错位和 batch 统计会让模型训练失真。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+数据管道保证训练、验证、测试使用一致且无泄漏的输入契约。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+模型只能看到最终张量，所有上游处理都是模型的一部分。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+训练可随机增强，验证测试确定性；逐 batch 传设备，按样本加权统计 loss。
+
+预训练权重需配套 resize/crop/mean/std。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+x'_j=\frac{x_j-\mu_{train,j}}{\sigma_{train,j}+\varepsilon}
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+训练统计复用于所有分块。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| μ\_train | 训练均值 |
+| σ\_train | 训练标准差 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 尾批加权
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- 批 loss 1.0,size64
+- 批 loss 2.0,size16
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. (64×1+16×2)/80
+:::
+
+:::field{path="numericalExample.result" type="text"}
+epoch loss=1.2
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 先划分
+2. 拟合统计
+3. 分别 transform
+4. 组批
+5. 传设备
+6. 样本加权统计
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 深度学习数据管道与预处理 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证深度学习数据管道与预处理的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+total=0.;count=0
+for x,y in loader:
+    loss=criterion(model(x),y)
+    total+=loss.item()*x.size(0);count+=x.size(0)
+print(total/count)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 每个样本权重一致
+- 尾批不偏置平均
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+输出按样本加权的 epoch loss。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 所有训练项目
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 全数据标准化
+- 验证随机增强
+- 直接平均 batch loss
+- 通道/值域错
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### 标准化统计从哪来？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+只从训练集。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### pin\_memory 必然更快吗？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+不一定，应实测。
+:::
+

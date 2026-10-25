@@ -1,0 +1,114 @@
+---
+id: state-space-search
+slug: state-space-search
+title: 状态空间搜索
+category: artificial-intelligence
+difficulty: 入门
+summary: 把问题表示成状态和动作，在可能路径中寻找通往目标的方案。
+prerequisites:
+  - Python 基础
+  - 高中数学
+relatedConcepts:
+  - ai-overview
+  - markov-decision-process
+order: 1
+directory: 基础概念
+kind: legacy
+preserved: {}
+---
+
+## 前置知识 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 通俗直觉 {#intuition}
+
+:::field{path="explanation" type="text"}
+像在迷宫中找出口：每个位置是状态，每次移动是动作，搜索算法决定先探索哪条路。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="principle" type="text"}
+广度优先搜索按层扩展节点，在边代价相同的图上可以找到步数最少的解。
+:::
+
+
+## 数学公式 {#formulas}
+
+:::field{path="formula.expression" type="math"}
+$$
+b^0 + b^1 + … + b^d = O(b^d)
+$$
+:::
+
+:::field{path="formula.description" type="text"}
+b 是分支因子，d 是最浅解深度，说明搜索空间会指数增长。
+:::
+
+
+## 工作流程 {#algorithm-steps}
+
+:::field{path="workflow" type="list"}
+- 建立初始状态队列
+- 取出最早加入的状态
+- 扩展未访问邻居
+- 遇到目标后回溯路径
+:::
+
+
+## 代码示例 {#code}
+
+:::field{path="code.language" type="text"}
+Python
+:::
+
+:::field{path="code.source" type="code" trailing="0"}
+```Python
+from collections import deque
+
+def bfs(graph, start, goal):
+    queue = deque([(start, [start])])
+    visited = {start}
+    while queue:
+        node, path = queue.popleft()
+        if node == goal:
+            return path
+        for nxt in graph[node]:
+            if nxt not in visited:
+                visited.add(nxt)
+                queue.append((nxt, path + [nxt]))
+```
+:::
+
+:::field{path="code.highlights" type="list"}
+- deque 保证先进先出
+- visited 防止在环中重复搜索
+:::
+
+:::field{path="codeExplanation" type="text"}
+队列保存当前节点及其完整路径。先进入队列的浅层节点会先被探索，因此得到最短步数路径。
+:::
+
+
+## 应用场景 {#applications}
+
+:::field{path="applications" type="list"}
+- 路径规划
+- 游戏求解
+- 任务调度
+:::
+
+
+## 常见误区 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 忘记处理重复状态
+- 把最少步数误认为最低代价
+:::
+
+
+## 相关概念 {#related}
+
+<ConceptRelated />

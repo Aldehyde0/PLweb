@@ -1,0 +1,191 @@
+---
+id: min-max-scaling
+slug: min-max-scaling
+title: Min-Max 归一化
+category: machine-learning
+difficulty: 入门
+summary: 使用训练集最小值与最大值把特征线性映射到指定范围，典型为 [0,1]。
+prerequisites:
+  - 最大值与最小值
+  - 训练数据边界
+relatedConcepts:
+  - numerical-standardization
+  - robust-scaling-and-outliers
+order: 31
+directory: 数据预处理与特征工程
+kind: long-form
+preserved:
+  codeExplanation:
+    - fit_transform 只用于训练数据。
+    - future 超出训练最大值，因此得到 1.5。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/02_preprocessing_feature_engineering.md
+      title: 02｜数据预处理与特征工程
+      kind: 原始文档
+  sourceSections:
+    - §5 Min-Max 归一化
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+某些算法或接口希望输入处于有限范围。与 Z-score 不同，Min-Max 不会使均值为 0，也不以标准差为尺度。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Min-Max 缩放保持原始顺序和相对线性位置，把训练集最小值映射到 0、最大值映射到 1。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+把训练区间两端固定在 0 和 1，中间点按比例放置。未来数据超出训练范围时，结果可以小于 0 或大于 1。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+min 与 max 只能来自训练集。极端值会拉长区间，把大多数普通样本压缩到很窄范围，因此它对异常值敏感。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### Min-Max 公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+x'ⱼ = (xⱼ - xⱼ,min) / (xⱼ,max - xⱼ,min)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+默认映射到 \[0,1\]；分母为 0 时是常量特征。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| xⱼ,min | 第 j 列训练集最小值。 |
+| xⱼ,max | 第 j 列训练集最大值。 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 把 \[10,20,30\] 映射到 \[0,1\]
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- 训练最小值 10
+- 训练最大值 30
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 10 → (10-10)/(30-10)=0
+2. 20 → 0.5
+3. 30 → 1
+4. 未来值 40 → 1.5
+:::
+
+:::field{path="numericalExample.result" type="text"}
+训练集变为 \[0,0.5,1\]，未来值可以超过目标范围。
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+- Z-score 使用均值和标准差，结果无固定上下界。
+- Min-Max 使用端点，保持有限训练范围但更怕极端值。
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 先划分数据。
+2. 在训练集拟合 min/max。
+3. 检查常量列和异常值。
+4. 转换所有分块。
+5. 保存 scaler 与模型。
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### MinMaxScaler
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+安全保存训练区间并转换未来数据。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.preprocessing import MinMaxScaler
+
+scaler = MinMaxScaler()
+train = [[10.0], [20.0], [30.0]]
+future = [[40.0]]
+print(scaler.fit_transform(train).ravel())
+print(scaler.transform(future).ravel())
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- fit\_transform 只用于训练数据。
+- future 超出训练最大值，因此得到 1.5。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+\[0. 0.5 1.\]，随后 \[1.5\]。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 有明确有限输入范围的模型
+- 像素或传感器特征缩放
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 以为未来结果一定在 \[0,1\]
+- 存在异常值仍直接使用
+- 测试集重新拟合端点
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

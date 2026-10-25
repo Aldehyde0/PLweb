@@ -24,8 +24,9 @@ import './resource-features.css';
 import './light-theme.css';
 import './mindmap.css';
 import './ux-controls.css';
+import './layerwise-content.css';
 
-const title = 'how to learn AI · 个人学习知识库';
+const title = 'Layerwise · 个人学习知识库';
 const description =
   '从直觉、原理、代码到练习，系统学习人工智能、机器学习、深度学习与强化学习。';
 
@@ -37,6 +38,7 @@ const description =
 export async function generateMetadata(): Promise<Metadata> {
   const metadataBase = await resolveMetadataBase();
   return {
+    icons: { icon: '/favicon.svg' },
     ...(metadataBase ? { metadataBase } : {}),
     title,
     description,
@@ -49,7 +51,7 @@ export async function generateMetadata(): Promise<Metadata> {
           url: '/og.png',
           width: 1200,
           height: 630,
-          alt: 'how to learn AI 个人学习知识库',
+          alt: 'Layerwise 个人学习知识库',
         },
       ],
     },
@@ -87,7 +89,7 @@ export default function RootLayout({
                     理解一个概念，再独立解决一个问题。
                   </p>
                   <div className="site-footer__meta">
-                    <span>how to learn AI</span>
+                    <span>Layerwise</span>
                     <span>学习数据仅保存在当前浏览器</span>
                   </div>
                   <ProgressBackup />

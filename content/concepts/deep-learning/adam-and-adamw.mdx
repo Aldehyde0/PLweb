@@ -1,0 +1,224 @@
+---
+id: adam-and-adamw
+slug: adam-and-adamw
+title: Adam 与 AdamW
+category: deep-learning
+difficulty: 进阶
+summary: Adam 用一阶/二阶矩自适应缩放，AdamW 解耦权重衰减。
+prerequisites:
+  - Momentum
+  - 梯度
+relatedConcepts:
+  - optimizers-schedulers
+  - training-engineering
+order: 146
+directory: 优化
+kind: long-form
+preserved:
+  subcategory: 优化
+  codeExplanation:
+    - betas 控制矩衰减
+    - eps 数值稳定
+    - weight_decay 不等于 Dropout
+  sourceDocuments:
+    - path: 学习资料/deeplearning/15_优化器与学习率调度进阶.md
+      title: 15_优化器与学习率调度进阶
+      kind: 原始文档
+  sourceSections:
+    - §4 Adam
+    - §5 AdamW
+    - §6 参数组
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 解释 m/v
+- 区分 L2 与 AdamW
+- 设置参数组
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+现代训练常用
+
+正确理解 weight\_decay
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+自适应优化常快速得到可用结果，但不保证总优于 SGD。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Adam 为每个参数坐标维护 m/v 并做偏差修正；AdamW 另外收缩参数。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+根据历史平均方向和波动，为每个参数分配不同有效步长。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+AdamW 的衰减不进入自适应梯度矩估计。
+
+bias 和归一化参数是否衰减取决于架构配方。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+\theta\leftarrow(1-\eta\lambda)\theta-\eta\frac{\hat m}{\sqrt{\hat v}+\varepsilon}
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+前项是解耦衰减，后项是 Adam 更新。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| m | 一阶矩 |
+| v | 平方梯度二阶矩 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 解耦衰减
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- θ=2,η=.1,λ=.01
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 衰减前项 (1-.001)×2
+:::
+
+:::field{path="numericalExample.result" type="text"}
+1.998 后再加梯度更新
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 初始化矩
+2. 更新 m/v
+3. 偏差修正
+4. 自适应更新
+5. 解耦衰减
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### Adam 与 AdamW · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证Adam 与 AdamW的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+optimizer=torch.optim.AdamW(model.parameters(),lr=3e-4,betas=(.9,.999),weight_decay=1e-2)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- betas 控制矩衰减
+- eps 数值稳定
+- weight\_decay 不等于 Dropout
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+优化器创建并在 step 时维护每参数状态。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- Transformer
+- 迁移学习
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- Adam L2 等同 AdamW
+- 固定 decay 适合全部
+- 比较优化器用同一 lr
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### AdamW 一定比 Adam 好吗？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+不一定，需验证。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### weight decay 是 Dropout 吗？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+不是。
+:::
+

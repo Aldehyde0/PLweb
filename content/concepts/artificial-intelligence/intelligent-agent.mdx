@@ -1,0 +1,185 @@
+---
+id: intelligent-agent
+slug: intelligent-agent
+title: 智能体（Agent）
+category: artificial-intelligence
+difficulty: 入门
+summary: Agent 以目标为导向，在状态和约束下循环理解、规划、行动、观察与判断完成。
+prerequisites:
+  - ai-overview
+  - environment-state-action-goal
+relatedConcepts:
+  - agent-architecture
+  - agent-loop
+  - llm-and-agent
+  - tools
+  - single-vs-multi-agent
+order: 164
+directory: Agent
+kind: long-form
+preserved:
+  subcategory: Agent
+  entityType: agent
+  workflow:
+    - 接收任务并提取目标与约束
+    - 理解上下文，建立或更新状态
+    - 制定可验证的短计划
+    - 从允许集合选择工具或行动
+    - 调用并记录参数、审批与结果
+    - 验证观察是否可信且满足完成条件
+    - 完成则输出；否则更新计划继续
+    - 达到步数、时间或权限边界时安全停止
+  codeExplanation: []
+  expectedOutput: ""
+  interactiveDemo: agent-loop
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls:
+    - https://openai.github.io/openai-agents-js/
+    - https://openai.github.io/openai-agents-js/guides/agents/
+    - https://openai.github.io/openai-agents-js/guides/running-agents/
+  versionDate: 2026-08-30
+  inputsSchema: 用户任务；系统与开发者指令；会话状态；工具描述及权限
+  outputsSchema: 最终回答；结构化结果；工具调用记录；停止或升级人工的原因
+  executionEnvironment: ""
+  approvalRequired: true
+  readOnly: false
+  importance: []
+  extensionNotes: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+anchorAliases:
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明智能体（Agent）解决什么问题，以及何时适用。
+- 能解释为什么“把无限循环当成自主性”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+普通对话只产生一次回复；开放任务需要读取新信息、执行动作、检查结果，并在未完成时继续。Agent 为这类多步闭环提供结构。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+在本课程中，Agent 是把模型、指令、状态、工具、控制循环与安全边界组织起来完成任务的系统。OpenAI Agents SDK 将 Agent 描述为配有 instructions、tools 与 handoffs 的 LLM。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+模型像会思考和表达的大脑，Agent 像负责把目标推进到结果的项目负责人；工具是它能使用的具体能力。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+输入进入循环后先形成当前状态；规划可以显式列出，也可以体现在下一步工具选择中。
+
+行动产生观察，观察必须写回状态，随后由完成条件决定输出、继续或安全停止。
+
+Agent 与工作流并非对立：固定流程更可控，模型驱动选择更灵活；生产系统常组合两者。
+
+聊天机器人可以只生成文本；Agent 的关键差异在于能够在边界内采取动作并基于结果继续。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 接收任务并提取目标与约束
+2. 理解上下文，建立或更新状态
+3. 制定可验证的短计划
+4. 从允许集合选择工具或行动
+5. 调用并记录参数、审批与结果
+6. 验证观察是否可信且满足完成条件
+7. 完成则输出；否则更新计划继续
+8. 达到步数、时间或权限边界时安全停止
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 研究与资料整理
+- 代码与文档工作流
+- 客服分流与受控业务操作
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 把无限循环当成自主性
+- 没有停止条件和结果验证
+- 把工具返回内容自动提升为系统指令
+- 把 Agent 与模型、工作流混为一谈
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+<AIInteractiveDemo kind="agent-loop" />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 用户任务
+- 系统与开发者指令
+- 会话状态
+- 工具描述及权限
+:::
+
+:::field{path="outputs" type="list"}
+- 最终回答
+- 结构化结果
+- 工具调用记录
+- 停止或升级人工的原因
+:::
+
+:::field{path="capabilities" type="list"}
+- 状态管理
+- 工具调用
+- 结果判断
+- 委派与 Handoff
+:::
+
+:::field{path="permissions" type="list"}
+- 仅暴露任务所需工具
+- 写操作和敏感数据需审批
+:::
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

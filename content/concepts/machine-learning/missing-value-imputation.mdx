@@ -1,0 +1,145 @@
+---
+id: missing-value-imputation
+slug: missing-value-imputation
+title: 缺失值处理
+category: machine-learning
+difficulty: 入门
+summary: 根据特征类型、缺失机制和业务语义，在训练集内学习填补规则并保留必要的缺失信息。
+prerequisites:
+  - 训练/测试边界
+  - 数值与类别数据
+relatedConcepts:
+  - data-quality-audit
+  - categorical-encoding
+  - sklearn-pipeline-column-transformer
+order: 28
+directory: 数据预处理与特征工程
+kind: long-form
+preserved:
+  codeExplanation:
+    - median 对极端值通常比 mean 稳健。
+    - add_indicator 保留哪些数值原本缺失。
+    - 测试集只 transform。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/02_preprocessing_feature_engineering.md
+      title: 02｜数据预处理与特征工程
+      kind: 原始文档
+  sourceSections:
+    - §3 缺失值
+    - §12 使用 Pipeline 防止泄漏
+    - §13 同时处理数值和类别列
+  extensionNotes: []
+  formulas: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+直接删除缺失样本会减少数据并可能改变分布。均值对极端值敏感，中位数通常更稳健。某些缺失不是随机的，例如“未填写收入”可能本身与目标相关。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+缺失值处理是把不可直接供模型使用的空值转换为一致输入，同时尽量保留“为什么缺失”这一可能有用的信息。
+
+数值列可用中位数、均值或业务规则填补；类别列可用众数或专门的“缺失”类别。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+填补不是猜出真实值，而是为模型建立一致的缺失处理约定；必要时再增加一列告诉模型“这里原本缺失”。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+填补统计量与标准化参数一样，只能由训练数据学习。交叉验证中应放在 Pipeline 内。选择策略需要结合缺失比例、分布、模型能力与业务含义。
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 统计每列缺失比例。
+2. 区分数值、类别和结构性缺失。
+3. 判断缺失是否可能携带信息。
+4. 在训练集拟合填补器。
+5. 对其他分块只 transform。
+6. 比较不同策略并检查填补后的分布。
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 数值与类别列分别填补
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+使用 ColumnTransformer 为不同类型列建立独立规则。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
+
+preprocessor = ColumnTransformer([
+    ("num", SimpleImputer(strategy="median", add_indicator=True), numeric_columns),
+    ("cat", SimpleImputer(strategy="most_frequent"), categorical_columns),
+])
+X_train_ready = preprocessor.fit_transform(X_train)
+X_test_ready = preprocessor.transform(X_test)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- median 对极端值通常比 mean 稳健。
+- add\_indicator 保留哪些数值原本缺失。
+- 测试集只 transform。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+得到无缺失的数值矩阵；若训练列出现缺失，附加相应缺失指示列。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 表格分类与回归
+- 医疗和问卷数据
+- 传感器缺测
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 用完整数据算填补值
+- 把未知类别和缺失混为一谈
+- 不分析高缺失比例特征的业务含义
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

@@ -1,0 +1,166 @@
+---
+id: mcp-transports
+slug: mcp-transports
+title: MCP 传输：stdio、Streamable HTTP 与旧 SSE
+category: artificial-intelligence
+difficulty: 挑战
+summary: 按本地进程与远程 HTTP 场景选择当前传输，并明确旧 HTTP+SSE 的弃用状态。
+prerequisites:
+  - mcp-overview
+relatedConcepts:
+  - mcp-client-server
+  - mcp-security
+order: 190
+directory: MCP
+kind: long-form
+preserved:
+  subcategory: MCP
+  entityType: mcp
+  workflow:
+    - 判断本地还是远程
+    - 本地优先评估 stdio
+    - 远程使用当前 Streamable HTTP
+    - 配置认证与来源校验
+    - 旧 Server 仅在迁移期兼容
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls:
+    - https://developers.openai.com/api/docs/guides/tools-connectors-mcp
+    - https://modelcontextprotocol.io/specification/2026-07-28/basic/transports
+    - https://blog.modelcontextprotocol.io/posts/2026-07-28/
+  versionDate: 2026-08-30
+  inputsSchema: 协议消息；进程管道或 HTTPS 请求
+  outputsSchema: 协议响应或流式事件
+  transport:
+    - stdio：当前
+    - Streamable HTTP：当前推荐
+    - HTTP+SSE：已弃用，迁移兼容
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+anchorAliases:
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明MCP 传输：stdio、Streamable HTTP 与旧 SSE解决什么问题，以及何时适用。
+- 能解释为什么“把 SSE 事件流等同于旧 HTTP+SSE 传输”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+MCP 早期 HTTP+SSE 方案已被 Streamable HTTP 替代，旧教程若不标日期会误导新实现。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+传输规定 Client 与 Server 如何承载协议消息；它不改变 Tool、Resource、Prompt 的语义。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+同一份协议消息可以走本地管道或网络公路，但路线、认证和攻击面不同。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+stdio 由 Client 启动本地 Server 子进程，通过标准输入输出交换消息。
+
+Streamable HTTP 是当前远程标准；2026-07-28 规范进一步转向无状态核心和基于请求的交互。
+
+旧 HTTP+SSE 自 2025-03-26 被 Streamable HTTP 替代，2026-07-28 官方说明其正式弃用并提供一年迁移窗口。
+
+OpenAI Responses API 当前 Remote MCP 文档仍说明兼容 Streamable HTTP 或 HTTP/SSE；新实现应优先 Streamable HTTP，兼容不等于推荐。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 判断本地还是远程
+2. 本地优先评估 stdio
+3. 远程使用当前 Streamable HTTP
+4. 配置认证与来源校验
+5. 旧 Server 仅在迁移期兼容
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 本地开发
+- 远程 MCP 服务
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 把 SSE 事件流等同于旧 HTTP+SSE 传输
+- 新项目继续采用旧双端点设计
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 协议消息
+- 进程管道或 HTTPS 请求
+:::
+
+:::field{path="outputs" type="list"}
+- 协议响应或流式事件
+:::
+
+:::field{path="capabilities" type="list"}
+- 本地开发
+- 远程 MCP 服务
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+:::field{path="performanceNotes" type="list"}
+- stdio 启动简单但受本机进程生命周期影响。
+- 远程 HTTP 需要处理网络延迟、认证、重试与速率限制。
+:::
+
+

@@ -1,0 +1,161 @@
+---
+id: end-to-end-ml-project
+slug: end-to-end-ml-project
+title: 端到端 Wine 分类项目
+category: machine-learning
+difficulty: 挑战
+summary: 从 Wine 数据审计、固定测试集、Pipeline、交叉验证与搜索走到最终评价、保存、预测和监控。
+prerequisites:
+  - 机器学习基本流程
+  - Pipeline
+  - 交叉验证
+  - 分类指标
+relatedConcepts:
+  - cross-validation
+  - sklearn-model-persistence
+  - model-monitoring-and-drift
+order: 91
+directory: 项目与部署
+kind: long-form
+preserved:
+  codeExplanation:
+    - 实际项目还需保存图表、版本和报告。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/08_end_to_end_project.md
+      title: 08｜端到端机器学习项目
+      kind: 原始文档
+  sourceSections:
+    - §1–5 数据、候选模型与 CV
+    - §6–7 搜索和最终测试
+    - §8–13 保存、输入、监控与检查清单
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+只调用 fit 无法保证预处理正确、比较公平、输入一致或上线可维护。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+端到端项目要求每个阶段都有明确输入、输出和边界，最终产物是完整 Pipeline 与可复现报告。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+把项目当作一条可复现、可审计的实验链，而不是追求一次最高分。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+模型选择只使用训练部分的交叉验证；测试只在最佳配置锁定后一次评价。保存完整 Pipeline。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 项目主线
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+任务 → 数据 → 协议 → 基线 → 比较 → 测试 → 错误分析 → 交付
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+模型选择只使用训练部分的交叉验证；测试只在最佳配置锁定后一次评价。保存完整 Pipeline。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 加载 Wine 并检查 178×13 数据
+2. 按 stratify 保留 20% 测试
+3. 注册 LR/KNN/树/随机森林
+4. 五折比较 Accuracy 与 macro F1
+5. 训练部分 GridSearch
+6. 最终测试
+7. joblib 保存加载
+8. 输入契约和漂移监控
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 端到端 Wine 分类项目 核心代码
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应项目要求中的可运行核心步骤。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+models={
+ "lr":make_pipeline(StandardScaler(),LogisticRegression(max_iter=3000)),
+ "knn":make_pipeline(StandardScaler(),KNeighborsClassifier()),
+ "tree":DecisionTreeClassifier(max_depth=3,random_state=42),
+ "forest":RandomForestClassifier(random_state=42),
+}
+for name,model in models.items():
+    r=cross_validate(model,X_train,y_train,cv=cv,scoring=["accuracy","f1_macro"])
+    print(name,r["test_f1_macro"].mean())
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 固定数据协议保证模型公平比较。
+- 测试集在方案锁定前保持不可见。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+每个候选模型在同一训练折上的平均 macro F1。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 教学项目
+- 本地模型交付
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 类别误称质量等级
+- 测试集选模型
+- 只保存分类器
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

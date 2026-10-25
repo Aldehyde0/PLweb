@@ -1,0 +1,220 @@
+---
+id: local-mcp-server
+slug: local-mcp-server
+title: 本地 MCP Server
+category: artificial-intelligence
+difficulty: 挑战
+summary: 通过 stdio 或本机 Streamable HTTP 暴露受限的本地工具与资源。
+prerequisites:
+  - mcp-client-server
+  - mcp-transports
+relatedConcepts:
+  - mcp-security
+  - tools
+order: 192
+directory: MCP
+kind: long-form
+preserved:
+  subcategory: MCP
+  entityType: mcp
+  workflow:
+    - 定义只读工具
+    - 限制根目录
+    - 启动 stdio Server
+    - Client 连接并列出工具
+    - 验证调用与关闭进程
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls:
+    - https://openai.github.io/openai-agents-js/guides/mcp/
+    - https://modelcontextprotocol.io/specification/2026-07-28
+  versionDate: 2026-08-30
+  inputsSchema: 本地进程命令；允许目录
+  outputsSchema: 本地工具和资源
+  executionEnvironment: 本地子进程或 localhost
+  approvalRequired: true
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+anchorAliases:
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明本地 MCP Server解决什么问题，以及何时适用。
+- 能解释为什么“把整个磁盘作为根目录”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+本地部署避免把资料发送给远程服务，但仍可能读写本机文件，权限边界同样重要。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+本地 MCP Server 是在用户机器上运行、由 Client 连接的 MCP 服务进程。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+它像只在电脑内部开放的服务窗口，距离近不等于权限无限。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+stdio Server 的 stdout 只能输出协议消息，日志应写 stderr。
+
+启动参数和工作目录必须明确，避免继承过宽环境。
+
+只暴露白名单目录与必要工具，写操作单独审批。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 定义只读工具
+2. 限制根目录
+3. 启动 stdio Server
+4. Client 连接并列出工具
+5. 验证调用与关闭进程
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 本地 MCP 消息流：Server 与 Client 的最小可复现模型
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+Python
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+不依赖网络或第三方 SDK，用队列完整演示 initialize、tools/list 与 tools/call 的请求—响应结构；这是协议教学模型，不宣称替代完整 MCP SDK。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```Python
+from queue import Queue
+
+requests = Queue()
+responses = Queue()
+
+def server_once():
+    message = requests.get()
+    method = message["method"]
+    if method == "initialize":
+        result = {"protocolVersion": "2026-07-28", "capabilities": {"tools": {}}}
+    elif method == "tools/list":
+        result = {"tools": [{"name": "read_note", "readOnly": True}]}
+    elif method == "tools/call":
+        args = message["params"]["arguments"]
+        if not args["path"].startswith("notes/"):
+            raise PermissionError("path is outside the allowed root")
+        result = {"content": [{"type": "text", "text": "local note"}]}
+    else:
+        raise ValueError(f"unsupported method: {method}")
+    responses.put({"jsonrpc": "2.0", "id": message["id"], "result": result})
+
+def client_call(method, params=None):
+    requests.put({"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}})
+    server_once()
+    return responses.get()
+
+print(client_call("initialize"))
+print(client_call("tools/list"))
+print(client_call("tools/call", {
+    "name": "read_note",
+    "arguments": {"path": "notes/agent.md"},
+}))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- Queue 代替 stdio/HTTP，只保留 Client 发请求、Server 回响应的核心数据流。
+- initialize 声明协议版本与能力；tools/list 用于发现；tools/call 携带工具名和参数。
+- 路径校验发生在 Server 执行层，readOnly 元数据不能替代真实授权。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+依次打印初始化能力、只读工具目录和 local note 内容；越过 notes/ 根目录会抛出 PermissionError。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 本地文档读取
+- 开发工具
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 把整个磁盘作为根目录
+- stdout 混入日志破坏协议
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 本地进程命令
+- 允许目录
+:::
+
+:::field{path="outputs" type="list"}
+- 本地工具和资源
+:::
+
+:::field{path="capabilities" type="list"}
+- 本地文档读取
+- 开发工具
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

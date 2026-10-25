@@ -1,0 +1,228 @@
+---
+id: pytorch-tensor-shape-device
+slug: pytorch-tensor-shape-device
+title: Tensor 的形状、dtype 与 device
+category: deep-learning
+difficulty: 入门
+summary: 正确改变形状、轴、类型和设备，避免静默广播和不兼容运算。
+prerequisites:
+  - PyTorch Tensor
+relatedConcepts:
+  - pytorch-tensors-modules
+  - cnn-shapes-and-parameters
+order: 140
+directory: PyTorch 基础
+kind: long-form
+preserved:
+  subcategory: PyTorch 基础
+  codeExplanation:
+    - permute 改轴顺序
+    - to 返回新引用
+    - dtype 显式
+  sourceDocuments:
+    - path: 学习资料/deeplearning/10_PyTorch张量与模块基础.md
+      title: 10_PyTorch张量与模块基础
+      kind: 原始文档
+  sourceSections:
+    - §3 dtype
+    - §4 device
+    - §6 reshape
+    - §7 permute
+    - §8 广播
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 区分 reshape/permute
+- 正确 NCHW
+- 匹配标签 dtype
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+数据契约基础
+
+减少静默错误
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+很多模型错误来自 shape/dtype/device，而不是网络结构。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+reshape 改形状，permute 换轴，to 改 device/dtype，cat 拼已有轴，stack 新建轴。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+形状说明每个轴是谁，设备说明张量在哪，dtype 说明它能表达什么。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+参与同一运算的张量需兼容设备与类型；广播前检查预期形状。
+
+无参数 squeeze 可能在 batch=1 时删除 batch 维。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+2\times3\times4=24=2\times12
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+reshape 必须保持元素总数。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| N | batch 轴 |
+| C | 通道轴 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### NHWC 转 NCHW
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- \[8,32,32,3\]
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. permute(0,3,1,2)
+:::
+
+:::field{path="numericalExample.result" type="text"}
+\[8,3,32,32\]
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 打印 shape/dtype/device
+2. 换轴
+3. reshape
+4. 移动设备
+5. 断言
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### Tensor 的形状、dtype 与 device · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证Tensor 的形状、dtype 与 device的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+x=torch.randn(8,32,32,3)
+y=x.permute(0,3,1,2).to(dtype=torch.float32)
+print(y.shape,y.dtype)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- permute 改轴顺序
+- to 返回新引用
+- dtype 显式
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+\[8,3,32,32\] float32。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- CNN 输入
+- 序列 batch
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- reshape 当换轴
+- 设备不一致
+- CE 标签 float
+- 无参 squeeze
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### view 为何会失败？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+非连续内存需 contiguous 或 reshape。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### to 是否原地？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+通常返回张量，应重新赋值。
+:::
+

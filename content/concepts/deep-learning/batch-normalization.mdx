@@ -1,0 +1,228 @@
+---
+id: batch-normalization
+slug: batch-normalization
+title: Batch Normalization
+category: deep-learning
+difficulty: 进阶
+summary: 按通道跨 batch/空间统计并维护运行均值方差。
+prerequisites:
+  - 均值方差
+  - train/eval
+relatedConcepts:
+  - layer-normalization
+  - normalization
+order: 144
+directory: 归一化
+kind: long-form
+preserved:
+  subcategory: 归一化
+  codeExplanation:
+    - 输出形状不变
+    - 每通道一个 γ/β
+    - 训练更新 running
+  sourceDocuments:
+    - path: 学习资料/deeplearning/14_归一化方法_BatchNorm与LayerNorm.md
+      title: 14_归一化方法_BatchNorm与LayerNorm
+      kind: 原始文档
+  sourceSections:
+    - §2 通用公式
+    - §3–7 BatchNorm
+    - §8 冻结
+    - §9 CNN 位置
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 识别统计轴
+- 管理 running stats
+- 处理小 batch
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+CNN 常用
+
+train/eval 行为不同
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+中间激活尺度变化会让优化不稳定。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+BatchNorm 在训练用当前 batch 统计，评估用 running stats，再学习 γ/β。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+每个通道用当前训练群体校准，再允许模型重新缩放和平移。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+BatchNorm2d 对 \[N,C,H,W\] 每通道跨 N/H/W 统计；小 batch 统计噪声大。
+
+冻结 γ/β 不等于冻结 running stats；每次 model.train 后可能需重新设 BN eval。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+\hat{x}=\frac{x-\mu_c}{\sqrt{\sigma_c^2+\varepsilon}},\ y=\gamma_c\hat{x}+\beta_c
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+每个通道独立统计。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| γ,β | 可学习缩放和平移 |
+| running\_mean | 评估使用的 buffer |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### BN2d 统计数
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- N=32,H=W=16
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 每通道 32×16×16
+:::
+
+:::field{path="numericalExample.result" type="text"}
+8192 个值
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 按通道统计
+2. 归一化
+3. 仿射变换
+4. 更新 running
+5. eval 使用 running
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### Batch Normalization · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证Batch Normalization的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+bn=nn.BatchNorm2d(64)
+x=torch.randn(32,64,16,16)
+print(bn(x).shape,bn.weight.shape)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 输出形状不变
+- 每通道一个 γ/β
+- 训练更新 running
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+\[32,64,16,16\] 与 weight \[64\]。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- CNN
+- 稳定 batch MLP
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 验证忘 eval
+- num\_features 填 H
+- 梯度累积当大 BN batch
+- 只冻参数
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### no\_grad 会切换 BN 吗？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+不会。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### N=1 一定可用吗？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+取决于空间统计与任务，仍可能不稳定。
+:::
+

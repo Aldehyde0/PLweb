@@ -1,0 +1,209 @@
+---
+id: handoffs
+slug: handoffs
+title: Handoff
+category: artificial-intelligence
+difficulty: 挑战
+summary: 把当前对话控制权从分流 Agent 转交给专业 Agent。
+prerequisites:
+  - agent-orchestration
+relatedConcepts:
+  - agents-as-tools
+  - manager-pattern
+order: 180
+directory: Agent
+kind: long-form
+preserved:
+  subcategory: Agent
+  entityType: agent
+  workflow:
+    - 分流 Agent 识别领域
+    - 生成交接调用与必要载荷
+    - 应用验证目标和权限
+    - 目标 Agent 接管上下文
+    - 目标 Agent 产生最终输出
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls:
+    - https://openai.github.io/openai-agents-js/guides/handoffs/
+  versionDate: 2026-08-30
+  inputsSchema: 目标 Agent；交接参数；过滤后的历史
+  outputsSchema: 新的活动 Agent；交接轨迹
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+anchorAliases:
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明Handoff解决什么问题，以及何时适用。
+- 能解释为什么“把 Handoff 当普通函数工具”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+当专家需要直接与用户交流、使用自己的指令和工具时，交接比让主管代为转述更自然。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+在 OpenAI Agents SDK 中，Handoff 作为模型可见的类函数工具，但调用后进入专门的交接路径，由目标 Agent 接管后续对话。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+前台确认问题类型后把电话真正转给专家，而不是每句话都通过前台中转。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+Handoff 与 agent.asTool() 不同：前者转移控制，后者由 Manager 保持控制。
+
+交接输入 Schema 传递模型在交接时决定的元数据，不等同于应用上下文。
+
+授权依赖参数时，应在 onHandoff 开始处、任何副作用之前检查。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 分流 Agent 识别领域
+2. 生成交接调用与必要载荷
+3. 应用验证目标和权限
+4. 目标 Agent 接管上下文
+5. 目标 Agent 产生最终输出
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### Agents SDK：分流 Agent 把会话交给专家
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+TypeScript
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应 OpenAI Agents SDK TypeScript 当前 Handoff 结构。仅展示，不在本站运行；实际运行需要按官方文档配置 SDK 与模型访问。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```TypeScript
+import { Agent, run } from '@openai/agents';
+
+const chineseAgent = new Agent({
+  name: 'Chinese specialist',
+  instructions: 'Reply in Chinese and keep technical terms precise.',
+});
+
+const englishAgent = new Agent({
+  name: 'English specialist',
+  instructions: 'Reply in English.',
+});
+
+const triageAgent = new Agent({
+  name: 'Language triage',
+  instructions: 'Hand off to the specialist matching the user language.',
+  handoffs: [chineseAgent, englishAgent],
+});
+
+const result = await run(triageAgent, '请解释 Handoff。');
+console.log(result.finalOutput);
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 两个专家有独立 instructions。
+- triageAgent 的 handoffs 声明可交接目标。
+- run 内部处理模型调用、交接与后续 Agent 循环；最终输出来自接管后的 Agent。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+中文专家接管并返回中文解释；实际文本由所配置模型决定。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 客服分流
+- 多语言专家
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 把 Handoff 当普通函数工具
+- 未过滤不必要历史
+- 在授权前产生副作用
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 目标 Agent
+- 交接参数
+- 过滤后的历史
+:::
+
+:::field{path="outputs" type="list"}
+- 新的活动 Agent
+- 交接轨迹
+:::
+
+:::field{path="capabilities" type="list"}
+- 客服分流
+- 多语言专家
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

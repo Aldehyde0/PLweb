@@ -1,0 +1,148 @@
+---
+id: dataset-shapes
+slug: dataset-shapes
+title: X、y 与数据形状
+category: machine-learning
+difficulty: 入门
+summary: X 的行对应样本、列对应特征，y 的第 i 项必须与 X 的第 i 行保持配对。
+prerequisites:
+  - NumPy 数组
+relatedConcepts:
+  - scalars-vectors-matrices
+  - inference-input-contract
+order: 9
+directory: 入门与数学基础
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码用于验证概念，不在网页中直接执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/00_introduction.md
+      title: 00｜机器学习导论
+      kind: 原始文档
+  sourceSections:
+    - §4 数据在程序中的形式
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+形状错误、样本标签错位和把单样本降成一维，是传统机器学习最常见的接口与语义错误。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+sklearn 表格输入通常为 X.shape=(n\_samples,n\_features)，分类/回归目标常为 y.shape=(n\_samples,)。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+X 是题目表，每行一道题；y 是答案列，行号必须一一对应。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+任何筛选、打乱和划分都必须对 X 与 y 使用相同索引；单条预测也通常保留二维形状 (1,d)。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+X∈ℝⁿˣᵈ，y∈ℝⁿ 或 {1…K}ⁿ
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+任何筛选、打乱和划分都必须对 X 与 y 使用相同索引；单条预测也通常保留二维形状 (1,d)。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 打印 X/y shape
+2. 验证第一维相等
+3. 随机检查样本标签对应
+4. 划分时同时传入 X/y
+5. 预测单条时保留二维
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### X、y 与数据形状：最小可验证示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+NumPy
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+把正文原理映射为可检查的代码行为。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```NumPy
+import numpy as np
+X = np.arange(12).reshape(3, 4)
+y = np.array([0, 1, 0])
+assert X.shape[0] == y.shape[0]
+print(X[1], y[1])
+print(X[1:2].shape)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 先确认输入形状和数据边界。
+- 把输出与公式或定义逐项对照。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+打印第二条样本与标签，单条切片形状为 (1,4)。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- sklearn 输入检查
+- 批量预测
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 分别打乱 X 和 y
+- 用 X\[i\] 代替需要二维的 X\[i\:i+1\]
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

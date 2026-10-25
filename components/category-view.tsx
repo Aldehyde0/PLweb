@@ -21,6 +21,7 @@ import { ConceptSortControl } from '@/components/concept-sort-control';
 import { EmptyState } from '@/components/empty-state';
 import { Input } from '@/components/ui/input';
 import { useLearning } from '@/components/learning-store';
+import { contentIndex } from '@/lib/content-index';
 export function CategoryView({
   category,
   concepts,
@@ -57,7 +58,8 @@ export function CategoryView({
           return (
             (!query ||
               c.title.toLowerCase().includes(query) ||
-              c.summary.toLowerCase().includes(query)) &&
+              c.summary.toLowerCase().includes(query) ||
+              contentIndex[c.slug].searchText.toLowerCase().includes(query)) &&
             (difficulty === '全部' || c.difficulty === difficulty) &&
             (status === '全部' || (status === '已学习' ? done : !done)) &&
             (!grouped || dimension === '全部' || sub(c) === dimension)

@@ -1,0 +1,151 @@
+---
+id: model-monitoring-and-drift
+slug: model-monitoring-and-drift
+title: 模型监控与数据/概念漂移
+category: machine-learning
+difficulty: 进阶
+summary: 上线后持续监控输入质量、分布、预测比例、真实效果、延迟和版本。
+prerequisites:
+  - 模型评价
+  - 数据质量
+relatedConcepts:
+  - ml-project-lifecycle
+  - evaluation-design
+order: 94
+directory: 评估与模型选择
+kind: long-form
+preserved:
+  codeExplanation:
+    - 示例用于阅读、复制和本地运行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/08_end_to_end_project.md
+      title: 08｜端到端机器学习项目
+      kind: 原始文档
+  sourceSections:
+    - §12 部署后的监控
+    - §13 项目完成检查清单
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+部署时的地区、设备、用户行为和规则会变化，离线优秀不代表长期有效。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+数据漂移是输入分布变化；概念漂移是输入与目标关系变化。两者都可能让离线模型失效。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+模型像根据旧地图导航，城市或道路规则变化后必须发现并更新。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+无即时标签时先监控输入与预测代理信号；有延迟标签后计算真实分群指标，并定义告警和再训练条件。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+drift ≠ failure，但 drift → 需要调查
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+无即时标签时先监控输入与预测代理信号；有延迟标签后计算真实分群指标，并定义告警和再训练条件。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 记录模型/数据版本
+2. 监控缺失和范围
+3. 比较特征分布
+4. 监控预测比例/置信度
+5. 回收标签
+6. 分群评价
+7. 定义回滚与再训练
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 模型监控与数据/概念漂移 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的可靠评价或训练流程。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+current_missing=live_df.isna().mean()
+current_summary=live_df.describe()
+print(current_missing)
+print(current_summary)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 数据边界和划分方式是代码含义的一部分。
+- 结果应报告平均、波动或业务对应的指标。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+输出线上输入缺失率和分布摘要，供与训练基线比较。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 本地批处理监控
+- 生产维护
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 只监控平均准确率
+- 漂移即自动重训
+- 无版本记录
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

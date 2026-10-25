@@ -1,0 +1,147 @@
+---
+id: linear-model-interpretation
+slug: linear-model-interpretation
+title: 线性模型权重解释
+category: machine-learning
+difficulty: 进阶
+summary: 权重描述控制其他特征后，特征变化与模型分数之间的统计关系。
+prerequisites:
+  - 线性模型
+  - 标准化
+relatedConcepts:
+  - logistic-regression
+  - tree-feature-importance
+order: 46
+directory: 模型与算法
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码展示而不在浏览器执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/03_linear_models.md
+      title: 03｜线性模型
+      kind: 原始文档
+  sourceSections:
+    - §5 权重如何解释
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+尺度、共线性、多分类参数和正则化都会改变权重，模型关联不是因果。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+在线性分数中，wⱼ 表示 xⱼ 增加一个单位时 score 的变化；标准化后可比较一个标准差变化的影响。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+权重像模型内部的方向和力度，不是现实世界的原因证明。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+解释前说明预处理、目标编码、类别基准和不确定性；相关特征可能分摊或交换权重。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+Δscore=wⱼΔxⱼ
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+解释前说明预处理、目标编码、类别基准和不确定性；相关特征可能分摊或交换权重。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 确认特征尺度
+2. 提取正确类别权重
+3. 结合方向与单位
+4. 检查相关性和稳定性
+5. 避免因果语言
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 线性模型权重解释 实现
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的训练与预测逻辑。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+logreg=model.named_steps["logisticregression"]
+print(logreg.coef_.shape)
+print(logreg.coef_)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 代码先建立符合输入要求的估计器。
+- 参数应在交叉验证中选择，测试集不参与。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+二分类或多分类对应的权重矩阵。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 模型审查
+- 特征方向分析
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 不同尺度直接比绝对值
+- 权重当因果
+- 忽略类别基准
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

@@ -1,0 +1,337 @@
+---
+id: cql
+slug: cql
+title: CQL：Conservative Q-Learning
+category: reinforcement-learning
+difficulty: 挑战
+summary: 在 Bellman 误差之外惩罚数据外高 Q，并相对抬高数据动作，学习保守的价值函数。
+prerequisites:
+  - 概率基础
+  - Python 与 NumPy
+relatedConcepts:
+  - offline-data-distribution-shift
+  - behavior-policy-constraints
+  - iql
+  - dqn
+  - sac
+  - bellman-equation
+order: 237
+directory: Offline RL
+kind: long-form
+preserved:
+  subcategory: Offline RL
+  workflow:
+    - 从固定数据采样 transition batch
+    - 计算数据动作 Q 与 TD target
+    - 采样或枚举比较动作
+    - 计算 logsumexp 或重要性修正的保守 gap
+    - 更新 critic
+    - 用保守 critic 更新 actor 或取 greedy
+    - 独立调节 α 并离线评测
+  algorithmType: 强化学习基础
+  onPolicy: false
+  offPolicy: false
+  actionSpace: 离散或连续，取决于具体算法
+  modelFree: true
+  modelBased: false
+  inputs:
+    - 状态或观察
+    - 动作
+    - 奖励
+    - 下一状态或轨迹
+  outputs:
+    - 价值估计、策略参数或训练诊断
+  codeExplanation:
+    - 代码与本页第一条公式逐项对应。
+    - 网站只展示、复制代码，不执行用户输入或训练真实模型。
+  expectedOutput: CQL gap 为正；未在 batch 中出现且 Q 很高的动作得到正梯度，梯度下降会压低它。
+  sourceDocuments:
+    - path: arXiv:2006.04779
+      title: Conservative Q-Learning for Offline Reinforcement Learning
+      kind: 原始文档
+  sourceSections:
+    - CQL 原论文 / §3.1：保守 Q 目标与下界性质
+    - CQL 原论文 / Eq. 4：CQL(H) 实际目标
+    - CQL 原论文 / Appendix F：基于 SAC 的实现细节
+  sourceUrls:
+    - https://arxiv.org/abs/2006.04779
+  versionDate: 2026-08-30
+anchorAliases:
+  sources: related
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 定义CQL：Conservative Q-Learning并复述输入输出。
+- 从公式计算一个最小数值例子。
+- 说明它与相邻算法的区别、失败模式和适用场景。
+:::
+
+
+## 为什么重要 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+CQL：Conservative Q-Learning位于“状态—行动—反馈—更新”学习链中的关键位置。
+
+掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
+
+同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+CQL 是可叠加到 DQN 或 actor-critic 骨架上的离线 RL 方法族；其核心正则项扩大广泛动作与数据动作的 Q 差异惩罚，使策略不易利用缺少数据证据的乐观价值。
+
+本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+普通 critic 像容易被陌生选项的夸张评分骗过；CQL 给“没在历史记录里却得分很高”的选项收取怀疑税。
+
+把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+离散动作 CQL 可用 logsumexp 聚合所有动作；连续动作常以均匀分布和当前策略采样近似。
+
+保守项与 Bellman 项共同优化，α 过小防不住外推，过大会压低真正有价值的动作。
+
+CQL 的理论结论依赖论文中的采样、函数类和优化假设，不能把经验 Q 一律解释为逐点真实下界。
+
+CQL-DQN 对应离散动作；CQL-SAC 常保留双 critic、actor 与温度结构，再给 critic 加保守正则。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 离散动作 CQL(H) 目标（教学化写法）
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+\min_Q\;\alpha\,\mathbb{E}_{s\sim\mathcal D}\left[\log\sum_a e^{Q(s,a)}-\mathbb{E}_{a\sim\beta(\cdot|s)}Q(s,a)\right]+\frac12\mathbb{E}_{(s,a,s\prime)\sim\mathcal D}\left[Q(s,a)-\mathcal B^\pi\bar Q(s,a)\right]^2
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+第一项压低广泛动作相对数据动作的价值，第二项保持 Bellman 一致性；连续动作实现需采样近似。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| α | 保守正则强度。 |
+| β | 数据行为策略。 |
+| B^π Q̄ | 由 target critic 与目标策略构造的 Bellman target。 |
+| log∑exp Q | 对高 Q 动作敏感的平滑最大值。 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### CQL：Conservative Q-Learning的最小计算
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- 即时奖励为 1
+- 下一状态估计为 2
+- 折扣因子 γ=0.9
+- 当前估计为 0.5
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 计算 bootstrap 目标：1+0.9×2=2.8。
+2. 目标与当前估计差为 2.8−0.5=2.3。
+3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+:::
+
+:::field{path="numericalExample.result" type="text"}
+一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+- 较大 α 更新快但噪声和震荡更强。
+- 较大 γ 更重视远期奖励，但误差传播范围更长。
+- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 从固定数据采样 transition batch
+2. 计算数据动作 Q 与 TD target
+3. 采样或枚举比较动作
+4. 计算 logsumexp 或重要性修正的保守 gap
+5. 更新 critic
+6. 用保守 critic 更新 actor 或取 greedy
+7. 独立调节 α 并离线评测
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 离散动作 CQL 正则项
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+在 Bellman 误差之外计算 logsumexp(Q)−Q(data action) 的保守惩罚。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+import torch
+import torch.nn.functional as F
+
+q_all = torch.tensor([[1.0, 1.4, 4.0],
+                      [0.8, 1.1, 3.5]], requires_grad=True)
+data_actions = torch.tensor([0, 1])
+rewards = torch.tensor([1.0, 0.5])
+next_v = torch.tensor([0.7, 0.4])
+q_data = q_all.gather(1, data_actions[:, None]).squeeze(1)
+td_target = rewards + 0.99 * next_v
+bellman_loss = F.mse_loss(q_data, td_target)
+conservative_gap = torch.logsumexp(q_all, 1).mean() - q_data.mean()
+loss = bellman_loss + conservative_gap
+loss.backward()
+print('Bellman:', round(bellman_loss.item(), 3))
+print('CQL gap:', round(conservative_gap.item(), 3))
+print('OOD-action gradients:', q_all.grad[:, 2])
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- Bellman 部分只拟合数据动作的 TD 目标。
+- logsumexp 减数据动作 Q 会压低未被数据支持的高 Q。
+- 连续动作 CQL 通常用策略与均匀分布采样近似这一项。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+CQL gap 为正；未在 batch 中出现且 Q 很高的动作得到正梯度，梯度下降会压低它。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 序贯决策
+- 控制与资源分配
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 只报告最好的一次随机种子
+- 训练回报与评测回报混用
+- 终止状态仍错误 bootstrap
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 扩展内容说明 {#extension}
+
+:::field{path="extensionNotes" type="paragraphs"}
+“怀疑税”直觉、PyTorch 两样本示例、DQN/SAC/IQL 对照、工程检查项均为本站扩展解释；目标与算法性质以 CQL 原论文为准。
+:::
+
+
+## 算法属性与数据边界 {#algorithm-profile}
+
+<ArticleFlags />
+:::field{path="objectiveFunction" type="text"}
+Bellman error + α × conservative Q regularizer
+:::
+:::field{path="dataBoundary" type="list"}
+- 需要带奖励、下一状态与终止标记的固定 transition；不是只靠 (s,a) 的行为克隆。
+- 连续动作 logsumexp 依赖有限采样近似，proposal 覆盖不足会漏掉高估区域。
+- α 是数据质量相关参数；不能用测试环境反复在线试出来后仍声称纯离线选择。
+:::
+
+## 与 DQN、SAC 及相邻方法对照 {#algorithm-comparison}
+
+:::field{path="comparisonNotes" type="list"}
+- DQN：同样可用 target network 和 Bellman loss；CQL 额外压低非数据动作的高 Q。
+- SAC：同样可用双 Q 和随机 actor；CQL-SAC 的关键差异在 critic 的保守正则。
+- IQL：不显式枚举或采样 OOD 动作做价值惩罚，而以 expectile V 和数据动作策略回归完成隐式改进。
+:::
+
+
+## 失败模式、风险与性能 {#failure-performance}
+
+:::field{path="failureModes" type="list"}
+- α 太大导致过度保守，优质稀有动作被压低
+- α 太小退化为朴素 DQN/SAC
+- 连续动作重要性修正或 log-prob 符号错误
+- 超时 transition 被当成真实终止
+:::
+
+:::field{path="securityRisks" type="list"}
+- 保守价值不是安全约束，仍需限制动作集合与成本。
+- 数据投毒可通过虚假高奖励 transition 改变数据动作基准。
+:::
+
+:::field{path="performanceNotes" type="list"}
+- CQL-SAC 比普通 SAC 多次采样动作并计算 logsumexp，计算与显存开销更高。
+- 报告 α、自动拉格朗日版本、候选动作数、数据版本和多 seed 结果。
+:::
+
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### CQL：Conservative Q-Learning是 on-policy 还是 off-policy？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+这是基础或比较概念，具体归属取决于所讨论算法。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 网页是否会训练模型？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
+:::
+

@@ -1,0 +1,173 @@
+---
+id: feature-construction
+slug: feature-construction
+title: 领域、比率、多项式与交互特征
+category: machine-learning
+difficulty: 进阶
+summary: 把原始字段组合为更贴近任务机制的特征，让简单模型也能表达有意义的非线性关系。
+prerequisites:
+  - 线性模型
+  - Pipeline
+relatedConcepts:
+  - skewed-and-cyclical-features
+  - future-information-leakage
+  - feature-selection
+order: 36
+directory: 数据预处理与特征工程
+kind: long-form
+preserved:
+  codeExplanation:
+    - 分母零的业务语义需要明确。
+    - PolynomialFeatures 在训练集 fit，测试集只 transform。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/02_preprocessing_feature_engineering.md
+      title: 02｜数据预处理与特征工程
+      kind: 原始文档
+  sourceSections:
+    - §10 特征工程与特征构造
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+线性模型对 φ(x) 仍是线性的，但 φ 可以包含比率、平方项与交互项，使模型表达弯曲或共同作用。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+特征构造是定义映射 φ(x)，把原始输入转为模型实际学习的表示。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+总消费和订单数是原材料，“平均客单价”把业务关系直接告诉模型；平方项让直线拥有弯曲能力。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+所有特征必须在预测时可获得、定义稳定且无未来信息。高阶多项式会快速增加维度，应结合正则化和交叉验证。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 特征映射
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+ŷ = wᵀφ(x)+b
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+模型实际学习转换后的特征。
+:::
+
+::::
+
+::::formula{index="1"}
+:::field{path="formulas.1.label" type="text"}
+### 二阶示例
+:::
+
+:::field{path="formulas.1.expression" type="math"}
+$$
+ŷ=w₀+w₁x₁+w₂x₂+w₃x₁x₂+w₄x₁²
+$$
+:::
+
+:::field{path="formulas.1.description" type="text"}
+交互项表达共同作用，平方项表达曲率。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 从任务机制提出候选特征。
+2. 处理分母为零和单位。
+3. 在训练/预测共享的函数中实现。
+4. 将变换放入 Pipeline。
+5. 比较基线与新增特征的交叉验证结果。
+6. 检查维度、稳定性和泄漏。
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 构造比率和二阶特征
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+Python
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+展示领域比率与 PolynomialFeatures。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```Python
+import numpy as np
+from sklearn.preprocessing import PolynomialFeatures
+
+average_order_value = total_spending / np.maximum(order_count, 1)
+X_domain = np.column_stack([total_spending, order_count, average_order_value])
+poly = PolynomialFeatures(degree=2, include_bias=False)
+X_train_poly = poly.fit_transform(X_train)
+X_test_poly = poly.transform(X_test)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 分母零的业务语义需要明确。
+- PolynomialFeatures 在训练集 fit，测试集只 transform。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+领域特征新增平均客单价；二阶展开产生原特征、平方项和两两交互项。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 房价比率特征
+- 用户行为强度
+- 非线性回归
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 构造预测时不存在的特征
+- 高阶展开导致维度爆炸
+- 相关性被误当因果
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

@@ -1,0 +1,230 @@
+---
+id: dl-evaluation-imbalance
+slug: dl-evaluation-imbalance
+title: 深度学习评估与类别不平衡
+category: deep-learning
+difficulty: 进阶
+summary: 从 logits、阈值、混淆矩阵、AUC、校准和 mask 建立可靠评价。
+prerequisites:
+  - 输出层与损失
+relatedConcepts:
+  - output-layers-and-losses
+  - class-imbalance
+order: 111
+directory: 评估
+kind: long-form
+preserved:
+  subcategory: 评估
+  codeExplanation:
+    - logits 先 Sigmoid
+    - 阈值决定类别
+    - 按全数据累计
+  sourceDocuments:
+    - path: 学习资料/deeplearning/16_模型评估与类别不平衡.md
+      title: 16_模型评估与类别不平衡
+      kind: 原始文档
+  sourceSections:
+    - §1 损失与指标
+    - §3–8 指标
+    - §9 校准
+    - §10 不平衡
+    - §11 mask
+    - §12–14 代码错误
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 手算 P/R/F1
+- 选择阈值
+- 排除 padding
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+决定真实业务表现
+
+避免少数类失效
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+模型排序好不代表阈值好或概率校准好。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+损失用于学习，指标用于解释任务表现；类别不平衡时 Accuracy 可能误导。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+不同指标回答不同问题，先说明哪种错误更贵。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+验证集选阈值/权重/温度，测试只最后评估；评估集保持真实分布。
+
+序列任务仅统计 valid mask；指标跨完整数据累计而非平均 batch 指标。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+F_1=2\frac{PR}{P+R}
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+P 精确率，R 召回率。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| TP/FP/FN/TN | 混淆矩阵计数 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 指标
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- TP=30,FP=10,FN=20,TN=940
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. Precision=30/40=.75
+2. Recall=30/50=.6
+:::
+
+:::field{path="numericalExample.result" type="text"}
+F1≈0.667
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 收集 logits
+2. 转概率
+3. 验证选阈值
+4. 累计混淆
+5. 计算每类指标
+6. 最终测试
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 深度学习评估与类别不平衡 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证深度学习评估与类别不平衡的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+prob=torch.sigmoid(logits)
+pred=(prob>=.5).long()
+tp=((pred==1)&(target==1)).sum()
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- logits 先 Sigmoid
+- 阈值决定类别
+- 按全数据累计
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+得到 TP 等计数用于指标。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 医学/故障/序列
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 只 Accuracy
+- 测试选阈值
+- AUC 当校准
+- padding 入指标
+- 评估集过采样
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### AUC 高代表概率可信？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+不代表，校准是另一问题。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 阈值在哪选？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+验证集。
+:::
+

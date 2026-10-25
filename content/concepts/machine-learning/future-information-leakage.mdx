@@ -1,0 +1,136 @@
+---
+id: future-information-leakage
+slug: future-information-leakage
+title: 未来信息泄漏
+category: machine-learning
+difficulty: 进阶
+summary: 输入包含预测时尚未发生的信息，会制造无法上线复现的虚高离线效果。
+prerequisites:
+  - 训练测试划分
+  - 时间数据
+relatedConcepts:
+  - data-leakage
+  - time-series-cross-validation
+  - feature-construction
+order: 38
+directory: 数据预处理与特征工程
+kind: long-form
+preserved:
+  codeExplanation:
+    - 先按预测时点截断，再聚合。
+    - 真实项目还需限定过去 30 天的开始时间。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/02_preprocessing_feature_engineering.md
+      title: 02｜数据预处理与特征工程
+      kind: 原始文档
+  sourceSections:
+    - §10 最危险的特征：未来信息
+    - §14 预处理检查清单
+  extensionNotes: []
+  formulas: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+预测贷款违约时使用发放后的催收次数、预测流失时使用未来 7 天行为，都会把结果线索直接放入输入。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+未来信息泄漏是特征在训练样本中可见，但在真实预测时点不可获得，或其计算窗口越过预测时点。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+这不是模型聪明，而是题目把未来答案印在了当前特征上。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+每个特征必须标记事件时间、可用时间和计算窗口。划分方式也要模拟线上：过去训练、未来验证；同一实体的历史聚合不能跨越预测时点。
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 定义明确预测时点。
+2. 列出每个特征的产生与可用时间。
+3. 检查窗口是否跨越预测时点。
+4. 按时间或群组划分。
+5. 移除泄漏特征后重新建立基线。
+6. 记录线上可用性契约。
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 按时间构造过去窗口
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+Python
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+表达特征截止时间必须早于预测时点。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```Python
+cutoff = prediction_time
+history = events[events["event_time"] < cutoff]
+features = history.groupby("user_id").agg(
+    past_30d_count=("event_id", "count"),
+)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 先按预测时点截断，再聚合。
+- 真实项目还需限定过去 30 天的开始时间。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+每个用户只由预测时点之前的事件生成特征。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 信用风险
+- 用户流失
+- 时间序列预测
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 随机划分掩盖时间泄漏
+- 使用目标发生后的字段
+- 全历史聚合越过截止点
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

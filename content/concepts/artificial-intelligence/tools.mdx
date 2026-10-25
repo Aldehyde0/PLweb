@@ -1,0 +1,181 @@
+---
+id: tools
+slug: tools
+title: Tools：能力、Schema 与执行边界
+category: artificial-intelligence
+difficulty: 进阶
+summary: Tool 把读取、计算或行动封装成有名称、输入、输出、权限和错误契约的能力。
+prerequisites:
+  - llm-and-agent
+relatedConcepts:
+  - tool-calling
+  - function-calling
+  - mcp-overview
+  - codex-skills
+order: 187
+directory: Tool
+kind: long-form
+preserved:
+  subcategory: Tool
+  entityType: tool
+  workflow:
+    - 定义单一职责工具
+    - 编写输入输出 Schema
+    - 标记只读或写入与权限
+    - 执行前验证和审批
+    - 设置超时与有限重试
+    - 返回结构化成功或错误
+    - 验证结果并记录日志
+  codeExplanation: []
+  expectedOutput: ""
+  interactiveDemo: tool-call
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls:
+    - https://developers.openai.com/api/docs/guides/function-calling
+    - https://openai.github.io/openai-agents-js/guides/tools/
+  versionDate: 2026-08-30
+  inputsSchema: 工具名；结构化参数；授权与调用上下文
+  outputsSchema: 结构化数据；副作用确认；可分类错误
+  executionEnvironment: ""
+  approvalRequired: true
+  readOnly: false
+  importance: []
+  extensionNotes: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+anchorAliases:
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明Tools：能力、Schema 与执行边界解决什么问题，以及何时适用。
+- 能解释为什么“自然语言描述代替 Schema”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+模型训练参数无法自动访问最新数据或真实系统；工具连接外部能力，同时引入权限、副作用和失败处理。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Tool 是 Agent 可以请求调用、由宿主或服务执行的具体能力。它可以是内置工具、函数工具、API、本地文件/搜索/代码/计算工具，或另一个 Agent。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+Skill 是操作手册，Tool 是真正完成动作的仪器；说明书不会自己钻孔，电钻也不会决定项目流程。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+完整工具契约包含名称、描述、输入 Schema、输出 Schema、错误、权限、超时和副作用。
+
+调用过程为选择—参数生成—验证—审批—执行—结果验证—反馈。
+
+重试必须区分只读、幂等写入与非幂等副作用。
+
+日志记录调用 id、工具版本、参数摘要、审批、耗时和结果状态。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 定义单一职责工具
+2. 编写输入输出 Schema
+3. 标记只读或写入与权限
+4. 执行前验证和审批
+5. 设置超时与有限重试
+6. 返回结构化成功或错误
+7. 验证结果并记录日志
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 内置搜索
+- 函数与 API
+- 本地文件
+- 代码与数学计算
+- Agent as Tool
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 自然语言描述代替 Schema
+- 错误没有分类
+- 写操作无审批和幂等性
+- 工具结果未经验证
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+<AIInteractiveDemo kind="tool-call" />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 工具名
+- 结构化参数
+- 授权与调用上下文
+:::
+
+:::field{path="outputs" type="list"}
+- 结构化数据
+- 副作用确认
+- 可分类错误
+:::
+
+:::field{path="capabilities" type="list"}
+- 内置搜索
+- 函数与 API
+- 本地文件
+- 代码与数学计算
+- Agent as Tool
+:::
+
+:::field{path="permissions" type="list"}
+- 每次调用按身份与资源重新授权
+- 敏感或写入操作默认审批
+:::
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

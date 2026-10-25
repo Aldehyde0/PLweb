@@ -1,0 +1,104 @@
+---
+id: model-evaluation
+slug: model-evaluation
+title: 模型评估与错误代价
+category: machine-learning
+difficulty: 进阶
+summary: 评价指标必须匹配真实使用方式、类别分布和错误成本。
+prerequisites:
+  - Python 基础
+  - 基础数学
+relatedConcepts:
+  - cross-validation
+  - overfitting-regularization
+order: 73
+directory: 评估与模型选择
+kind: legacy
+preserved: {}
+---
+
+## 前置知识 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 通俗直觉 {#intuition}
+
+:::field{path="explanation" type="text"}
+准确率只回答“总体对了多少”，却可能掩盖少数类漏报；指标要围绕真正关心的错误选择。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="principle" type="text"}
+混淆矩阵拆分 TP、FP、FN、TN；精确率关注误报，召回率关注漏报，F1 平衡二者。
+:::
+
+
+## 数学公式 {#formulas}
+
+:::field{path="formula.expression" type="math"}
+$$
+Precision=TP/(TP+FP)，Recall=TP/(TP+FN)
+$$
+:::
+
+:::field{path="formula.description" type="text"}
+误报成本高看精确率，漏报成本高看召回率。
+:::
+
+
+## 工作流程 {#algorithm-steps}
+
+:::field{path="workflow" type="list"}
+- 明确输入、输出与评价方式
+- 建立简单基线
+- 实现并检查关键中间量
+- 在验证数据上诊断和迭代
+:::
+
+
+## 代码示例 {#code}
+
+:::field{path="code.language" type="text"}
+Python
+:::
+
+:::field{path="code.source" type="code" trailing="0"}
+```Python
+from sklearn.metrics import classification_report, confusion_matrix
+
+print(confusion_matrix(y_test, y_pred))
+print(classification_report(y_test, y_pred))
+```
+:::
+
+:::field{path="code.highlights" type="list"}
+- 先检查数据和张量形状
+- 把会学习参数的步骤限制在训练数据内
+:::
+
+:::field{path="codeExplanation" type="text"}
+不要只报告单一准确率；同时查看每类指标和具体错误样本。
+:::
+
+
+## 应用场景 {#applications}
+
+:::field{path="applications" type="list"}
+- 建立可靠训练流程
+- 诊断模型行为
+:::
+
+
+## 常见误区 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 只记接口而不检查数据边界
+- 只看单次分数而忽略泛化
+:::
+
+
+## 相关概念 {#related}
+
+<ConceptRelated />

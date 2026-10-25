@@ -1,0 +1,147 @@
+---
+id: classification-vs-regression
+slug: classification-vs-regression
+title: 分类与回归
+category: machine-learning
+difficulty: 入门
+summary: 分类预测离散类别或类别概率，回归预测连续数值。
+prerequisites:
+  - 监督学习
+relatedConcepts:
+  - supervised-learning
+  - classification-metrics
+  - regression-metrics
+order: 6
+directory: 入门与数学基础
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码用于验证概念，不在网页中直接执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/00_introduction.md
+      title: 00｜机器学习导论
+      kind: 原始文档
+  sourceSections:
+    - §3.1 监督学习 / 分类
+    - §3.1 监督学习 / 回归
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+任务类型影响输出、损失、指标和模型接口。把类别编号误当连续数值会引入不存在的大小关系。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+监督学习中，目标 y 的语义决定任务类型：有限离散标签对应分类，具有数值距离意义的连续目标对应回归。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+“是什么”通常是分类，“多少”通常是回归；但点击率若表示概率数值可以是回归，是否点击则是分类。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+先根据业务输出定义任务，再选择损失与指标。分类关注混淆和概率，回归关注误差大小与单位。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+分类：ŷ∈{C₁…Cₖ}；回归：ŷ∈ℝ
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+先根据业务输出定义任务，再选择损失与指标。分类关注混淆和概率，回归关注误差大小与单位。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 明确预测对象
+2. 判断标签是否离散
+3. 确定错误代价
+4. 选择模型与指标
+5. 检查输出形状
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 分类与回归：最小可验证示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+Python
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+把正文原理映射为可检查的代码行为。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```Python
+from sklearn.linear_model import LogisticRegression, LinearRegression
+classifier = LogisticRegression()
+regressor = LinearRegression()
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 先确认输入形状和数据边界。
+- 把输出与公式或定义逐项对照。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+得到两个不同接口语义的估计器：一个输出类别，一个输出连续值。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 垃圾邮件分类
+- 房价回归
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 把类别编码当连续目标
+- 只按模型名字判断任务
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

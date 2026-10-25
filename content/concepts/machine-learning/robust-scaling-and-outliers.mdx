@@ -1,0 +1,195 @@
+---
+id: robust-scaling-and-outliers
+slug: robust-scaling-and-outliers
+title: Robust Scaling 与异常值处理
+category: machine-learning
+difficulty: 进阶
+summary: 用中位数和四分位距降低极端值对缩放参数的影响，并先区分错误数据与真实稀有事件。
+prerequisites:
+  - 中位数与四分位数
+  - 数据质量检查
+relatedConcepts:
+  - data-quality-audit
+  - numerical-standardization
+  - min-max-scaling
+  - skewed-and-cyclical-features
+order: 32
+directory: 数据预处理与特征工程
+kind: long-form
+preserved:
+  codeExplanation:
+    - StandardScaler 使用均值和标准差。
+    - RobustScaler 使用中位数和 IQR。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/02_preprocessing_feature_engineering.md
+      title: 02｜数据预处理与特征工程
+      kind: 原始文档
+  sourceSections:
+    - §5 数值标准化与特征缩放
+    - §8 异常值
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+均值、标准差、最小值和最大值都可能被极端值显著改变。但异常值可能是录入错误，也可能是真实故障、欺诈或高价值对象，不能仅凭数值大就删除。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+RobustScaler 通常用训练集中位数做中心、四分位距 IQR 做尺度。异常值处理则是在业务确认后修正、截断、变换、保留或单独建模。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+中位数和中间 50% 数据像一把不容易被少数极端点拉歪的尺子。它提高稳健性，但不会自动消除异常值。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+IQR=Q3-Q1。RobustScaler 使用训练统计量；处理决策应基于来源、单位和任务语义。长尾非负特征还可考虑 log1p。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 稳健缩放
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+x' = (x - mediantrain) / IQRtrain
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+IQR 是训练集第 75 百分位与第 25 百分位之差。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| Q1 | 训练集第 25 百分位。 |
+| Q3 | 训练集第 75 百分位。 |
+| IQR | Q3-Q1，中间 50% 数据的跨度。 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 极端值如何影响尺度
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- 数据 \[10,11,12,13,1000\]
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 均值为 209.2，被 1000 显著拉高。
+2. 中位数为 12。
+3. 中间数据跨度远小于全范围 990。
+:::
+
+:::field{path="numericalExample.result" type="text"}
+Robust Scaling 的中心更接近普通样本，但是否删除 1000 仍需判断其来源。
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+- StandardScaler 适合近似对称且异常较少的数据。
+- Min-Max 对端点最敏感。
+- RobustScaler 对极端点更稳健。
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 定位异常值及来源记录。
+2. 检查单位、录入和传感器状态。
+3. 确认是否属于目标总体。
+4. 选择修正、截断、变换、稳健缩放或保留。
+5. 所有数据驱动阈值只在训练集拟合。
+6. 比较处理前后验证表现与业务影响。
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### RobustScaler 与 StandardScaler 对比
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+观察极端值对两种缩放器的影响。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+import numpy as np
+from sklearn.preprocessing import RobustScaler, StandardScaler
+
+X = np.array([[10.], [11.], [12.], [13.], [1000.]])
+print(StandardScaler().fit_transform(X).ravel().round(3))
+print(RobustScaler().fit_transform(X).ravel().round(3))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- StandardScaler 使用均值和标准差。
+- RobustScaler 使用中位数和 IQR。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+两组不同缩放值；RobustScaler 下普通样本间的差异不会被 1000 压缩得同样严重。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 长尾金额
+- 含故障尖峰的传感器
+- 稳健线性/距离模型
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 看到异常就删除
+- 把 RobustScaler 当异常检测器
+- 用全数据分位数设截断阈值
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

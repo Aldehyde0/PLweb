@@ -1,0 +1,165 @@
+---
+id: learning-rate-selection
+slug: learning-rate-selection
+title: 学习率选择
+category: machine-learning
+difficulty: 进阶
+summary: 学习率决定每次沿负梯度方向移动的距离，应在特征缩放后按对数尺度比较。
+prerequisites:
+  - 梯度下降
+  - 数值标准化
+relatedConcepts:
+  - numerical-standardization
+  - gradient-descent-convergence
+  - gradient-descent
+order: 33
+directory: 数据预处理与特征工程
+kind: long-form
+preserved:
+  codeExplanation:
+    - 使用相同的已标准化训练数据。
+    - 有限性检查可发现 inf/nan 发散。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/02_preprocessing_feature_engineering.md
+      title: 02｜数据预处理与特征工程
+      kind: 原始文档
+  sourceSections:
+    - §6 学习率的选择
+    - §7 判断梯度下降是否收敛
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+量纲差异会让不同参数方向的梯度尺度悬殊，迫使统一学习率变小。标准化通常能让损失地形更均衡，从而允许更稳定的步长。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+学习率 α 是梯度更新的步长超参数。它不由普通 fit 自动学习，需要通过训练曲线与验证过程选择。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+学习率像下山步幅：过大跨过谷底并震荡，过小移动缓慢，合适时损失快速平滑下降。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+候选值通常按 10 倍尺度尝试；训练损失用于判断优化状态，验证集用于选择泛化更好的设置，测试集不能用于调参。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 梯度更新
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+θₜ₊₁ = θₜ - α∇J(θₜ)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+α 控制一步移动距离。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| α | 学习率。 |
+| ∇J | 当前参数处损失上升最快方向。 |
+:::
+
+::::
+
+<LearningRateDemo />
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 先缩放数值特征。
+2. 选择对数间隔候选值。
+3. 固定其他条件训练。
+4. 记录每轮训练/验证损失。
+5. 识别发散、震荡、过慢与平稳区间。
+6. 用验证而非测试选择。
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 按对数尺度比较学习率
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+NumPy
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+记录不同 α 的损失轨迹。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```NumPy
+candidate_rates = [0.0001, 0.001, 0.01, 0.1, 1.0]
+for alpha in candidate_rates:
+    _, _, losses = gradient_descent(X_scaled, y_train, alpha)
+    print(alpha, losses[-1], np.isfinite(losses).all())
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 使用相同的已标准化训练数据。
+- 有限性检查可发现 inf/nan 发散。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+每个学习率的最终损失和是否保持有限；过大 α 可能发散，过小 α 收敛慢。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 线性回归梯度下降
+- 神经网络优化
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 特征未缩放就比较学习率
+- 只跑固定轮数不看曲线
+- 用测试集挑 α
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

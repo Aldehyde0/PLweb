@@ -1,0 +1,111 @@
+---
+id: data-preprocessing
+slug: data-preprocessing
+title: 数据预处理与泄漏边界
+category: machine-learning
+difficulty: 入门
+summary: 先划分数据，再只用训练集拟合填补、缩放和编码参数。
+prerequisites:
+  - Python 基础
+  - 基础数学
+relatedConcepts:
+  - feature-engineering
+  - cross-validation
+order: 41
+directory: 数据预处理与特征工程
+kind: legacy
+preserved: {}
+---
+
+## 前置知识 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 通俗直觉 {#intuition}
+
+:::field{path="explanation" type="text"}
+预处理器也会“学习”。如果让它看到测试集均值，相当于考试前偷看了试卷整体分布。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="principle" type="text"}
+训练数据拟合 preprocessing 参数，验证、测试与线上数据只调用 transform。Pipeline 能让交叉验证中的每一折独立执行这一规则。
+:::
+
+
+## 数学公式 {#formulas}
+
+:::field{path="formula.expression" type="math"}
+$$
+x' = (x - μtrain) / σtrain
+$$
+:::
+
+:::field{path="formula.description" type="text"}
+均值和标准差必须只来自当前训练数据。
+:::
+
+
+## 工作流程 {#algorithm-steps}
+
+:::field{path="workflow" type="list"}
+- 明确输入、输出与评价方式
+- 建立简单基线
+- 实现并检查关键中间量
+- 在验证数据上诊断和迭代
+:::
+
+
+## 代码示例 {#code}
+
+:::field{path="code.language" type="text"}
+Python
+:::
+
+:::field{path="code.source" type="code" trailing="0"}
+```Python
+from sklearn.pipeline import make_pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+
+model = make_pipeline(
+    SimpleImputer(strategy="median"),
+    StandardScaler(),
+    LogisticRegression(),
+)
+```
+:::
+
+:::field{path="code.highlights" type="list"}
+- 先检查数据和张量形状
+- 把会学习参数的步骤限制在训练数据内
+:::
+
+:::field{path="codeExplanation" type="text"}
+Pipeline 把缺失值填补、标准化和模型绑成一个整体，降低交叉验证时的数据泄漏风险。
+:::
+
+
+## 应用场景 {#applications}
+
+:::field{path="applications" type="list"}
+- 缺失值处理
+- 特征缩放
+- 可靠交叉验证
+:::
+
+
+## 常见误区 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 先对全数据标准化再划分
+- 验证和测试阶段重新拟合预处理器
+:::
+
+
+## 相关概念 {#related}
+
+<ConceptRelated />

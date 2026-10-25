@@ -1,0 +1,148 @@
+---
+id: cross-validation
+slug: cross-validation
+title: 交叉验证
+category: machine-learning
+difficulty: 进阶
+summary: K 折让每条训练部分样本轮流验证，报告平均分和折间波动，并保留最终测试集。
+prerequisites:
+  - 训练测试划分
+relatedConcepts:
+  - cross-validation-splitters
+  - cv-pipeline-leakage
+order: 82
+directory: 评估与模型选择
+kind: long-form
+preserved:
+  codeExplanation:
+    - 示例用于阅读、复制和本地运行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/13_cross_validation.md
+      title: 13｜交叉验证：可靠评估与模型选择
+      kind: 原始文档
+  sourceSections:
+    - §1 为什么需要交叉验证
+    - §2 训练/验证/测试
+    - §17 如何报告
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+一次划分可能碰巧容易或困难，导致算法排序不稳定。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+第 k 折用其余 K-1 折训练，本折验证；交叉验证用于模型选择，不替代最终测试。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+进行多轮模拟考试，而不是只凭一次成绩。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+划分器必须匹配分类、群组和时间结构；所有预处理都在当前训练折内 fit。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+s̄=(1/K)Σsₖ；scv=√[Σ(sₖ-s̄)²/(K-1)]
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+划分器必须匹配分类、群组和时间结构；所有预处理都在当前训练折内 fit。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 保留测试集
+2. 选择划分器
+3. 固定折
+4. 折内 Pipeline fit
+5. 收集每折指标
+6. 报告均值/标准差
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 交叉验证 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的可靠评价或训练流程。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+cv=StratifiedKFold(5,shuffle=True,random_state=42)
+r=cross_validate(model,X_train,y_train,cv=cv,scoring=["accuracy","f1_macro"])
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 数据边界和划分方式是代码含义的一部分。
+- 结果应报告平均、波动或业务对应的指标。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+5 个 accuracy 与 macro F1 验证分数。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 模型比较
+- 超参数选择
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 替代最终测试
+- 预处理在 CV 前
+- 只看最高折
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

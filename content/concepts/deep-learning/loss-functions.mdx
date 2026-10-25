@@ -1,0 +1,107 @@
+---
+id: loss-functions
+slug: loss-functions
+title: 损失函数
+category: deep-learning
+difficulty: 入门
+summary: 损失函数把预测质量转成一个可优化的标量。
+prerequisites:
+  - 概率基础
+  - 神经网络
+relatedConcepts:
+  - backpropagation
+  - linear-regression
+order: 106
+directory: 基础概念
+kind: legacy
+preserved: {}
+---
+
+## 前置知识 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 通俗直觉 {#intuition}
+
+:::field{path="explanation" type="text"}
+它像模型的评分规则：分数越差，优化器就越需要调整参数。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="principle" type="text"}
+不同任务需要匹配概率假设的损失；分类常用交叉熵，回归常用均方误差。
+:::
+
+
+## 数学公式 {#formulas}
+
+:::field{path="formula.expression" type="math"}
+$$
+CE = -Σ yᵢ log pᵢ
+$$
+:::
+
+:::field{path="formula.description" type="text"}
+交叉熵惩罚模型给正确类别分配过低概率。
+:::
+
+
+## 工作流程 {#algorithm-steps}
+
+:::field{path="workflow" type="list"}
+- 模型输出 logits
+- 转换或直接计算损失
+- 对批次求平均
+- 反向传播损失梯度
+:::
+
+
+## 代码示例 {#code}
+
+:::field{path="code.language" type="text"}
+PyTorch
+:::
+
+:::field{path="code.source" type="code" trailing="0"}
+```PyTorch
+import torch
+from torch import nn
+
+logits = torch.tensor([[2.0, 0.4, -1.0]])
+target = torch.tensor([0])
+loss = nn.CrossEntropyLoss()(logits, target)
+print(loss.item())
+```
+:::
+
+:::field{path="code.highlights" type="list"}
+- CrossEntropyLoss 接收原始 logits
+- 目标使用类别索引
+:::
+
+:::field{path="codeExplanation" type="text"}
+正确类别是索引 0，它的 logit 最大，因此损失较小。函数内部完成 softmax 与对数计算。
+:::
+
+
+## 应用场景 {#applications}
+
+:::field{path="applications" type="list"}
+- 模型训练目标
+- 模型比较
+:::
+
+
+## 常见误区 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 对 logits 重复做 softmax
+- 只看损失不看业务指标
+:::
+
+
+## 相关概念 {#related}
+
+<ConceptRelated />

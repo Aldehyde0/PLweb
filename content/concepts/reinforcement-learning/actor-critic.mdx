@@ -1,0 +1,296 @@
+---
+id: actor-critic
+slug: actor-critic
+title: Actor-Critic
+category: reinforcement-learning
+difficulty: 进阶
+summary: Actor 输出策略，Critic 估计价值并提供低方差学习信号。
+prerequisites:
+  - 概率基础
+  - Python 与 NumPy
+relatedConcepts:
+  - a2c-a3c
+  - gae
+  - ppo
+order: 220
+directory: Actor-Critic
+kind: long-form
+preserved:
+  subcategory: Actor-Critic
+  workflow:
+    - Actor 采样动作
+    - 环境返回 transition
+    - Critic 计算 δ
+    - 更新 Critic
+    - 用 δ 更新 Actor
+  algorithmType: Actor-Critic
+  onPolicy: true
+  offPolicy: false
+  actionSpace: 离散或连续，取决于具体算法
+  modelFree: true
+  modelBased: false
+  inputs:
+    - 状态或观察
+    - 动作
+    - 奖励
+    - 下一状态或轨迹
+  outputs:
+    - 价值估计、策略参数或训练诊断
+  codeExplanation:
+    - 代码与本页第一条公式逐项对应。
+    - 网站只展示、复制代码，不执行用户输入或训练真实模型。
+  expectedOutput: 得到固定的数值更新结果，便于手工复核。
+  sourceDocuments:
+    - path: 外部原始教材或论文
+      title: 强化学习可靠资料
+      kind: 扩展资料
+  sourceSections:
+    - 相关定义、公式与算法章节
+  sourceUrls:
+    - https://mitpress.mit.edu/9780262039246/reinforcement-learning/
+  versionDate: 2026-08-30
+anchorAliases:
+  sources: related
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 定义Actor-Critic并复述输入输出。
+- 从公式计算一个最小数值例子。
+- 说明它与相邻算法的区别、失败模式和适用场景。
+:::
+
+
+## 为什么重要 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+Actor-Critic位于“状态—行动—反馈—更新”学习链中的关键位置。
+
+掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
+
+同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Actor 负责行动分布，Critic 用 TD 学习评价状态/动作。
+
+本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+演员负责表演，评论家及时指出比预期好还是差。
+
+把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+Critic 引入 bootstrap 偏差换取较低方差。
+
+TD error 可作为 advantage。
+
+两者学习速度失衡会不稳定。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### Actor-Critic 更新信号
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+\delta_t=R_{t+1}+\gamma V_w(S_{t+1})-V_w(S_t),\quad \theta\leftarrow\theta+\alpha_\theta\delta_t\nabla_\theta\log\pi_\theta(A_t|S_t)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+Critic 的 TD error 指导 Actor。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| G\_t | 从时刻 t 开始的折扣累计回报。 |
+| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
+| γ | 折扣因子，通常位于 \[0,1)。 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### Actor-Critic的最小计算
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- 即时奖励为 1
+- 下一状态估计为 2
+- 折扣因子 γ=0.9
+- 当前估计为 0.5
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 计算 bootstrap 目标：1+0.9×2=2.8。
+2. 目标与当前估计差为 2.8−0.5=2.3。
+3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+:::
+
+:::field{path="numericalExample.result" type="text"}
+一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+- 较大 α 更新快但噪声和震荡更强。
+- 较大 γ 更重视远期奖励，但误差传播范围更长。
+- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. Actor 采样动作
+2. 环境返回 transition
+3. Critic 计算 δ
+4. 更新 Critic
+5. 用 δ 更新 Actor
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### Actor-Critic的本地数值骨架
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+Python
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```Python
+rewards = [0.0, 0.0, 1.0]
+gamma = 0.9
+G = 0.0
+for reward in reversed(rewards):
+    G = reward + gamma * G
+print(round(G, 3))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- rewards 是一条固定轨迹的即时奖励。
+- 从后向前递推对应折扣回报公式。
+- 输出用于核对概念，不代表完整训练系统。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+0.81
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 序贯决策
+- 控制与资源分配
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 只报告最好的一次随机种子
+- 训练回报与评测回报混用
+- 终止状态仍错误 bootstrap
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 扩展内容说明 {#extension}
+
+:::field{path="extensionNotes" type="paragraphs"}
+未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+:::
+
+
+## 算法属性与数据边界 {#algorithm-profile}
+
+<ArticleFlags />
+
+## 失败模式、风险与性能 {#failure-performance}
+
+:::field{path="failureModes" type="list"}
+- 探索不足
+- 目标漂移
+- 函数近似不稳定
+:::
+
+:::field{path="securityRisks" type="list"}
+- 奖励函数与真实目标不一致会诱发奖励黑客。
+- 部署策略的行动权限必须由环境和应用层约束。
+:::
+
+:::field{path="performanceNotes" type="list"}
+- 样本效率、墙钟时间和显存占用需要分别报告。
+- 应使用多个随机种子、置信区间和固定评测策略。
+:::
+
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### Actor-Critic是 on-policy 还是 off-policy？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+本页算法/方法按 on-policy 组织。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 网页是否会训练模型？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
+:::
+

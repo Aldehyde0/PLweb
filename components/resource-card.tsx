@@ -14,6 +14,7 @@ import {
   ScrollText,
 } from 'lucide-react';
 import { conceptMap } from '@/lib/content';
+import { aliases } from '@/lib/concept-identifiers';
 import { getConceptHref } from '@/lib/concept-utils';
 import type { LearningResource, ResourceType } from '@/lib/resources';
 import { getResourceTypeGroup } from '@/lib/resource-style';
@@ -44,7 +45,7 @@ export function ResourceCard({ resource }: { resource: LearningResource }) {
   const bookmarked = bookmarkIds.includes(resource.id);
   const Icon = iconByType[resource.type] ?? FileText;
   const concepts = resource.conceptSlugs
-    .map((slug) => conceptMap[slug])
+    .map((slug) => conceptMap[aliases[slug]??slug])
     .filter(Boolean);
   return (
     <article className="resource-card">
@@ -130,6 +131,7 @@ export function ResourceCard({ resource }: { resource: LearningResource }) {
         </Button>
         <Button
           size="sm"
+          nativeButton={false}
           render={
             <a
               href={resource.url}

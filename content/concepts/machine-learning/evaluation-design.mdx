@@ -1,0 +1,150 @@
+---
+id: evaluation-design
+slug: evaluation-design
+title: 面向真实使用的评价设计
+category: machine-learning
+difficulty: 进阶
+summary: 数据划分必须模拟未来来源、时间、群组和预测时可用信息。
+prerequisites:
+  - 训练验证测试
+relatedConcepts:
+  - group-cross-validation
+  - time-series-cross-validation
+  - future-information-leakage
+order: 65
+directory: 评估与模型选择
+kind: long-form
+preserved:
+  codeExplanation:
+    - 示例用于阅读、复制和本地运行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/07_evaluation_tuning.md
+      title: 07｜模型评估与调参
+      kind: 原始文档
+  sourceSections:
+    - §1 评价首先要模拟真实使用
+    - §2 训练集、验证集和测试集
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+随机划分并不总可靠。同一患者跨分块会泄漏身份，过去预测未来却打乱时间会让训练看到未来。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+评价设计先定义模型未来面对谁、何时预测、预测跨度和错误成本，再决定随机、时间、群组或来源外测试。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+测试不是从数据表随机抽题，而是模拟上线后真正会遇到的新对象。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+划分设计优先于算法选择；特征可用性、重复实体、时间顺序和地区/设备变化都要进入协议。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+可靠测试 ≈ 未来数据生成过程的离线模拟
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+划分设计优先于算法选择；特征可用性、重复实体、时间顺序和地区/设备变化都要进入协议。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 定义预测时点和对象
+2. 识别时间/群组/来源
+3. 选择划分器
+4. 冻结测试集
+5. 在训练部分验证
+6. 分群报告误差
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 面向真实使用的评价设计 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的可靠评价或训练流程。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.model_selection import GroupKFold
+cv=GroupKFold(n_splits=5)
+results=cross_validate(model,X,y,groups=user_ids,cv=cv)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 数据边界和划分方式是代码含义的一部分。
+- 结果应报告平均、波动或业务对应的指标。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+每折验证用户与训练用户不重叠。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 医疗
+- 用户行为
+- 时间预测
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 默认随机切分
+- 同一实体跨折
+- 预测时不可用特征
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

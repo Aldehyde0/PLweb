@@ -1,0 +1,146 @@
+---
+id: mean-variance-standard-deviation
+slug: mean-variance-standard-deviation
+title: 均值、方差与标准差
+category: machine-learning
+difficulty: 入门
+summary: 均值描述中心，方差和标准差描述围绕中心的分散程度。
+prerequisites:
+  - 求和与平方根
+relatedConcepts:
+  - numerical-standardization
+  - robust-scaling-and-outliers
+order: 16
+directory: 入门与数学基础
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码用于验证概念，不在网页中直接执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/01_math_data_foundations.md
+      title: 01｜数学与数据基础
+      kind: 原始文档
+  sourceSections:
+    - §3 均值、方差和标准差
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+这些统计量用于标准化、高斯朴素贝叶斯、异常分析和低方差特征检查。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+总体方差用平均平方偏差，样本方差常用 n-1 自由度修正；标准差是方差平方根并保留原单位。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+均值回答“通常在哪”，标准差回答“通常离中心多远”。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+必须区分总体/样本约定与计算轴；极端值会同时影响均值和标准差。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+μ=(1/n)Σxᵢ；σ²=(1/n)Σ(xᵢ-μ)²；σ=√σ²
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+必须区分总体/样本约定与计算轴；极端值会同时影响均值和标准差。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 计算均值
+2. 求每项偏差
+3. 平方并平均
+4. 开平方
+5. 结合单位解释
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 均值、方差与标准差：最小可验证示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+NumPy
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+把正文原理映射为可检查的代码行为。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```NumPy
+import numpy as np
+x = np.array([50., 60., 70.])
+print(x.mean(), x.var(), x.std())
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 先确认输入形状和数据边界。
+- 把输出与公式或定义逐项对照。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+60.0、66.666...、8.1649...。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- Z-score
+- 分布描述
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 混淆 n 与 n-1
+- 方差单位误解
+- 异常值影响被忽略
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

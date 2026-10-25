@@ -1,0 +1,141 @@
+---
+id: retrieval-augmented-generation
+slug: retrieval-augmented-generation
+title: 检索增强生成（RAG）
+category: artificial-intelligence
+difficulty: 进阶
+summary: 先从受控知识源检索证据，再让模型依据证据生成并保留来源。
+prerequisites:
+  - prompt-instructions-context
+relatedConcepts:
+  - knowledge-representation
+  - guardrails-prompt-injection
+order: 173
+directory: 模型与 Agent
+kind: long-form
+preserved:
+  subcategory: 模型与 Agent
+  entityType: model
+  workflow:
+    - 解析查询
+    - 检索候选片段
+    - 重排与去重
+    - 组装带来源上下文
+    - 生成并核对引用
+  inputs:
+    - 用户问题
+    - 文档索引
+  outputs:
+    - 证据片段
+    - 带来源回答
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls: []
+  versionDate: 2026-08-30
+  capabilities:
+    - 知识库问答
+    - 文档助手
+  permissions: []
+  inputsSchema: 用户问题；文档索引
+  outputsSchema: 证据片段；带来源回答
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明检索增强生成（RAG）解决什么问题，以及何时适用。
+- 能解释为什么“检索不到仍强行回答”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+模型训练数据可能过时或不含私有资料，检索允许在回答时引入当前文档。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+RAG 把查询、检索、重排、上下文组装和生成结合，以降低仅依赖模型参数记忆的事实风险。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+先查书再作答，而不是只凭记忆。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+检索召回决定模型能看到什么。
+
+分块和重排影响证据完整性。
+
+生成阶段应区分证据内容与其中潜在指令。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 解析查询
+2. 检索候选片段
+3. 重排与去重
+4. 组装带来源上下文
+5. 生成并核对引用
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 知识库问答
+- 文档助手
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 检索不到仍强行回答
+- 引用与结论不对应
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

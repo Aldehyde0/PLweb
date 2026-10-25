@@ -1,0 +1,154 @@
+---
+id: gradient-descent
+slug: gradient-descent
+title: 导数、梯度与梯度下降
+category: machine-learning
+difficulty: 入门
+summary: 梯度汇集损失对所有参数的局部变化率，梯度下降沿反方向更新参数。
+prerequisites:
+  - 导数
+  - 损失函数
+relatedConcepts:
+  - learning-rate-selection
+  - gradient-descent-convergence
+  - backpropagation
+order: 20
+directory: 入门与数学基础
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码用于验证概念，不在网页中直接执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/01_math_data_foundations.md
+      title: 01｜数学与数据基础
+      kind: 原始文档
+  sourceSections:
+    - §6 导数与梯度
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+线性模型和神经网络常通过迭代优化参数；树模型通常通过候选划分搜索而非梯度。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+一元导数描述瞬时变化率，多参数偏导数组成梯度。梯度指向损失上升最快方向。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+梯度像坡度箭头，反方向是局部下坡；学习率决定步长。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+梯度是局部信息，不保证一次到达全局最优；尺度、学习率和数值稳定性决定轨迹。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+θ⁽ᵗ⁺¹⁾=θ⁽ᵗ⁾-η∇θL(θ⁽ᵗ⁾)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+梯度是局部信息，不保证一次到达全局最优；尺度、学习率和数值稳定性决定轨迹。
+:::
+
+::::
+
+<LearningRateDemo />
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 初始化参数
+2. 前向预测
+3. 计算损失
+4. 计算梯度
+5. 按学习率更新
+6. 检查收敛
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 导数、梯度与梯度下降：最小可验证示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+NumPy
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+把正文原理映射为可检查的代码行为。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```NumPy
+w = 0.0
+learning_rate = 0.1
+for _ in range(20):
+    gradient = 2 * (w - 3)
+    w -= learning_rate * gradient
+print(round(w, 3))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 先确认输入形状和数据边界。
+- 把输出与公式或定义逐项对照。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+w 接近使 (w-3)² 最小的 3。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 线性回归
+- 神经网络
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 学习率过大
+- 未检查梯度/损失有限性
+- 收敛等同泛化
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

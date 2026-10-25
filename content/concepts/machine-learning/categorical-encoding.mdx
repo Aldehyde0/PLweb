@@ -1,0 +1,142 @@
+---
+id: categorical-encoding
+slug: categorical-encoding
+title: 类别编码：One-Hot 与有序编码
+category: machine-learning
+difficulty: 入门
+summary: 把类别值转换为模型可处理的数值，同时避免给无序类别强加不存在的大小关系。
+prerequisites:
+  - 类别变量
+  - 训练/测试边界
+relatedConcepts:
+  - missing-value-imputation
+  - sklearn-pipeline-column-transformer
+  - feature-construction
+order: 29
+directory: 数据预处理与特征工程
+kind: long-form
+preserved:
+  codeExplanation:
+    - fit 只从训练集学习 red/green/blue。
+    - yellow 未见过，因此对应所有已知类别列为 0。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/02_preprocessing_feature_engineering.md
+      title: 02｜数据预处理与特征工程
+      kind: 原始文档
+  sourceSections:
+    - §4 类别编码
+    - §13 同时处理数值和类别列
+  extensionNotes: []
+  formulas: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+多数传统模型需要数值输入。若把红、绿、蓝直接编码为 0、1、2，线性或距离模型会误以为类别之间存在距离和倍数关系。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+One-Hot 为每个无序类别建立独立指示列；有序编码只适用于确实存在低、中、高等顺序的类别。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+One-Hot 像为每个类别设置独立开关；有序编码则像等级刻度，只有真实存在顺序时才合理。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+训练阶段学习类别集合和输出列顺序，预测阶段必须复用。OneHotEncoder(handle\_unknown="ignore") 可让未知类别产生全零编码而不是直接报错，但仍应监控未知率。
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 识别无序与有序类别。
+2. 确定缺失类别处理。
+3. 只在训练集拟合编码器。
+4. 对验证和测试复用列空间。
+5. 记录生成的特征名称。
+6. 检查高基数类别带来的维度与稀疏性。
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### One-Hot 编码未知类别
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+训练时建立类别空间，预测时安全处理新类别。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.preprocessing import OneHotEncoder
+
+encoder = OneHotEncoder(
+    handle_unknown="ignore",
+    sparse_output=False,
+)
+train = [["red"], ["green"], ["blue"]]
+test = [["green"], ["yellow"]]
+encoder.fit(train)
+print(encoder.get_feature_names_out())
+print(encoder.transform(test))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- fit 只从训练集学习 red/green/blue。
+- yellow 未见过，因此对应所有已知类别列为 0。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+列名包含 blue、green、red；green 行有一个 1，yellow 行为全 0。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 无序类别特征
+- 线性模型
+- 混合类型 Pipeline
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 无序类别直接编码为 0/1/2
+- 训练和预测独立 get\_dummies 导致列不一致
+- 忽略高基数问题
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

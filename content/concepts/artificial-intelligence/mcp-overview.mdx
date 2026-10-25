@@ -1,0 +1,182 @@
+---
+id: mcp-overview
+slug: mcp-overview
+title: MCP：统一连接工具与上下文
+category: artificial-intelligence
+difficulty: 进阶
+summary: Model Context Protocol 用标准消息和能力协商连接宿主、Client 与提供 Tool、Resource、Prompt 的 Server。
+prerequisites:
+  - tools
+  - client-server-basics
+relatedConcepts:
+  - mcp-client-server
+  - mcp-transports
+  - mcp-security
+  - agent-skill-tool-mcp-comparison
+order: 188
+directory: MCP
+kind: long-form
+preserved:
+  subcategory: MCP
+  entityType: mcp
+  workflow:
+    - 用户任务进入 Agent
+    - Agent 查看 Client 暴露的允许能力
+    - MCP Client 与 Server 协商并发现能力
+    - Agent 选择 Tool 或请求 Resource
+    - Client 发送协议请求
+    - Server 执行并返回结构化结果
+    - Agent 验证结果并继续或完成
+  codeExplanation: []
+  expectedOutput: ""
+  interactiveDemo: mcp-flow
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls:
+    - https://developers.openai.com/api/docs/guides/tools-connectors-mcp
+    - https://modelcontextprotocol.io/specification/2026-07-28
+    - https://modelcontextprotocol.io/specification/2026-07-28/server
+  versionDate: 2026-08-30
+  inputsSchema: Server 地址或本地进程配置；协议请求；授权信息
+  outputsSchema: 工具列表；资源或 Prompt 元数据；调用结果或协议错误
+  transport:
+    - stdio（本地子进程）
+    - Streamable HTTP（当前标准远程传输）
+    - 旧 HTTP+SSE（已弃用，仅兼容迁移）
+  executionEnvironment: ""
+  approvalRequired: true
+  readOnly: false
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+anchorAliases:
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明MCP：统一连接工具与上下文解决什么问题，以及何时适用。
+- 能解释为什么“把 MCP 当 Agent”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+每个应用都为每个数据源手写连接器会形成 N×M 集成；协议把发现、调用和内容类型标准化。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+MCP 全称 Model Context Protocol。它规定 Client 与 Server 如何发现和调用能力，不等同于某个具体工具、API 或 Agent。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+MCP 像通用插座规范：Server 提供插口后的工具与资料，Client 负责连接，Agent 决定何时使用；插座本身不替你完成任务。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+MCP Server 可提供 Tool、Resource 与 Prompt；当前官方规范中三者控制方式不同。
+
+Client 管理连接、能力发现、请求与响应，并把允许的能力交给宿主应用。
+
+普通 API 是某服务的业务接口；MCP 在其上提供面向模型/Agent 的统一发现与调用约定。
+
+函数调用定义应用内工具接口；MCP 可从独立 Server 动态提供工具和资源。
+
+Skill 描述工作方法；MCP 描述通信与能力暴露。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 用户任务进入 Agent
+2. Agent 查看 Client 暴露的允许能力
+3. MCP Client 与 Server 协商并发现能力
+4. Agent 选择 Tool 或请求 Resource
+5. Client 发送协议请求
+6. Server 执行并返回结构化结果
+7. Agent 验证结果并继续或完成
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 本地文件服务
+- 远程业务服务
+- 统一工具目录
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 把 MCP 当 Agent
+- 默认信任任意 Server
+- 暴露全部写工具
+- 混淆 Streamable HTTP 中使用 SSE 与旧 HTTP+SSE 传输
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+<AIInteractiveDemo kind="mcp-flow" />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- Server 地址或本地进程配置
+- 协议请求
+- 授权信息
+:::
+
+:::field{path="outputs" type="list"}
+- 工具列表
+- 资源或 Prompt 元数据
+- 调用结果或协议错误
+:::
+
+:::field{path="capabilities" type="list"}
+- 本地文件服务
+- 远程业务服务
+- 统一工具目录
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

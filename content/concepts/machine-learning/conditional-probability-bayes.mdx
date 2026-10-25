@@ -1,0 +1,150 @@
+---
+id: conditional-probability-bayes
+slug: conditional-probability-bayes
+title: 条件概率与贝叶斯公式
+category: machine-learning
+difficulty: 入门
+summary: 条件概率在已知信息后更新事件可能性，贝叶斯公式结合先验与似然得到后验。
+prerequisites:
+  - 概率
+relatedConcepts:
+  - naive-bayes
+  - probability-and-thresholds
+order: 18
+directory: 入门与数学基础
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码用于验证概念，不在网页中直接执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/01_math_data_foundations.md
+      title: 01｜数学与数据基础
+      kind: 原始文档
+  sourceSections:
+    - §4.2 条件概率
+    - §4.3 贝叶斯公式的直觉
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+朴素贝叶斯以此为分类基础，概率推理还要求清楚分母所代表的条件总体。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+P(A\|B) 把观察范围限制在 B 已发生的样本；贝叶斯公式把 P(x\|C)P(C) 归一化为 P(C\|x)。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+先考虑类别本来多常见，再看当前特征与该类别有多匹配。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+比较类别时证据 P(x) 相同，可比较未归一化先验×似然；实际中常在对数空间计算。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+P(Cₖ|x)=P(x|Cₖ)P(Cₖ)/P(x)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+比较类别时证据 P(x) 相同，可比较未归一化先验×似然；实际中常在对数空间计算。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 定义条件总体
+2. 估计先验
+3. 估计似然
+4. 计算未归一化分数
+5. 归一化
+6. 选择最大后验
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 条件概率与贝叶斯公式：最小可验证示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+NumPy
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+把正文原理映射为可检查的代码行为。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```NumPy
+import numpy as np
+priors = np.array([0.4, 0.6])
+likelihoods = np.array([0.3, 0.1])
+posterior = priors * likelihoods
+posterior /= posterior.sum()
+print(posterior)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 先确认输入形状和数据边界。
+- 把输出与公式或定义逐项对照。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+\[0.667,0.333\] 左右，预测类别 0。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 朴素贝叶斯
+- 风险更新
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 条件概率分母用全部样本
+- 把相关特征当独立
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

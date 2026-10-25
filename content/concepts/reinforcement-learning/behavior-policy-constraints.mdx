@@ -1,0 +1,340 @@
+---
+id: behavior-policy-constraints
+slug: behavior-policy-constraints
+title: 行为策略约束：在数据支持内改进
+category: reinforcement-learning
+difficulty: 挑战
+summary: 用行为克隆、KL/MMD 距离、生成模型或优势加权回归控制策略偏离数据分布。
+prerequisites:
+  - 概率基础
+  - Python 与 NumPy
+relatedConcepts:
+  - offline-data-distribution-shift
+  - iql
+  - cql
+  - imitation-inverse-rl
+  - sac
+order: 236
+directory: Offline RL
+kind: long-form
+preserved:
+  subcategory: Offline RL
+  workflow:
+    - 训练 BC 并检查验证集负对数似然
+    - 按状态生成行为支持内候选动作
+    - 定义 KL、MMD、扰动半径或优势权重
+    - 在约束内最大化 Q 或加权似然
+    - 监测策略—行为距离和有效样本数
+    - 对低支持状态回退到安全策略
+  algorithmType: 强化学习基础
+  onPolicy: false
+  offPolicy: false
+  actionSpace: 离散或连续，取决于具体算法
+  modelFree: true
+  modelBased: false
+  inputs:
+    - 状态或观察
+    - 动作
+    - 奖励
+    - 下一状态或轨迹
+  outputs:
+    - 价值估计、策略参数或训练诊断
+  codeExplanation:
+    - 代码与本页第一条公式逐项对应。
+    - 网站只展示、复制代码，不执行用户输入或训练真实模型。
+  expectedOutput: 新策略提高高优势动作概率，但不会给行为策略概率为零的动作凭空分配质量。
+  sourceDocuments:
+    - path: arXiv:1906.00949
+      title: BEAR
+      kind: 原始文档
+    - path: arXiv:1812.02900
+      title: BCQ
+      kind: 原始文档
+    - path: arXiv:2110.06169
+      title: Implicit Q-Learning
+      kind: 原始文档
+  sourceSections:
+    - BEAR / §4：MMD 行为支持约束与算法
+    - BCQ / Abstract 与方法：生成式行为候选和小扰动
+    - IQL / §4：advantage-weighted behavioral cloning 策略提取
+  sourceUrls:
+    - https://arxiv.org/abs/1906.00949
+    - https://arxiv.org/abs/1812.02900
+    - https://arxiv.org/abs/2110.06169
+  versionDate: 2026-08-30
+anchorAliases:
+  sources: related
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 定义行为策略约束：在数据支持内改进并复述输入输出。
+- 从公式计算一个最小数值例子。
+- 说明它与相邻算法的区别、失败模式和适用场景。
+:::
+
+
+## 为什么重要 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+行为策略约束：在数据支持内改进位于“状态—行动—反馈—更新”学习链中的关键位置。
+
+掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
+
+同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+行为策略约束把策略改进限制在数据支持附近，避免 actor 或 Bellman backup 选择行为数据几乎未覆盖的动作。约束对象可以是显式估计的 β、样本集合或隐式加权的行为克隆。
+
+本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+不是禁止超越示范者，而是要求每次改进都有历史证据：先沿着走过的路挑更好路段，再谨慎决定是否扩大边界。
+
+把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+纯 Behavior Cloning 最稳但通常不能利用奖励超越行为策略。
+
+显式 KL 需要可靠的行为策略密度；多峰数据被单峰模型拟合时可能制造不存在的中间动作。
+
+BEAR 用样本 MMD 约束策略动作与行为数据动作；BCQ 通过生成候选并做小扰动限制动作。
+
+IQL 的优势加权行为克隆是一种隐式支持约束；CQL 则主要约束价值而非直接约束策略距离。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 受行为分布约束的策略改进
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+\max_\pi\;\mathbb{E}_{s\sim\mathcal D,a\sim\pi}[Q(s,a)]\quad\text{s.t.}\quad D(\pi(\cdot|s),\beta(\cdot|s))\le\varepsilon
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+D 可取 KL、MMD 或其他支持距离；ε 控制改进幅度与外推风险。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| β(a\|s) | 产生离线数据的行为策略或其估计。 |
+| π(a\|s) | 待学习策略。 |
+| D(π,β) | 策略与行为分布之间的距离或支持差异。 |
+| ε | 允许偏离行为策略的预算。 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 行为策略约束：在数据支持内改进的最小计算
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- 即时奖励为 1
+- 下一状态估计为 2
+- 折扣因子 γ=0.9
+- 当前估计为 0.5
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 计算 bootstrap 目标：1+0.9×2=2.8。
+2. 目标与当前估计差为 2.8−0.5=2.3。
+3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+:::
+
+:::field{path="numericalExample.result" type="text"}
+一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+- 较大 α 更新快但噪声和震荡更强。
+- 较大 γ 更重视远期奖励，但误差传播范围更长。
+- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 训练 BC 并检查验证集负对数似然
+2. 按状态生成行为支持内候选动作
+3. 定义 KL、MMD、扰动半径或优势权重
+4. 在约束内最大化 Q 或加权似然
+5. 监测策略—行为距离和有效样本数
+6. 对低支持状态回退到安全策略
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 优势加权的行为克隆
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+NumPy
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+展示行为约束仍可在数据支持内提高高优势动作的权重。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```NumPy
+import numpy as np
+
+behavior_prob = np.array([0.70, 0.25, 0.05])
+advantage = np.array([-0.4, 0.5, 1.2])
+beta = 2.0
+weights = np.exp(np.clip(beta * advantage, -5, 5))
+policy = behavior_prob * weights
+policy = policy / policy.sum()
+kl = np.sum(policy * np.log(policy / behavior_prob))
+print('behavior:', np.round(behavior_prob, 3))
+print('constrained policy:', np.round(policy, 3))
+print('KL(policy || behavior):', round(float(kl), 3))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- behavior\_prob 代表数据收集策略的动作分布。
+- 指数优势权重提高数据中较好动作的概率，同时保留行为分布作为锚点。
+- beta 越大，改进更激进、有效样本数通常更低。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+新策略提高高优势动作概率，但不会给行为策略概率为零的动作凭空分配质量。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 序贯决策
+- 控制与资源分配
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 只报告最好的一次随机种子
+- 训练回报与评测回报混用
+- 终止状态仍错误 bootstrap
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 扩展内容说明 {#extension}
+
+:::field{path="extensionNotes" type="paragraphs"}
+道路类比、约束选型清单、NumPy 优势加权示例和安全回退建议为本站扩展解释；算法依据来自 BEAR、BCQ 与 IQL 原论文。
+:::
+
+
+## 算法属性与数据边界 {#algorithm-profile}
+
+<ArticleFlags />
+:::field{path="objectiveFunction" type="text"}
+在行为支持约束内最大化估计价值
+:::
+:::field{path="referencePolicy" type="text"}
+数据行为策略 β、其生成模型或数据动作本身
+:::
+:::field{path="dataBoundary" type="list"}
+- 若 β 未记录，只能从有限数据估计；低密度状态的约束可信度更低。
+- 行为支持包含危险动作并不代表它们可部署，安全约束仍应独立执行。
+- 过强约束退化为 BC，过弱约束重新暴露 OOD 价值误差。
+:::
+
+## 与 DQN、SAC 及相邻方法对照 {#algorithm-comparison}
+
+:::field{path="comparisonNotes" type="list"}
+- DQN 没有显式 actor，约束通常施加在 backup 的可选动作或 Q 上。
+- SAC actor 可直接加 KL/BC 项，但固定数据下仅靠 entropy 不能防止 OOD。
+- CQL 通过保守 Q 间接改变 actor；IQL 用数据动作的优势加权 BC 提取策略。
+:::
+
+
+## 失败模式、风险与性能 {#failure-performance}
+
+:::field{path="failureModes" type="list"}
+- 行为模型 mode collapse 丢失合法动作模式
+- 用单一 KL 阈值覆盖所有状态
+- 指数优势权重溢出或有效样本数塌缩
+- 把接近历史行为误当作安全证明
+:::
+
+:::field{path="securityRisks" type="list"}
+- 历史行为可能违反新法规或权限边界。
+- 部署必须保留拒绝、回退、人工审批与审计日志。
+:::
+
+:::field{path="performanceNotes" type="list"}
+- 同时报告 return、策略—行为距离和权重有效样本数。
+- 连续动作约束通常需要多次动作采样，计算成本随候选数增长。
+:::
+
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### 行为策略约束：在数据支持内改进是 on-policy 还是 off-policy？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+这是基础或比较概念，具体归属取决于所讨论算法。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 网页是否会训练模型？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
+:::
+

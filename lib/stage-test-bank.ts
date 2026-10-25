@@ -12,7 +12,7 @@ import type { StageQuestionInput } from './stage-test.ts';
  *    `referenceAnswer`. They are shown for self-assessment and are never scored
  *    by string comparison.
  * 4. Every answer must be verifiable against the concept text in
- *    `lib/content-base.ts` / `lib/expanded-content.ts`.
+ *    `content/concepts/` (the canonical MDX articles).
  */
 export const questionBank: Record<string, StageQuestionInput[]> = {
   // ---------------------------------------------------------------- 机器学习基础

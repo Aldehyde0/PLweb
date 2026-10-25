@@ -1,0 +1,148 @@
+---
+id: naive-bayes
+slug: naive-bayes
+title: 高斯朴素贝叶斯
+category: machine-learning
+difficulty: 进阶
+summary: 学习各类别先验与每个连续特征的类别条件高斯分布，在对数空间比较后验。
+prerequisites:
+  - 贝叶斯公式
+  - 均值方差
+relatedConcepts:
+  - conditional-probability-bayes
+  - model-family-comparison
+order: 49
+directory: 模型与算法
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码展示而不在浏览器执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/04_neighbors_bayes_svm.md
+      title: 04｜近邻、贝叶斯与支持向量机
+      kind: 原始文档
+  sourceSections:
+    - §2 高斯朴素贝叶斯
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+假设常不完全真实，但参数少、速度快，小数据也可作为概率基线。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+模型假设给定类别后特征条件独立，并为每类每特征估计均值和方差。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+把每项特征对各类别的匹配证据相乘，再乘类别本身常见程度。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+实际用对数相加避免下溢；概率可能未校准，特征相关性会重复计算证据。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+log P(C|x)=log P(C)+Σⱼlog P(xⱼ|C)+const
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+实际用对数相加避免下溢；概率可能未校准，特征相关性会重复计算证据。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 估计先验
+2. 按类估计均值方差
+3. 计算各特征似然
+4. 对数求和
+5. 归一化或 argmax
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 高斯朴素贝叶斯 实现
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的训练与预测逻辑。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.naive_bayes import GaussianNB
+model=GaussianNB().fit(X_train,y_train)
+print(model.theta_.shape, model.var_.shape)
+print(model.predict_proba(X_test[:2]))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 代码先建立符合输入要求的估计器。
+- 参数应在交叉验证中选择，测试集不参与。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+输出每类每特征统计量形状和两条样本概率。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 小数据分类
+- 快速概率基线
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 独立假设当事实
+- 概率未经校准
+- 方差接近零
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

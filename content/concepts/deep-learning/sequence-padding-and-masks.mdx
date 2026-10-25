@@ -1,0 +1,230 @@
+---
+id: sequence-padding-and-masks
+slug: sequence-padding-and-masks
+title: 序列 Padding 与 Mask
+category: deep-learning
+difficulty: 进阶
+summary: 把变长序列补齐成规则张量，并明确有效位置、padding 和 causal mask 语义。
+prerequisites:
+  - Embedding
+  - 广播
+relatedConcepts:
+  - embeddings-sequences
+  - transformer-masks
+order: 148
+directory: 序列模型
+kind: long-form
+preserved:
+  subcategory: 序列模型
+  codeExplanation:
+    - 广播得到 [N,L]
+    - True 是有效
+    - 传 key padding 时常取反
+  sourceDocuments:
+    - path: 学习资料/deeplearning/17_Embedding与序列数据基础.md
+      title: 17_Embedding与序列数据基础
+      kind: 原始文档
+  sourceSections:
+    - §5 padding
+    - §6 collate
+    - §10 loss mask
+    - §12 三类 mask
+    - §15 错误
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 构造 lengths/mask
+- 辨认布尔方向
+- 忽略 padding loss
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+避免序列评价虚高
+
+Attention/RNN 正确性
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+padding 只是组批工具，不应参与注意力、池化、损失或指标。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+valid\_mask=True 常表示真实 token；某些 API 的 padding mask=True 反而表示屏蔽。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+补齐的空位只是占位，不是模型应学习的内容。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+动态 padding 减少浪费；mask 形状、device、dtype 和布尔方向必须匹配 API。
+
+左 padding 可能需基于有效 mask 重新编号位置。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+m_{nt}=\mathbb{1}(t<length_n)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+有效位置为 1。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| length\_n | 第 n 条真实长度 |
+| m | 有效 mask |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 两条序列
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- lengths=\[3,2\]
+- Lmax=3
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. positions\<\[3,2\]
+:::
+
+:::field{path="numericalExample.result" type="text"}
+\[\[T,T,T\],\[T,T,F\]\]
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 收集长度
+2. pad\_sequence
+3. 生成 valid mask
+4. 转换 API mask
+5. 损失/指标过滤
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 序列 Padding 与 Mask · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证序列 Padding 与 Mask的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+lengths=torch.tensor([3,2])
+pos=torch.arange(3)[None,:]
+valid=pos<lengths[:,None]
+print(valid)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 广播得到 \[N,L\]
+- True 是有效
+- 传 key padding 时常取反
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+\[\[True,True,True\],\[True,True,False\]\]。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 文本/RNN/Transformer
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- mask 方向反
+- padding 入 Accuracy
+- 空序列
+- mask 轴错
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### valid mask 和 key padding mask 相同吗？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+常常布尔方向相反。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 为何动态 padding？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+减少无效计算。
+:::
+

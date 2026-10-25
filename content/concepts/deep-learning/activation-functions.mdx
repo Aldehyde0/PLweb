@@ -1,0 +1,222 @@
+---
+id: activation-functions
+slug: activation-functions
+title: 激活函数与非线性
+category: deep-learning
+difficulty: 入门
+summary: ReLU、Sigmoid、Tanh、GELU 等函数为网络引入非线性或转换输出。
+prerequisites:
+  - 人工神经元
+relatedConcepts:
+  - output-layers-and-losses
+  - gradient-initialization
+order: 103
+directory: 基础组件
+kind: long-form
+preserved:
+  subcategory: 基础组件
+  codeExplanation:
+    - 逐元素计算
+    - 不改变 shape
+  sourceDocuments:
+    - path: 学习资料/deeplearning/05_激活函数与非线性.md
+      title: 05_激活函数与非线性
+      kind: 原始文档
+  sourceSections:
+    - §1–3 非线性
+    - §4–9 常见激活
+    - §10–11 输出搭配
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 比较常见激活
+- 解释死亡 ReLU
+- 正确搭配输出损失
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+决定表达能力和梯度传播
+
+连接输出层与损失
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+无激活的多层线性网络仍等价于一个线性层。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+激活函数作用于线性分数；隐藏层与输出层的选择目的不同。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+线性层折不了弯，激活函数让表示在不同区域产生不同响应。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+ReLU 隐藏层常用；Sigmoid/Softmax 多用于概率解释，组合损失直接接收 logits。
+
+CrossEntropyLoss 前不 Softmax，BCEWithLogitsLoss 前不 Sigmoid。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+ReLU(z)=\max(0,z)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+负数变 0，正数保留。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| z | 激活前 logit 或隐藏值 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### ReLU
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- z=\[-2,0,3\]
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 逐元素 max(0,z)
+:::
+
+:::field{path="numericalExample.result" type="text"}
+\[0,0,3\]
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 线性变换
+2. 选择隐藏激活
+3. 输出 logits
+4. 按任务选择损失
+5. 推理转换概率
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 激活函数与非线性 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证激活函数与非线性的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+x=torch.tensor([-2.,0.,3.])
+print(torch.relu(x))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 逐元素计算
+- 不改变 shape
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+tensor(\[0.,0.,3.\])。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- MLP/CNN 隐藏层
+- Transformer GELU
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 层多即非线性
+- CE 前 Softmax
+- 激活等于损失
+- 死亡 ReLU
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### 为什么隐藏层不用 Softmax？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+它会让特征竞争且限制表达，通常只用于类别概率。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### Sigmoid 为何易梯度消失？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+绝对值大时进入饱和区，导数接近零。
+:::
+

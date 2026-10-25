@@ -1,0 +1,153 @@
+---
+id: logistic-regression
+slug: logistic-regression
+title: 逻辑回归
+category: machine-learning
+difficulty: 进阶
+summary: 先计算线性分数，再用 Sigmoid 或 Softmax 得到类别概率。
+prerequisites:
+  - 点积
+  - 交叉熵
+relatedConcepts:
+  - cross-entropy
+  - probability-and-thresholds
+  - regularization-l1-l2
+order: 44
+directory: 模型与算法
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码展示而不在浏览器执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/03_linear_models.md
+      title: 03｜线性模型
+      kind: 原始文档
+  sourceSections:
+    - §3 逻辑回归
+    - §4 为什么需要正则化
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+它训练快、参数较少、可输出概率，是高维稀疏和小数据任务的重要基线。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+逻辑回归是分类模型而非回归模型；二分类建模 log-odds，多分类计算多个类别分数。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+线性分数表示证据强弱，Sigmoid 把分数压到 0～1，再由阈值决定行动。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+通常最小化交叉熵并加入 L1/L2。StandardScaler 让优化和正则化更稳定；C 是正则强度倒数。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+p=1/(1+e⁻ᶻ)，z=wᵀx+b
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+通常最小化交叉熵并加入 L1/L2。StandardScaler 让优化和正则化更稳定；C 是正则强度倒数。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 标准化连续特征
+2. 拟合交叉熵目标
+3. 查看 predict\_proba
+4. 在验证集选择阈值/C
+5. 测试并检查校准
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 逻辑回归 实现
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的训练与预测逻辑。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+model=make_pipeline(StandardScaler(),LogisticRegression(C=1,max_iter=2000))
+model.fit(X_train,y_train)
+print(model.predict_proba(X_test[:3]))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 代码先建立符合输入要求的估计器。
+- 参数应在交叉验证中选择，测试集不参与。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+每行输出各类别概率且总和约为 1。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 二分类
+- 多分类
+- 概率基线
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- C 方向理解反
+- 未缩放就比较权重
+- 概率等同可信度
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

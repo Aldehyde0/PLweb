@@ -1,0 +1,233 @@
+---
+id: deep-generative-models
+slug: deep-generative-models
+title: AE、VAE、GAN 与扩散模型
+category: deep-learning
+difficulty: 进阶
+summary: 生成模型学习重建、潜分布、对抗或去噪目标，采样过程各不相同。
+prerequisites:
+  - PyTorch Tensor
+  - 神经网络训练循环
+relatedConcepts:
+  - vae
+  - gan
+  - diffusion-models
+order: 120
+directory: 生成模型
+kind: long-form
+preserved:
+  subcategory: 生成模型
+  codeExplanation:
+    - 代码显式标注输入和输出
+    - 使用框架稳定实现
+    - 结果通过 shape 或数值检查
+  sourceDocuments:
+    - path: 学习资料/deeplearning/23_生成模型_VAE_GAN与扩散模型.md
+      title: 23_生成模型_VAE_GAN与扩散模型
+      kind: 原始文档
+  sourceSections:
+    - §1–2 总览
+    - §3 AE
+    - §4 VAE
+    - §5 GAN
+    - §6 Diffusion
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 解释核心机制
+- 手算一个主要形状或公式
+- 运行完整示例并排查错误
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+掌握AE、VAE、GAN 与扩散模型的输入输出与训练边界
+
+能够用 PyTorch 代码验证公式和形状
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+AE、VAE、GAN 与扩散模型是该文档中连接数据表示、训练目标和工程实现的核心主题。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+生成模型学习重建、潜分布、对抗或去噪目标，采样过程各不相同。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+把AE、VAE、GAN 与扩散模型理解为数据在模型中的一套明确变换，而不是只记一个类名。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+必须分别记录损失组成、固定采样条件并评价质量与多样性。
+
+实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+generation\ objective\ depends\ on\ model\ family
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+AE、VAE、GAN 与扩散模型的核心数学表达。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| N | batch size |
+| D/H | 特征或隐藏维度 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### AE、VAE、GAN 与扩散模型数值/形状检查
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- N=8
+- D=64
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 按公式或模块逐步计算
+2. 核对输出 shape
+:::
+
+:::field{path="numericalExample.result" type="text"}
+输出保持 batch 维并符合任务头约定
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 确认输入与目标
+2. 建立最小模块
+3. 随机张量前向
+4. 计算损失
+5. 反向与更新
+6. 验证与错误分析
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### AE、VAE、GAN 与扩散模型 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证AE、VAE、GAN 与扩散模型的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+x=torch.rand(16,1,28,28)
+x_hat,z=autoencoder(x)
+loss=F.mse_loss(x_hat,x);loss.backward()
+print(x_hat.shape,z.shape)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 代码显式标注输入和输出
+- 使用框架稳定实现
+- 结果通过 shape 或数值检查
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+打印与页面说明一致的张量形状或损失。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- AE、VAE、GAN 与扩散模型
+- 教学与项目基线
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- AE 重建好即能随机采样
+- 输出范围不匹配
+- 不同 loss 横比
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### AE、VAE、GAN 与扩散模型最先检查什么？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+先检查输入输出 shape、dtype 和数据边界。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 何时使用测试集？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+全部设计锁定后最终评估。
+:::
+

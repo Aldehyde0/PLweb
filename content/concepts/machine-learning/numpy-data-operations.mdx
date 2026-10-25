@@ -1,0 +1,148 @@
+---
+id: numpy-data-operations
+slug: numpy-data-operations
+title: 机器学习必备 NumPy 操作
+category: machine-learning
+difficulty: 入门
+summary: 掌握形状、切片、按列统计、布尔筛选和广播，才能可靠检查模型输入。
+prerequisites:
+  - 矩阵
+relatedConcepts:
+  - dataset-shapes
+  - numerical-standardization
+order: 25
+directory: 入门与数学基础
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码用于验证概念，不在网页中直接执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/01_math_data_foundations.md
+      title: 01｜数学与数据基础
+      kind: 原始文档
+  sourceSections:
+    - §9 必备 Python 与 NumPy 操作
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+标准化、距离、损失和手写算法都依赖正确的索引与广播。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+NumPy 用 ndarray 表示同类型多维数据；axis=0 沿样本聚合，axis=1 沿特征聚合。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+先把数组每个轴标上含义，再读每次切片和统计。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+shape 是接口契约；布尔 mask 必须与被筛选轴长度一致；广播前要确认结果形状。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+X.mean(axis=0) → 每列统计
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+shape 是接口契约；布尔 mask 必须与被筛选轴长度一致；广播前要确认结果形状。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 查看 shape/dtype
+2. 使用行列切片
+3. 按正确 axis 统计
+4. 构造布尔 mask
+5. 检查广播结果
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 机器学习必备 NumPy 操作：最小可验证示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+NumPy
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+把正文原理映射为可检查的代码行为。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```NumPy
+import numpy as np
+X=np.array([[1.,10.],[2.,20.],[3.,30.]])
+print(X.shape, X[0], X[:,0])
+print(X.mean(0), X.std(0))
+print(X[X[:,0] <= 2])
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 先确认输入形状和数据边界。
+- 把输出与公式或定义逐项对照。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+输出形状、第一行、第一列、逐列均值/标准差和前两行。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 数据审计
+- 手写算法
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- axis 理解反
+- mask 长度错
+- 无意改变维度
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

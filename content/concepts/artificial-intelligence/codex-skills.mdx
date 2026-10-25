@@ -1,0 +1,229 @@
+---
+id: codex-skills
+slug: codex-skills
+title: Skill 与 Codex Skills
+category: artificial-intelligence
+difficulty: 进阶
+summary: Skill 用可复用的说明、参考资料和可选脚本，让 Agent 稳定遵循一类任务流程。
+prerequisites:
+  - prompt-instructions-context
+  - tools
+relatedConcepts:
+  - tools
+  - mcp-overview
+  - agent-skill-tool-mcp-comparison
+order: 186
+directory: Skill
+kind: long-form
+preserved:
+  subcategory: Skill
+  entityType: skill
+  workflow:
+    - 确定一个稳定且可复用的工作
+    - 写清触发范围与不适用范围
+    - 在 SKILL.md 编写可执行步骤
+    - 把长资料放 references
+    - 仅把确定性或外部操作放 scripts
+    - 准备模板到 assets
+    - 用正反例测试触发与结果
+    - 记录版本和兼容性
+  codeExplanation:
+    - name 和 description 用于发现与匹配。
+    - 正文给出命令式步骤和明确输入输出。
+    - references、scripts、assets 按需使用，不应无条件全部加载。
+  expectedOutput: Agent 在匹配的报告审查任务中读取完整 SKILL.md，并按需加载检查表或运行验证脚本。
+  interactiveDemo: capability-comparison
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls:
+    - https://learn.chatgpt.com/docs/build-skills
+    - https://agentskills.io/
+  versionDate: 2026-08-30
+  inputsSchema: 任务描述；Skill 元数据；按需加载的参考资料
+  outputsSchema: Agent 应遵循的流程；可选脚本或资产产生的结果
+  executionEnvironment: ChatGPT 或 Codex 的 Skill 运行环境；本页仅静态展示
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+anchorAliases:
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明Skill 与 Codex Skills解决什么问题，以及何时适用。
+- 能解释为什么“把 Skill 当成 Tool”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+把长流程反复粘进 Prompt 难以维护、测试和版本化；Skill 把稳定方法从一次性任务输入中分离。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+OpenAI 当前文档将 Skill 描述为包含 instructions、resources 与 optional scripts 的能力包；Codex 以包含 SKILL.md 的目录组织 Skill。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+Prompt 是这次工作的请求，Skill 是一本会在合适任务中启用的作业手册。Tool 是手里的器械，MCP 是连接外部器械和资料的协议。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+SKILL.md 必含 name 与 description 元数据以及完整指令。
+
+目录可含 scripts/、references/、assets/，以及可选 agents/openai.yaml。
+
+Skills 使用渐进式披露：先加载名称与描述，命中任务后再读取完整 SKILL.md，相关资源按需读取。
+
+Skill 默认是指导流程，不必直接执行外部动作；它可以说明何时及如何使用 Tool。
+
+Skill 应聚焦一个工作，写清输入输出，测试触发边界并随变更维护版本。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 确定一个稳定且可复用的工作
+2. 写清触发范围与不适用范围
+3. 在 SKILL.md 编写可执行步骤
+4. 把长资料放 references
+5. 仅把确定性或外部操作放 scripts
+6. 准备模板到 assets
+7. 用正反例测试触发与结果
+8. 记录版本和兼容性
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 最小 SKILL.md 与目录结构
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+Markdown
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+展示当前 OpenAI 文档所述的必需文件、渐进加载资源和清晰触发描述。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```Markdown
+my-skill/
+├─ SKILL.md
+├─ references/
+│  └─ checklist.md
+├─ scripts/
+│  └─ validate.py
+└─ assets/
+   └─ report-template.md
+
+---
+name: local-report-review
+description: Review a local report against the supplied checklist. Use only when a report file is provided.
+---
+
+1. Read the report and identify its format.
+2. Load references/checklist.md only when checking coverage.
+3. Run scripts/validate.py only after validating the input path.
+4. Return findings, evidence, and unresolved questions.
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- name 和 description 用于发现与匹配。
+- 正文给出命令式步骤和明确输入输出。
+- references、scripts、assets 按需使用，不应无条件全部加载。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+Agent 在匹配的报告审查任务中读取完整 SKILL.md，并按需加载检查表或运行验证脚本。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 文档制作流程
+- 代码审查规范
+- 本地数据处理
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 把 Skill 当成 Tool
+- description 太宽导致误触发
+- 所有参考资料一次加载
+- 脚本没有输入验证
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+<AIInteractiveDemo kind="capability-comparison" />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 任务描述
+- Skill 元数据
+- 按需加载的参考资料
+:::
+
+:::field{path="outputs" type="list"}
+- Agent 应遵循的流程
+- 可选脚本或资产产生的结果
+:::
+
+:::field{path="capabilities" type="list"}
+- 文档制作流程
+- 代码审查规范
+- 本地数据处理
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

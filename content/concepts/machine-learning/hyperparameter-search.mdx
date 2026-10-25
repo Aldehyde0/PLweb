@@ -1,0 +1,150 @@
+---
+id: hyperparameter-search
+slug: hyperparameter-search
+title: 网格搜索与随机搜索
+category: machine-learning
+difficulty: 进阶
+summary: 在训练部分交叉验证候选超参数；网格枚举组合，随机搜索按分布抽样。
+prerequisites:
+  - 交叉验证
+  - Pipeline
+relatedConcepts:
+  - nested-cross-validation
+  - cross-validation-reporting
+order: 70
+directory: 评估与模型选择
+kind: long-form
+preserved:
+  codeExplanation:
+    - 示例用于阅读、复制和本地运行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/07_evaluation_tuning.md
+      title: 07｜模型评估与调参
+      kind: 原始文档
+  sourceSections:
+    - §8 超参数搜索
+    - §9 调参后如何使用测试集
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+搜索次数越多越容易对验证过程乐观，且预处理必须与模型共同被搜索。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+参数由 fit 学习，超参数由搜索流程选择。GridSearchCV 穷举有限网格，RandomizedSearchCV 更适合大空间。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+不是在测试集上反复试钥匙，而是在训练区域内进行多轮模拟考试。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+先基于参数含义设置对数尺度范围，固定主 scoring 和 refit；锁定最佳方案后只测试一次。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+θhyper*=argmaxθ CVscore(Pipelineθ)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+先基于参数含义设置对数尺度范围，固定主 scoring 和 refit；锁定最佳方案后只测试一次。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 保留测试集
+2. 定义 Pipeline
+3. 选择 CV 和 scoring
+4. 设置合理空间
+5. 执行搜索
+6. 检查 cv\_results\_
+7. 最终测试
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 网格搜索与随机搜索 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的可靠评价或训练流程。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+search=GridSearchCV(pipeline,{"model__C":[0.1,1,10]},cv=5,scoring="f1_macro",return_train_score=True)
+search.fit(X_train,y_train)
+print(search.best_params_,search.best_score_)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 数据边界和划分方式是代码含义的一部分。
+- 结果应报告平均、波动或业务对应的指标。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+最佳参数与训练部分交叉验证分数。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 模型调参
+- Pipeline 参数选择
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 测试集搜索
+- 无限扩大网格
+- 只报告 best\_score\_
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

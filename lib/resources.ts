@@ -1,4 +1,5 @@
 import type { CategorySlug, Difficulty } from './content-base';
+import { aliases } from './concept-identifiers.ts';
 
 export const resourceCategories = [
   'artificial-intelligence',
@@ -874,7 +875,7 @@ export function filterResources(
 
 export function resourcesForConcept(slug: string) {
   return learningResources
-    .filter((resource) => resource.conceptSlugs.includes(slug))
+    .filter((resource) => resource.conceptSlugs.some(ref=>(aliases[ref]??ref)===slug))
     .sort((a, b) => a.recommendationLevel.localeCompare(b.recommendationLevel));
 }
 

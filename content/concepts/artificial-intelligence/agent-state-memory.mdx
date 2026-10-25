@@ -1,0 +1,154 @@
+---
+id: agent-state-memory
+slug: agent-state-memory
+title: Agent 状态与记忆
+category: artificial-intelligence
+difficulty: 进阶
+summary: 区分当前运行状态、会话历史、长期记忆与外部事实源。
+prerequisites:
+  - prompt-instructions-context
+relatedConcepts:
+  - agent-loop
+  - tracing-observability
+order: 170
+directory: Agent
+kind: long-form
+preserved:
+  subcategory: Agent
+  entityType: agent
+  workflow:
+    - 定义状态 Schema
+    - 确定保存周期
+    - 写入前验证和去敏
+    - 检索时按任务过滤
+    - 完成后清理临时状态
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls: []
+  versionDate: 2026-08-30
+  inputsSchema: 会话事件；工具结果；用户允许保存的信息
+  outputsSchema: 当前状态快照；受控记忆条目
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明Agent 状态与记忆解决什么问题，以及何时适用。
+- 能解释为什么“把聊天历史等同于记忆”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+无限累积完整对话会增加成本和冲突，也可能长期保存不应保留的敏感信息。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+状态是一次决策需要的当前数据；记忆是跨步骤或跨会话保留并可检索的信息。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+状态像工作台，短期记忆像本次任务笔记，长期记忆像经过筛选的档案库。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+每类状态必须有所有者、生命周期和删除策略。
+
+摘要会丢信息，关键事实需结构化保存并带来源。
+
+记忆写入比读取风险更高，应验证内容与授权。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 定义状态 Schema
+2. 确定保存周期
+3. 写入前验证和去敏
+4. 检索时按任务过滤
+5. 完成后清理临时状态
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 长任务连续性
+- 个性化
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 把聊天历史等同于记忆
+- 保存敏感信息无过期策略
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 会话事件
+- 工具结果
+- 用户允许保存的信息
+:::
+
+:::field{path="outputs" type="list"}
+- 当前状态快照
+- 受控记忆条目
+:::
+
+:::field{path="capabilities" type="list"}
+- 长任务连续性
+- 个性化
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

@@ -1,0 +1,334 @@
+---
+id: offline-data-distribution-shift
+slug: offline-data-distribution-shift
+title: 离线数据分布偏移与外推误差
+category: reinforcement-learning
+difficulty: 挑战
+summary: 理解数据占用分布、分布外动作、bootstrap 误差累积以及为什么固定 replay 会让朴素 DQN/SAC 失效。
+prerequisites:
+  - 概率基础
+  - Python 与 NumPy
+relatedConcepts:
+  - online-vs-offline-rl
+  - behavior-policy-constraints
+  - cql
+  - iql
+  - dqn
+  - sac
+  - bellman-equation
+order: 235
+directory: Offline RL
+kind: long-form
+preserved:
+  subcategory: Offline RL
+  workflow:
+    - 确认数据收集策略与时间范围
+    - 按终止、任务、状态簇和动作统计覆盖
+    - 比较行为动作与候选策略动作
+    - 检查 Q 在数据动作和候选动作上的间隙
+    - 用 BC/DQN/SAC 基线定位外推故障
+    - 采用约束、CQL 或 IQL 并做压力测试
+  algorithmType: 强化学习基础
+  onPolicy: false
+  offPolicy: false
+  actionSpace: 离散或连续，取决于具体算法
+  modelFree: true
+  modelBased: false
+  inputs:
+    - 状态或观察
+    - 动作
+    - 奖励
+    - 下一状态或轨迹
+  outputs:
+    - 价值估计、策略参数或训练诊断
+  codeExplanation:
+    - 代码与本页第一条公式逐项对应。
+    - 网站只展示、复制代码，不执行用户输入或训练真实模型。
+  expectedOutput: naive greedy 选择未覆盖动作 2；support-aware 只在数据动作中选择 1。
+  sourceDocuments:
+    - path: arXiv:1906.00949
+      title: Stabilizing Off-Policy Q-Learning via Bootstrapping Error Reduction
+      kind: 原始文档
+    - path: arXiv:2004.07219
+      title: D4RL
+      kind: 原始文档
+  sourceSections:
+    - BEAR / Abstract、§3：OOD 动作上的 bootstrapping error 与误差传播
+    - D4RL / §2–§3：离线数据集的分布性质与基准设计
+  sourceUrls:
+    - https://arxiv.org/abs/1906.00949
+    - https://arxiv.org/abs/2004.07219
+  versionDate: 2026-08-30
+anchorAliases:
+  sources: related
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 定义离线数据分布偏移与外推误差并复述输入输出。
+- 从公式计算一个最小数值例子。
+- 说明它与相邻算法的区别、失败模式和适用场景。
+:::
+
+
+## 为什么重要 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+离线数据分布偏移与外推误差位于“状态—行动—反馈—更新”学习链中的关键位置。
+
+掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
+
+同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+离线数据由未知或混合行为策略 β 生成，而学习策略 π 会改变状态—动作占用分布；当 π 查询数据低密度区域的 Q 值时，函数近似误差可能经 Bellman backup 被反复放大。
+
+本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+数据像一张只标出走过道路的地图。普通 greedy 更新可能把地图空白处的随机高分当成捷径，并在每次 bootstrap 中继续抬高它。
+
+把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+分布偏移同时发生在动作条件分布 π(a\|s) 与长期状态访问分布 d^π(s)。
+
+监督学习式训练误差小，不代表策略选择的动作上误差小。
+
+DQN 的 max\_a Q(s′,a) 与 SAC 的 actor 采样都会主动寻找 critic 的高值，因而可能放大 OOD 乐观误差。
+
+覆盖是可辨识边界：没有数据或结构假设，就不能可靠比较任意未见动作。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 占用分布密度比
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+w(s,a)=\frac{d^\pi(s,a)}{d^\beta(s,a)}
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+当行为占用 d^β(s,a) 接近 0 而目标策略仍访问该区域时，密度比不可稳定估计，离线数据无法支持该决策。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| d^β(s,a) | 行为策略及环境动力学在数据中诱导的折扣占用分布。 |
+| d^π(s,a) | 待部署策略诱导的目标占用分布。 |
+| w(s,a) | 目标与行为占用密度比；极大值提示覆盖风险。 |
+| OOD | 相对数据支持而言的分布外状态或动作。 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 离线数据分布偏移与外推误差的最小计算
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- 即时奖励为 1
+- 下一状态估计为 2
+- 折扣因子 γ=0.9
+- 当前估计为 0.5
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 计算 bootstrap 目标：1+0.9×2=2.8。
+2. 目标与当前估计差为 2.8−0.5=2.3。
+3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+:::
+
+:::field{path="numericalExample.result" type="text"}
+一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+- 较大 α 更新快但噪声和震荡更强。
+- 较大 γ 更重视远期奖励，但误差传播范围更长。
+- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 确认数据收集策略与时间范围
+2. 按终止、任务、状态簇和动作统计覆盖
+3. 比较行为动作与候选策略动作
+4. 检查 Q 在数据动作和候选动作上的间隙
+5. 用 BC/DQN/SAC 基线定位外推故障
+6. 采用约束、CQL 或 IQL 并做压力测试
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 固定数据中的覆盖缺口与 OOD 动作
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+NumPy
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+用动作计数展示静态数据未覆盖动作如何被函数近似器高估。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```NumPy
+import numpy as np
+
+actions = np.array([0, 0, 0, 1, 0, 1])  # 数据里没有动作 2
+counts = np.bincount(actions, minlength=3)
+support = counts > 0
+q_estimate = np.array([1.0, 1.3, 4.8])
+naive_action = int(q_estimate.argmax())
+masked_q = np.where(support, q_estimate, -np.inf)
+supported_action = int(masked_q.argmax())
+print('counts:', counts)
+print('naive greedy:', naive_action)
+print('support-aware:', supported_action)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- counts 是经验数据在该状态附近的动作覆盖代理。
+- 普通 max 会选择没有样本证据的动作 2。
+- support mask 只是离散教学示例；连续空间需要密度、距离、生成模型或保守价值方法。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+naive greedy 选择未覆盖动作 2；support-aware 只在数据动作中选择 1。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 序贯决策
+- 控制与资源分配
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 只报告最好的一次随机种子
+- 训练回报与评测回报混用
+- 终止状态仍错误 bootstrap
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 扩展内容说明 {#extension}
+
+:::field{path="extensionNotes" type="paragraphs"}
+道路地图直觉、覆盖审计清单、NumPy support mask 与 DQN/SAC 教学对照均为本站扩展解释；bootstrapping error 与数据集性质依据所列论文。
+:::
+
+
+## 算法属性与数据边界 {#algorithm-profile}
+
+<ArticleFlags />
+:::field{path="objectiveFunction" type="text"}
+识别并限制 d^π 相对 d^β 的不受支持偏移
+:::
+:::field{path="dataBoundary" type="list"}
+- 行为策略 β 可能未知、非平稳或由多策略混合。
+- 覆盖统计只能证明看见过，不能证明奖励正确、长时序后果充分或部署安全。
+- 离线调参若反复依据在线回报，会把评测环境变成隐式训练数据。
+:::
+
+## 与 DQN、SAC 及相邻方法对照 {#algorithm-comparison}
+
+:::field{path="comparisonNotes" type="list"}
+- DQN 的离散 max backup 明确枚举并偏好最高估动作。
+- SAC 的 actor 在连续空间优化 Q−αlogπ，可能找到数据外的 critic 漏洞。
+- CQL 压低广泛动作的 Q；IQL 避免对策略生成的新动作求 Q。
+:::
+
+
+## 失败模式、风险与性能 {#failure-performance}
+
+:::field{path="failureModes" type="list"}
+- 把 replay buffer 大误当作覆盖充分
+- 只看边际动作频率，忽略状态条件覆盖
+- 终止/超时标记错误导致虚假 bootstrap
+- 用训练集 Q 值代替策略价值评测
+:::
+
+:::field{path="securityRisks" type="list"}
+- 历史日志可能含隐私、异常操作或已废止权限。
+- 策略会利用日志中的奖励漏洞，数据清洗不能替代环境侧硬约束。
+:::
+
+:::field{path="performanceNotes" type="list"}
+- 报告数据规模、轨迹数、行为策略混合和 return 分布。
+- 按数据子集与随机种子报告不确定性；OOD 分数本身也需校准。
+:::
+
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### 离线数据分布偏移与外推误差是 on-policy 还是 off-policy？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+这是基础或比较概念，具体归属取决于所讨论算法。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 网页是否会训练模型？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
+:::
+

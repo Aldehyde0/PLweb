@@ -1,0 +1,229 @@
+---
+id: automatic-mixed-precision
+slug: automatic-mixed-precision
+title: 自动混合精度 AMP
+category: deep-learning
+difficulty: 进阶
+summary: AMP 为适合操作选择低精度，并用 GradScaler 缓解 float16 梯度下溢。
+prerequisites:
+  - PyTorch Tensor
+  - 神经网络训练循环
+relatedConcepts:
+  - training-engineering
+  - gradient-clipping
+order: 159
+directory: 训练工程
+kind: long-form
+preserved:
+  subcategory: 训练工程
+  codeExplanation:
+    - 代码显式标注输入和输出
+    - 使用框架稳定实现
+    - 结果通过 shape 或数值检查
+  sourceDocuments:
+    - path: 学习资料/deeplearning/25_训练工程实践_GPU混合精度复现与检查点.md
+      title: 25_训练工程实践_GPU混合精度复现与检查点
+      kind: 原始文档
+  sourceSections:
+    - §7 AMP
+    - §8 裁剪
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 解释核心机制
+- 手算一个主要形状或公式
+- 运行完整示例并排查错误
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+掌握自动混合精度 AMP的输入输出与训练边界
+
+能够用 PyTorch 代码验证公式和形状
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+自动混合精度 AMP是该文档中连接数据表示、训练目标和工程实现的核心主题。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+AMP 为适合操作选择低精度，并用 GradScaler 缓解 float16 梯度下溢。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+把自动混合精度 AMP理解为数据在模型中的一套明确变换，而不是只记一个类名。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+它可能省显存和提速，但效果依赖硬件，异常时应关闭定位。
+
+实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+scaled\ loss=s\cdot L,\quad g=\nabla(sL)/s
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+自动混合精度 AMP的核心数学表达。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| N | batch size |
+| D/H | 特征或隐藏维度 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 自动混合精度 AMP数值/形状检查
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- N=8
+- D=64
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 按公式或模块逐步计算
+2. 核对输出 shape
+:::
+
+:::field{path="numericalExample.result" type="text"}
+输出保持 batch 维并符合任务头约定
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 确认输入与目标
+2. 建立最小模块
+3. 随机张量前向
+4. 计算损失
+5. 反向与更新
+6. 验证与错误分析
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 自动混合精度 AMP · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证自动混合精度 AMP的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+use_amp=device.type=='cuda'
+scaler=torch.amp.GradScaler('cuda',enabled=use_amp)
+with torch.amp.autocast('cuda',enabled=use_amp):loss=criterion(model(x),y)
+scaler.scale(loss).backward();scaler.step(optimizer);scaler.update()
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 代码显式标注输入和输出
+- 使用框架稳定实现
+- 结果通过 shape 或数值检查
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+打印与页面说明一致的张量形状或损失。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 自动混合精度 AMP
+- 教学与项目基线
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 整个模型强制 float16
+- 裁剪前不 unscale
+- NaN 不关闭 AMP 定位
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### 自动混合精度 AMP最先检查什么？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+先检查输入输出 shape、dtype 和数据边界。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 何时使用测试集？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+全部设计锁定后最终评估。
+:::
+

@@ -1,0 +1,226 @@
+---
+id: normalization
+slug: normalization
+title: BatchNorm 与 LayerNorm 总览
+category: deep-learning
+difficulty: 进阶
+summary: 两者公式相似但统计轴、运行状态和使用场景不同。
+prerequisites:
+  - 均值方差
+relatedConcepts:
+  - batch-normalization
+  - layer-normalization
+order: 109
+directory: 归一化
+kind: long-form
+preserved:
+  subcategory: 归一化
+  codeExplanation:
+    - LN 直接尾维
+    - BN 把第1维当通道
+    - 结果不可因形状相同就等价
+  sourceDocuments:
+    - path: 学习资料/deeplearning/14_归一化方法_BatchNorm与LayerNorm.md
+      title: 14_归一化方法_BatchNorm与LayerNorm
+      kind: 原始文档
+  sourceSections:
+    - §1 区别
+    - §2 公式
+    - §14 对比
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 比较统计范围
+- 区分运行状态
+- 按架构选择
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+避免错误互换 BN/LN
+
+理解模型模式
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+输入标准化与网络内部归一化不是一回事。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+归一化层控制中间特征尺度并通过 γ/β恢复表达能力。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+关键不是名字，而是“哪些元素一起算均值方差”。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+BN 跨 batch/空间按通道；LN 在单样本尾部维。
+
+选择由形状、batch 大小和架构假设决定。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+y=\gamma\frac{x-\mu_S}{\sqrt{\sigma_S^2+\varepsilon}}+\beta
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+集合 S 的选择决定方法。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| S | 参与统计的元素集合 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### BN vs LN
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- x \[8,20,64\]
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. BN1d 需换轴
+2. LN(64) 直接尾维
+:::
+
+:::field{path="numericalExample.result" type="text"}
+两者输出形状相同但统计不同
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 识别 shape
+2. 确定统计轴
+3. 选择层
+4. 检查 train/eval
+5. 小 batch 验证
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### BatchNorm 与 LayerNorm 总览 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证BatchNorm 与 LayerNorm 总览的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+x=torch.randn(8,20,64)
+ln=nn.LayerNorm(64)
+bn=nn.BatchNorm1d(64)
+y_ln=ln(x)
+y_bn=bn(x.transpose(1,2)).transpose(1,2)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- LN 直接尾维
+- BN 把第1维当通道
+- 结果不可因形状相同就等价
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+两者均 \[8,20,64\]。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- CNN/Transformer
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 输入标准化混同
+- 统计轴错
+- no\_grad 当 eval
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### 哪种总更先进？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+没有，取决于架构和统计假设。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 使用归一化可省输入预处理吗？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+不能。
+:::
+

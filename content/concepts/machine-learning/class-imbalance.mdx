@@ -1,0 +1,191 @@
+---
+id: class-imbalance
+slug: class-imbalance
+title: 类别不平衡
+category: machine-learning
+difficulty: 进阶
+summary: 少数类任务中准确率可能严重误导，需要合适指标、阈值、权重和严格的折内重采样。
+prerequisites:
+  - 混淆矩阵
+  - 分类指标
+relatedConcepts:
+  - classification-metrics
+  - baseline-models
+  - cv-pipeline-leakage
+order: 35
+directory: 数据预处理与特征工程
+kind: long-form
+preserved:
+  codeExplanation:
+    - balanced 根据训练类别频率设置权重。
+    - 报告 Precision、Recall、F1 和 support。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/02_preprocessing_feature_engineering.md
+      title: 02｜数据预处理与特征工程
+      kind: 原始文档
+  sourceSections:
+    - §9 类别不平衡
+    - §14 预处理检查清单
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+990 个正常与 10 个异常时，全预测正常已有 99% 准确率，但异常召回率为 0。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+类别不平衡表示不同类别样本数量差异明显，常伴随不同错误代价。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+如果真正重要的是少数异常，不能用“总体答对多少”掩盖“关键问题一个都没找到”。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+关注 Precision、Recall、F1、PR-AUC、混淆矩阵和 Macro-F1；阈值影响误报漏报权衡。重采样只能在训练集或每个训练折内发生。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### Precision
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+TP/(TP+FP)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+预测为正的样本中有多少是真的。
+:::
+
+::::
+
+::::formula{index="1"}
+:::field{path="formulas.1.label" type="text"}
+### Recall
+:::
+
+:::field{path="formulas.1.expression" type="math"}
+$$
+TP/(TP+FN)
+$$
+:::
+
+:::field{path="formulas.1.description" type="text"}
+真实正类中找到了多少。
+:::
+
+::::
+
+::::formula{index="2"}
+:::field{path="formulas.2.label" type="text"}
+### F1
+:::
+
+:::field{path="formulas.2.expression" type="math"}
+$$
+2PR/(P+R)
+$$
+:::
+
+:::field{path="formulas.2.description" type="text"}
+Precision 与 Recall 的调和平均。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 统计每类数量。
+2. 明确误报和漏报成本。
+3. 选择主指标。
+4. 建立 Dummy 基线。
+5. 在训练折内使用 class\_weight 或重采样。
+6. 在验证数据上选阈值。
+7. 最终测试并分群分析。
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 类别权重与分类报告
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+训练时提高少数类权重并查看逐类结果。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report
+
+model = LogisticRegression(class_weight="balanced", max_iter=2000)
+model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
+print(classification_report(y_test, y_pred))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- balanced 根据训练类别频率设置权重。
+- 报告 Precision、Recall、F1 和 support。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+每个类别各自的 Precision、Recall、F1，以及 macro/weighted 平均。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 欺诈检测
+- 疾病筛查
+- 故障告警
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 只报告 Accuracy
+- 先对完整数据重采样
+- 用测试集选阈值
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

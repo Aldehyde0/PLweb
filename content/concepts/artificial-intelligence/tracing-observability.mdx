@@ -1,0 +1,157 @@
+---
+id: tracing-observability
+slug: tracing-observability
+title: Agent Tracing 与可观测性
+category: artificial-intelligence
+difficulty: 挑战
+summary: 记录任务、Agent、轮次、模型生成、工具、Handoff、护栏和错误的因果轨迹。
+prerequisites:
+  - agent-architecture
+relatedConcepts:
+  - agent-evaluation
+  - agent-reliability
+order: 184
+directory: Agent
+kind: long-form
+preserved:
+  subcategory: Agent
+  entityType: agent
+  workflow:
+    - 定义 workflow 名称
+    - 记录层级 span
+    - 附加版本、耗时和状态
+    - 脱敏敏感字段
+    - 用失败案例回放
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls:
+    - https://openai.github.io/openai-agents-js/guides/tracing/
+  versionDate: 2026-08-30
+  inputsSchema: 运行事件；时间与标识；安全过滤策略
+  outputsSchema: 轨迹树；延迟、错误与成本指标
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+anchorAliases:
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明Agent Tracing 与可观测性解决什么问题，以及何时适用。
+- 能解释为什么“只写自然语言日志”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+最终答案不足以解释错在模型、工具、路由、权限还是状态。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Tracing 用层级 span 还原一次 Agent 运行发生了什么；可观测性再结合指标与日志判断质量、成本和异常。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+像快递轨迹，每次交接、处理和异常都有时间与责任节点。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+OpenAI Agents SDK 当前默认追踪 run、agent、turn、generation、function、guardrail 与 handoff 等事件。
+
+敏感输入输出应可选择不进入追踪。
+
+trace id、工具调用 id 和业务幂等键应能关联。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 定义 workflow 名称
+2. 记录层级 span
+3. 附加版本、耗时和状态
+4. 脱敏敏感字段
+5. 用失败案例回放
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 故障定位
+- Agent 评测
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 只写自然语言日志
+- 追踪泄露敏感数据
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 运行事件
+- 时间与标识
+- 安全过滤策略
+:::
+
+:::field{path="outputs" type="list"}
+- 轨迹树
+- 延迟、错误与成本指标
+:::
+
+:::field{path="capabilities" type="list"}
+- 故障定位
+- Agent 评测
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

@@ -1,0 +1,154 @@
+---
+id: agent-security
+slug: agent-security
+title: Agent 安全边界
+category: artificial-intelligence
+difficulty: 进阶
+summary: 用最小权限、信任分层、审批和结果校验限制 Agent 的可行动范围。
+prerequisites:
+  - agent-architecture
+relatedConcepts:
+  - guardrails-prompt-injection
+  - mcp-security
+  - tool-selection-filtering
+order: 178
+directory: Agent
+kind: long-form
+preserved:
+  subcategory: Agent
+  entityType: agent
+  workflow:
+    - 画出信任边界
+    - 按任务过滤工具
+    - 执行前校验身份与范围
+    - 敏感动作审批
+    - 结果验证和审计
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls: []
+  versionDate: 2026-08-30
+  inputsSchema: 身份；任务范围；工具权限
+  outputsSchema: 允许、拒绝或待审批
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明Agent 安全边界解决什么问题，以及何时适用。
+- 能解释为什么“默认开放全部工具”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+Agent 会把自然语言连接到真实动作，因此提示注入、越权和副作用风险高于纯文本问答。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+安全边界决定什么输入可信、哪些工具可见、谁能批准、哪些数据可读写以及失败时如何隔离。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+即使负责人很聪明，也只能拿到当前工作需要的钥匙；开保险柜仍需第二个人确认。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+提示中的禁止语不能替代真正的权限检查。
+
+读取与写入工具应分离，敏感动作默认审批。
+
+外部内容永远不应自动获得指令权限。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 画出信任边界
+2. 按任务过滤工具
+3. 执行前校验身份与范围
+4. 敏感动作审批
+5. 结果验证和审计
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 企业 Agent
+- 本地文件助手
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 默认开放全部工具
+- 日志记录敏感正文
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 身份
+- 任务范围
+- 工具权限
+:::
+
+:::field{path="outputs" type="list"}
+- 允许、拒绝或待审批
+:::
+
+:::field{path="capabilities" type="list"}
+- 企业 Agent
+- 本地文件助手
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

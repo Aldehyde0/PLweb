@@ -1,0 +1,226 @@
+---
+id: optimizers-schedulers
+slug: optimizers-schedulers
+title: 优化器与学习率调度
+category: deep-learning
+difficulty: 进阶
+summary: 优化器利用梯度历史更新参数，调度器改变后续更新学习率。
+prerequisites:
+  - 梯度
+  - 训练循环
+relatedConcepts:
+  - adam-and-adamw
+  - learning-rate-schedulers
+order: 110
+directory: 优化
+kind: long-form
+preserved:
+  subcategory: 优化
+  codeExplanation:
+    - AdamW 保存矩状态
+    - 权重衰减解耦
+    - step 更新参数
+  sourceDocuments:
+    - path: 学习资料/deeplearning/15_优化器与学习率调度进阶.md
+      title: 15_优化器与学习率调度进阶
+      kind: 原始文档
+  sourceSections:
+    - §1 职责
+    - §2–6 优化器
+    - §7–15 调度
+    - §17 恢复
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 区分 optimizer/scheduler
+- 正确 step 顺序
+- 配置参数组
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+训练配置核心
+
+恢复训练需保存状态
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+同一梯度可由不同历史规则转为不同更新。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+SGD、Momentum、Adam/AdamW 的状态不同；scheduler 不更新参数。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+梯度给方向，优化器决定如何结合历史走，调度器决定步长随时间如何变。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+常规顺序 optimizer.step 后 scheduler.step；调用频率由调度器定义。
+
+解冻参数需进入优化器；不同参数组可使用分层学习率和衰减。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+\theta_t=\theta_{t-1}-\eta_t g_t
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+SGD 基本更新。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| η\_t | 当前学习率 |
+| g\_t | 当前梯度 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### SGD 更新
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- θ=2,g=-0.4,η=.1
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 2-.1×(-.4)
+:::
+
+:::field{path="numericalExample.result" type="text"}
+2.04
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. backward
+2. optimizer.step
+3. 按类型 scheduler.step
+4. 记录各组 lr
+5. 保存状态
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 优化器与学习率调度 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证优化器与学习率调度的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+optimizer=torch.optim.AdamW(model.parameters(),lr=3e-4,weight_decay=1e-2)
+loss.backward();optimizer.step()
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- AdamW 保存矩状态
+- 权重衰减解耦
+- step 更新参数
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+参数依据 AdamW 规则改变。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- CNN/Transformer/微调
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 每 epoch 重建 optimizer
+- scheduler 频率错
+- 参数组重复
+- 只恢复权重
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### scheduler 会更新参数吗？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+不会，只修改 optimizer 学习率。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 解冻后为何重建优化器？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+确保新参数进入参数组。
+:::
+

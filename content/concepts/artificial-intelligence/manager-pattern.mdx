@@ -1,0 +1,150 @@
+---
+id: manager-pattern
+slug: manager-pattern
+title: Manager Pattern
+category: artificial-intelligence
+difficulty: 挑战
+summary: 由一个主管 Agent 持有会话、调用专业 Agent 工具并组合最终输出。
+prerequisites:
+  - agents-as-tools
+relatedConcepts:
+  - agent-orchestration
+  - tracing-observability
+order: 182
+directory: Agent
+kind: long-form
+preserved:
+  subcategory: Agent
+  entityType: agent
+  workflow:
+    - 主管拆分任务
+    - 选择一个或多个专家
+    - 收集结构化结果
+    - 检查冲突与证据
+    - 输出最终答案
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls: []
+  versionDate: 2026-08-30
+  inputsSchema: 用户任务；专家工具目录
+  outputsSchema: 统一最终答案
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明Manager Pattern解决什么问题，以及何时适用。
+- 能解释为什么“主管上下文膨胀”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+统一责任有利于结果一致性，但主管可能成为上下文、成本和错误聚合瓶颈。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Manager Pattern 是 Agents as Tools 的系统级使用方式，主管集中施加格式、护栏和汇总策略。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+总编分派记者调查不同主题，最后自己核对并编辑成一篇文章。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+主管需知道每个专家的能力边界。
+
+专家结果必须带证据和失败状态。
+
+共享护栏不能替代每个高风险工具自己的校验。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 主管拆分任务
+2. 选择一个或多个专家
+3. 收集结构化结果
+4. 检查冲突与证据
+5. 输出最终答案
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 多领域研究
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 主管上下文膨胀
+- 重复调用专家
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 用户任务
+- 专家工具目录
+:::
+
+:::field{path="outputs" type="list"}
+- 统一最终答案
+:::
+
+:::field{path="capabilities" type="list"}
+- 多领域研究
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

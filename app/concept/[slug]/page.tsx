@@ -16,7 +16,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const concept = conceptMap[slug];
   if (!concept) return {};
-  const title = `${concept.title} · how to learn AI`;
+  const title = `${concept.title} · Layerwise`;
   return {
     title,
     description: concept.summary,
@@ -33,10 +33,11 @@ export default async function ConceptPage({
   const concept = conceptMap[slug];
   if (!concept) notFound();
   const loader = articleLoaders[slug as keyof typeof articleLoaders];
-  const Article = loader ? (await loader()).default : null;
+  if(!loader) throw new Error(`MDX 路由缺少编译模块：${slug}`);
+  const Article = (await loader()).default;
   return (
     <ConceptView concept={concept} category={categoryMap[concept.category]}>
-      {Article ? <div className="article-flow mdx-article"><Article components={mdxComponents} /></div> : undefined}
+      <div className="article-flow mdx-article"><Article components={mdxComponents} /></div>
     </ConceptView>
   );
 }

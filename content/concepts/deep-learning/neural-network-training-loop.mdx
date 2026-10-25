@@ -1,0 +1,236 @@
+---
+id: neural-network-training-loop
+slug: neural-network-training-loop
+title: 神经网络训练循环
+category: deep-learning
+difficulty: 入门
+summary: 按清梯度、前向、损失、反向和更新的顺序重复优化参数。
+prerequisites:
+  - 前向传播
+  - 损失函数
+  - 梯度
+relatedConcepts:
+  - forward-propagation
+  - backpropagation
+  - optimizers-schedulers
+order: 132
+directory: 训练基础
+kind: long-form
+preserved:
+  subcategory: 训练基础
+  codeExplanation:
+    - 清梯度在新迭代开始
+    - loss 保留计算图
+    - backward 后 grad 可检查
+    - step 执行更新
+  sourceDocuments:
+    - path: 学习资料/deeplearning/02_神经网络的训练与优化.md
+      title: 02_神经网络的训练与优化
+      kind: 原始文档
+  sourceSections:
+    - §1 训练循环
+    - §4 反向传播
+    - §5 优化器
+    - §8 标准训练流程
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 写出五步循环
+- 解释每步是否更新参数
+- 记录训练损失
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+串联所有训练组件
+
+是 PyTorch 项目的核心骨架
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+职责顺序错误会导致梯度累加、参数不更新或损失无法下降。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+一次普通训练迭代处理一个 batch，并在 optimizer.step 时更新一次参数。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+先答题、计分、追责，再按责任调整参数。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+backward 只计算并累积梯度，step 才更新参数，zero\_grad 清除旧梯度。
+
+学习率控制更新尺度；验证阶段不得 backward 或 step。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+\theta\leftarrow\theta-\eta\nabla_{\theta}L
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+θ 是参数，η 是学习率，梯度来自 backward。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| θ | 模型参数 |
+| η | 学习率 |
+| L | 当前 batch 损失 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 一次权重更新
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- w=2
+- grad=0.3
+- η=0.1
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. w\_new=2-0.1×0.3
+:::
+
+:::field{path="numericalExample.result" type="text"}
+w\_new=1.97
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. zero\_grad
+2. model(x)
+3. criterion
+4. loss.backward
+5. optimizer.step
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 神经网络训练循环 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证神经网络训练循环的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+optimizer.zero_grad(set_to_none=True)
+prediction=model(x)
+loss=criterion(prediction,target)
+loss.backward()
+optimizer.step()
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 清梯度在新迭代开始
+- loss 保留计算图
+- backward 后 grad 可检查
+- step 执行更新
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+参数在 step 后发生变化，loss 可用于日志。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 所有梯度训练模型
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 忘记清梯度
+- backward 当更新
+- 学习率越大越好
+- 验证仍 step
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### 哪一步更新参数？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+optimizer.step。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 为何先清梯度？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+PyTorch 默认把梯度累加到 .grad。
+:::
+

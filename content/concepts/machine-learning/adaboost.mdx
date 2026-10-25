@@ -1,0 +1,147 @@
+---
+id: adaboost
+slug: adaboost
+title: AdaBoost
+category: machine-learning
+difficulty: 进阶
+summary: 顺序训练弱学习器，提高误分类样本权重，并按学习器表现加权投票。
+prerequisites:
+  - 决策树
+  - 加权投票
+relatedConcepts:
+  - gradient-boosting-trees
+  - bagging-vs-boosting
+order: 55
+directory: 模型与算法
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码展示而不在浏览器执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/05_tree_and_ensemble.md
+      title: 05｜决策树与集成学习
+      kind: 原始文档
+  sourceSections:
+    - §8 AdaBoost
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+简单弱模型组合后可形成复杂边界，但错误标签和异常点也会被持续放大。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+AdaBoost 常使用浅树桩；每轮集中关注前面难以分类的样本。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+错题在下一轮获得更高复习优先级。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+后续学习器依赖当前样本权重，训练难以完全并行；学习率和学习器数量控制累积。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+F(x)=Σₜαₜhₜ(x)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+后续学习器依赖当前样本权重，训练难以完全并行；学习率和学习器数量控制累积。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 初始化等权
+2. 训练弱学习器
+3. 计算错误率
+4. 提高错分权重
+5. 计算模型权重
+6. 加权投票
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### AdaBoost 实现
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的训练与预测逻辑。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.tree import DecisionTreeClassifier
+model=AdaBoostClassifier(estimator=DecisionTreeClassifier(max_depth=1),n_estimators=100,learning_rate=0.05,random_state=42)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 代码先建立符合输入要求的估计器。
+- 参数应在交叉验证中选择，测试集不参与。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+得到由 100 个树桩顺序组合的分类器。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 结构化分类
+- 弱学习器集成
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 噪声标签被反复关注
+- 只增加轮数不验证
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

@@ -1,0 +1,144 @@
+---
+id: search-planning-decision
+slug: search-planning-decision
+title: 搜索、规划与决策
+category: artificial-intelligence
+difficulty: 入门
+summary: 区分枚举路径的搜索、生成行动序列的规划与在不确定性下选择行动的决策。
+prerequisites:
+  - state-space-search
+relatedConcepts:
+  - agent-planning
+  - tool-selection-filtering
+  - markov-decision-process
+order: 166
+directory: 理论基础
+kind: long-form
+preserved:
+  subcategory: 理论基础
+  entityType: theory
+  workflow:
+    - 定义状态与动作
+    - 生成候选方案
+    - 估计成本和风险
+    - 执行一小步并重规划
+  inputs:
+    - 状态空间
+    - 行动模型
+    - 目标与成本
+  outputs:
+    - 候选路径
+    - 计划
+    - 当前决策
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls: []
+  versionDate: 2026-08-30
+  capabilities:
+    - 任务规划
+    - 工具选择
+    - 机器人导航
+  permissions: []
+  inputsSchema: 状态空间；行动模型；目标与成本
+  outputsSchema: 候选路径；计划；当前决策
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明搜索、规划与决策解决什么问题，以及何时适用。
+- 能解释为什么“规划脱离真实工具能力”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+Agent 的“计划”并不自动保证可执行；必须与真实动作集合、环境反馈和成本模型对齐。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+搜索探索候选状态，规划构造达到目标的行动序列，决策依据价值、风险和约束选择当前行动。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+搜索像看多条路线，规划像写旅行步骤，决策像结合时间与风险选一条现在要走的路。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+搜索需要状态、后继函数和目标测试。
+
+规划还需要动作前置条件和效果。
+
+不确定决策需比较期望收益、风险和信息价值。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 定义状态与动作
+2. 生成候选方案
+3. 估计成本和风险
+4. 执行一小步并重规划
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 任务规划
+- 工具选择
+- 机器人导航
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 规划脱离真实工具能力
+- 忽略搜索空间爆炸
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

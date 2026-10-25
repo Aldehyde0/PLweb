@@ -1,0 +1,150 @@
+---
+id: principal-component-analysis
+slug: principal-component-analysis
+title: PCA 主成分分析
+category: machine-learning
+difficulty: 进阶
+summary: 寻找互相正交、依次最大化投影方差的线性方向，用更少维度保留主要变化。
+prerequisites:
+  - 矩阵
+  - 方差
+relatedConcepts:
+  - unsupervised-evaluation
+  - cv-pipeline-leakage
+order: 62
+directory: 模型与算法
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码展示而不在浏览器执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/06_unsupervised_learning.md
+      title: 06｜无监督学习
+      kind: 原始文档
+  sourceSections:
+    - §7 PCA 主成分分析
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+高维可视化、压缩与去冗余常用，但方差大不保证对预测有用，主成分解释可能困难。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+PCA 学习训练均值、主成分方向和解释方差；transform 把样本投影到这些方向。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+旋转坐标轴，让第一根轴沿数据云最伸展的方向。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+特征尺度不同通常先标准化；PCA 必须位于 CV Pipeline 内。降维维数通过解释方差和下游验证选择。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+v₁=argmax||v||=1 Var(Xv)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+特征尺度不同通常先标准化；PCA 必须位于 CV Pipeline 内。降维维数通过解释方差和下游验证选择。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 只在训练数据拟合缩放
+2. 中心化/标准化
+3. 求主方向
+4. 选择成分数
+5. 投影验证测试
+6. 评估信息与下游表现
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### PCA 主成分分析 实现
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的训练与预测逻辑。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.decomposition import PCA
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+model=make_pipeline(StandardScaler(),PCA(n_components=2))
+X2=model.fit_transform(X)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 代码先建立符合输入要求的估计器。
+- 参数应在交叉验证中选择，测试集不参与。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+X2 形状为 (样本数,2)。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 二维可视化
+- 压缩与去相关
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 不标准化
+- 把主成分当原始特征
+- 完整数据先 PCA
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

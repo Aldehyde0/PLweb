@@ -1,0 +1,152 @@
+---
+id: decision-trees
+slug: decision-trees
+title: 决策树
+category: machine-learning
+difficulty: 进阶
+summary: 递归枚举特征与阈值，选择不纯度下降最大的划分，叶节点输出多数类别或均值。
+prerequisites:
+  - Gini
+  - 分类
+relatedConcepts:
+  - gini-impurity
+  - bagging
+  - overfitting-diagnosis
+order: 52
+directory: 模型与算法
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码展示而不在浏览器执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/05_tree_and_ensemble.md
+      title: 05｜决策树与集成学习
+      kind: 原始文档
+  sourceSections:
+    - §1 决策树的模型结构
+    - §2 决策树如何学习
+    - §3 重要超参数
+    - §4 优缺点
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+树能表达非线性和交互且无需标准化，但贪心、对数据变化敏感并易生成深层噪声规则。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+树由判断节点和叶子组成；每个判断把样本分为左右子集并继续递归。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+连续提出最能把类别分开的“是否小于阈值”问题。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+候选阈值通常来自相邻不同值中点，选择 Gain 最大者。max\_depth、min\_samples\_leaf 和 ccp\_alpha 控制复杂度。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+Gain=I(parent)-Σc(nc/n)I(childc)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+候选阈值通常来自相邻不同值中点，选择 Gain 最大者。max\_depth、min\_samples\_leaf 和 ccp\_alpha 控制复杂度。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 排序候选特征值
+2. 生成阈值
+3. 计算左右不纯度
+4. 选最大增益
+5. 递归
+6. 按停止条件生成叶
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 决策树 实现
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的训练与预测逻辑。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.tree import DecisionTreeClassifier
+model=DecisionTreeClassifier(max_depth=3,min_samples_leaf=5,random_state=42)
+model.fit(X_train,y_train)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 代码先建立符合输入要求的估计器。
+- 参数应在交叉验证中选择，测试集不参与。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+得到受深度和叶节点样本限制的分类树。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 规则型表格任务
+- 可视化决策
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 无限深树
+- 特征重要性当因果
+- 只凭外观选深度
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

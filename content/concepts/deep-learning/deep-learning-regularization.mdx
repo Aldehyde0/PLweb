@@ -1,0 +1,147 @@
+---
+id: deep-learning-regularization
+slug: deep-learning-regularization
+title: 深度学习正则化
+category: deep-learning
+difficulty: 进阶
+summary: 通过控制容量、权重衰减、Dropout、合理增强和提前停止改善神经网络泛化。
+prerequisites:
+  - 神经网络训练
+  - 验证集
+relatedConcepts:
+  - overfitting-diagnosis
+  - training-engineering
+order: 112
+directory: 基础概念
+kind: long-form
+preserved:
+  codeExplanation:
+    - 示例用于阅读、复制和本地运行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/12_overfitting_solutions.md
+      title: 12｜过拟合：诊断与解决方法
+      kind: 原始文档
+  sourceSections:
+    - §13 神经网络和深度学习
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+正则化不能替代正确划分和验证；增强必须保持标签语义，推理需关闭 Dropout。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+深度网络参数多、训练久而数据少时容易过拟合，不同方法从参数、结构、数据和训练轮数限制自由度。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+限制记忆能力、制造合理变化，并在验证性能最佳时保存，而不是训练越久越好。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+先小模型基线；weight\_decay、dropout、augmentation 和 patience 在验证数据上选择，测试只最后使用。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+Jtotal=Jdata+λ||w||²；Dropout: h′=mask⊙h
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+先小模型基线；weight\_decay、dropout、augmentation 和 patience 在验证数据上选择，测试只最后使用。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 建立小模型
+2. 检查数据划分
+3. 尝试权重衰减
+4. 合理增强
+5. 验证早停
+6. 保存最佳权重
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 深度学习正则化 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的可靠评价或训练流程。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+optimizer=torch.optim.AdamW(model.parameters(),lr=3e-4,weight_decay=1e-2)
+dropout=torch.nn.Dropout(0.2)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 数据边界和划分方式是代码含义的一部分。
+- 结果应报告平均、波动或业务对应的指标。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+训练时应用权重衰减和随机 Dropout；eval 模式关闭 Dropout。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 图像/文本网络
+- 小数据微调
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 增强改变标签
+- 保存最后而非最佳
+- 正则过强
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

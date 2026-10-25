@@ -1,0 +1,231 @@
+---
+id: pytorch-tensors-modules
+slug: pytorch-tensors-modules
+title: PyTorch Tensor 与 nn.Module
+category: deep-learning
+difficulty: 入门
+summary: 用 Tensor 表示数据，用 Module 管理层、参数、buffer 和前向。
+prerequisites:
+  - 张量与矩阵
+relatedConcepts:
+  - pytorch-tensor-shape-device
+  - model-saving-inference
+order: 100
+directory: PyTorch 基础
+kind: long-form
+preserved:
+  subcategory: PyTorch 基础
+  codeExplanation:
+    - fc 被自动注册
+    - model(x) 保留 hooks
+    - 输出最后一维变 4
+  sourceDocuments:
+    - path: 学习资料/deeplearning/10_PyTorch张量与模块基础.md
+      title: 10_PyTorch张量与模块基础
+      kind: 原始文档
+  sourceSections:
+    - §1 Tensor
+    - §9 Module
+    - §10 Parameter/buffer
+    - §11 state_dict
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 检查四个 Tensor 属性
+- 编写 Module
+- 区分 Parameter/buffer
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+PyTorch 全部代码基础
+
+避免设备和未注册参数错误
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+安全训练必须明确数据、参数和状态在何处、以什么类型存在。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Tensor 具有 shape、dtype、device、requires\_grad；Module 注册子模块和状态。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+Tensor 是数据容器，Module 是会管理状态的计算单元。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+通过 model(x) 调用 forward；Parameter 参与优化，buffer 随模型移动和保存但不训练。
+
+state\_dict 保存参数与持久 buffer，不保存类定义。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+Y=XW^T+b
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+Linear 对最后一维做仿射变换。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| X | \[N,in\_features\] 输入 |
+| W | \[out\_features,in\_features\] 参数 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### Linear 形状
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- X \[8,10\]
+- Linear(10,4)
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 矩阵乘 W^T
+2. 广播 b
+:::
+
+:::field{path="numericalExample.result" type="text"}
+Y \[8,4\]
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 创建 Tensor
+2. 检查属性
+3. 定义 Module
+4. 注册层
+5. 实现 forward
+6. 随机输入验证
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### PyTorch Tensor 与 nn.Module · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证PyTorch Tensor 与 nn.Module的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+class Tiny(nn.Module):
+    def __init__(self):
+        super().__init__();self.fc=nn.Linear(10,4)
+    def forward(self,x):return self.fc(x)
+print(Tiny()(torch.randn(8,10)).shape)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- fc 被自动注册
+- model(x) 保留 hooks
+- 输出最后一维变 4
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+torch.Size(\[8,4\])。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 所有 PyTorch 模型
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 普通列表存层
+- 直接 forward
+- 只 eval 以为无梯度
+- state\_dict 当结构
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### buffer 会保存吗？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+持久 buffer 会进入 state\_dict。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 为何用 model(x)？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+会经过 Module 管理的 hooks 等机制。
+:::
+

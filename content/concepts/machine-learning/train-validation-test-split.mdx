@@ -1,0 +1,149 @@
+---
+id: train-validation-test-split
+slug: train-validation-test-split
+title: 训练集、验证集与测试集
+category: machine-learning
+difficulty: 入门
+summary: 训练集学习参数，验证过程选择方案，测试集只在选择完成后评价一次。
+prerequisites:
+  - 任务定义
+relatedConcepts:
+  - cross-validation
+  - evaluation-design
+  - data-leakage
+order: 11
+directory: 入门与数学基础
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码用于验证概念，不在网页中直接执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/00_introduction.md
+      title: 00｜机器学习导论
+      kind: 原始文档
+  sourceSections:
+    - §6 数据集为什么需要划分
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+反复查看测试结果并调整方案会使测试集间接参与训练，最终分数过于乐观。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+三个数据角色由用途而非文件名决定。任何用于选择模型、特征、阈值或停止时机的数据都属于验证过程。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+训练集是练习，验证集是模拟考试，测试集是最终考试；不能看着最终答案不断改方案。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+划分应模拟真实使用：时间预测按过去/未来，重复实体按群组隔离，分类常分层。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+D = Dtrain ⊔ Dvalidation ⊔ Dtest
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+划分应模拟真实使用：时间预测按过去/未来，重复实体按群组隔离，分类常分层。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 定义未来预测对象
+2. 选择时间/群组/随机策略
+3. 保留测试集
+4. 在训练部分交叉验证
+5. 锁定方案
+6. 测试一次并报告
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 训练集、验证集与测试集：最小可验证示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+Python
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+把正文原理映射为可检查的代码行为。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```Python
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 先确认输入形状和数据边界。
+- 把输出与公式或定义逐项对照。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+得到互不重叠的训练和测试分块，并保持分类比例。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 模型选择
+- 可靠实验
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 测试集调参
+- 随机划分时间数据
+- 同一用户跨分块
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

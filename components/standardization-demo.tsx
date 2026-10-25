@@ -23,8 +23,8 @@ export function StandardizationDemo() {
       </h2>
       <p className="mt-2 text-sm leading-7 text-muted-foreground">
         拖动原始值和训练集统计量，观察同一个 <InlineMath latex="x" />{' '}
-        如何映射到标准差坐标。这里的 <InlineMath latex="\\mu" /> 与{' '}
-        <InlineMath latex="\\sigma" /> 代表已经由训练集拟合完成的参数。
+        如何映射到标准差坐标。这里的 <InlineMath latex={'\\mu'} /> 与{' '}
+        <InlineMath latex={'\\sigma'} /> 代表已经由训练集拟合完成的参数。
       </p>
       <div className="mt-6 grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
         <div className="space-y-5">

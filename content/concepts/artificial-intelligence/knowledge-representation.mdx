@@ -1,0 +1,111 @@
+---
+id: knowledge-representation
+slug: knowledge-representation
+title: 知识表示
+category: artificial-intelligence
+difficulty: 进阶
+summary: 用机器可操作的结构表达实体、属性、关系与规则。
+prerequisites:
+  - Python 基础
+  - 高中数学
+relatedConcepts:
+  - ai-overview
+  - generative-ai
+order: 2
+directory: 基础概念
+kind: legacy
+preserved: {}
+---
+
+## 前置知识 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 通俗直觉 {#intuition}
+
+:::field{path="explanation" type="text"}
+人知道“猫是动物，动物需要呼吸”。知识表示把这些事实整理成机器能查询和推理的图或规则。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="principle" type="text"}
+语义网络用节点表示实体或概念，用有方向的边表示关系；规则系统则通过前提推出结论。
+:::
+
+
+## 数学公式 {#formulas}
+
+:::field{path="formula.expression" type="math"}
+$$
+Cat(x) → Animal(x)
+$$
+:::
+
+:::field{path="formula.description" type="text"}
+若 x 是猫，则可以推出 x 是动物。
+:::
+
+
+## 工作流程 {#algorithm-steps}
+
+:::field{path="workflow" type="list"}
+- 定义领域实体
+- 建立关系和属性
+- 编码事实与规则
+- 执行查询或逻辑推理
+:::
+
+
+## 代码示例 {#code}
+
+:::field{path="code.language" type="text"}
+Python
+:::
+
+:::field{path="code.source" type="code" trailing="0"}
+```Python
+facts = {"猫": {"is_a": "动物"}, "动物": {"needs": "呼吸"}}
+
+def inherit(entity, relation):
+    current = entity
+    while current in facts:
+        if relation in facts[current]:
+            return facts[current][relation]
+        current = facts[current].get("is_a")
+
+print(inherit("猫", "needs"))
+```
+:::
+
+:::field{path="code.highlights" type="list"}
+- 沿 is\_a 关系继承属性
+- 字典模拟一个最小知识图谱
+:::
+
+:::field{path="codeExplanation" type="text"}
+程序沿着类别层级向上查找属性，体现了知识继承。工业知识图谱会提供更严格的模式、查询语言和一致性约束。
+:::
+
+
+## 应用场景 {#applications}
+
+:::field{path="applications" type="list"}
+- 知识图谱
+- 专家系统
+- 语义搜索
+:::
+
+
+## 常见误区 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 把事实存储当成完整推理
+- 忽略知识的不确定性与时效性
+:::
+
+
+## 相关概念 {#related}
+
+<ConceptRelated />

@@ -1,0 +1,150 @@
+---
+id: cross-validation-reporting
+slug: cross-validation-reporting
+title: 交叉验证结果报告
+category: machine-learning
+difficulty: 进阶
+summary: 报告划分器、折数、种子、群组/时间定义、指标、每折结果、均值波动、搜索范围和独立测试。
+prerequisites:
+  - 交叉验证
+relatedConcepts:
+  - cross-validation-scoring
+  - ml-experiment-reporting
+order: 90
+directory: 评估与模型选择
+kind: long-form
+preserved:
+  codeExplanation:
+    - 示例用于阅读、复制和本地运行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/13_cross_validation.md
+      title: 13｜交叉验证：可靠评估与模型选择
+      kind: 原始文档
+  sourceSections:
+    - §17 如何报告交叉验证结果
+    - §18 常见错误
+    - §19 检查清单
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+折间分数相关，普通标准差不能直接当严格置信区间；模型比较最好使用同一折。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+结果报告必须让他人重建评价协议，而不是只给一个“CV=0.97”。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+分数没有考试规则就无法解释和复现。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+记录数据版本、Pipeline 边界、超参数空间、软件版本和最终测试使用次数。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+“5折分层 CV，ROC-AUC=0.974±0.012，独立测试=0.968”
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+记录数据版本、Pipeline 边界、超参数空间、软件版本和最终测试使用次数。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 记录划分
+2. 列每折分数
+3. 计算均值/样本标准差
+4. 记录耗时
+5. 记录搜索范围
+6. 独立测试
+7. 保存版本
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 交叉验证结果报告 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的可靠评价或训练流程。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+scores=np.asarray(scores)
+print("folds:",scores)
+print(f"mean={scores.mean():.3f}, std={scores.std(ddof=1):.3f}")
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 数据边界和划分方式是代码含义的一部分。
+- 结果应报告平均、波动或业务对应的指标。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+每折分数及 mean±sample std。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 实验报告
+- 模型审查
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 只报最高折
+- 标准差当严格置信区间
+- 省略预处理位置
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

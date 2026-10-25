@@ -1,0 +1,157 @@
+---
+id: digits-project-delivery
+slug: digits-project-delivery
+title: Digits 项目工程交付与验收
+category: machine-learning
+difficulty: 挑战
+summary: 按分级验收完成代码、依赖、五张图、模型、报告、预测程序和风险说明。
+prerequisites:
+  - 机器学习基本流程
+  - Pipeline
+  - 交叉验证
+  - 分类指标
+relatedConcepts:
+  - sklearn-model-persistence
+  - inference-input-contract
+  - ml-experiment-reporting
+order: 98
+directory: 项目与部署
+kind: long-form
+preserved:
+  codeExplanation:
+    - 实际项目还需保存图表、版本和报告。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/practice_project_digits\README.md
+      title: 综合练习项目｜传统机器学习手写数字识别
+      kind: 原始文档
+  sourceSections:
+    - §9 难度分级
+    - §10 强制限制
+    - §11 预期结构
+    - §13 非功能需求
+    - §14 验收
+    - §15–16 开发顺序与提交物
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+一个高分 notebook 不等同可交付项目；模型文件、输入检查、命令、版本和限制同样重要。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+工程交付要求训练、评价和预测逻辑分离，路径基于 pathlib，输入错误给出清晰提示，结果可复现。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+把项目当作一条可复现、可审计的实验链，而不是追求一次最高分。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+Level 1–4 逐级完成；任何测试集泄漏、修改测试样本、使用深度学习替代或无法解释代码均一票否决。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 项目主线
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+任务 → 数据 → 协议 → 基线 → 比较 → 测试 → 错误分析 → 交付
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+Level 1–4 逐级完成；任何测试集泄漏、修改测试样本、使用深度学习替代或无法解释代码均一票否决。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 按推荐顺序实现 starter→图表→基线→CV→搜索→测试
+2. 保存模型
+3. 实现 predict.py 输入校验
+4. 自动创建输出目录
+5. 记录依赖和随机种子
+6. 按评分表自检
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### Digits 项目工程交付与验收 核心代码
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应项目要求中的可运行核心步骤。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from pathlib import Path
+MODEL_PATH=Path(__file__).resolve().parent/"models"/"digits_classifier.joblib"
+if not MODEL_PATH.exists():
+    raise FileNotFoundError(f"模型不存在: {MODEL_PATH}")
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 固定数据协议保证模型公平比较。
+- 测试集在方案锁定前保持不可见。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+使用与脚本位置相关的安全路径，并在模型缺失时给出明确错误。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 本地课程项目
+- 可复现实验
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 硬编码个人绝对路径
+- 训练预测混在一起
+- 没有限制说明
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

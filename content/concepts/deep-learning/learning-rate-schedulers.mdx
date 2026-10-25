@@ -1,0 +1,229 @@
+---
+id: learning-rate-schedulers
+slug: learning-rate-schedulers
+title: 学习率调度器
+category: deep-learning
+difficulty: 进阶
+summary: 按 epoch、实际参数更新或验证指标改变学习率。
+prerequisites:
+  - 优化器
+  - 学习率
+relatedConcepts:
+  - optimizers-schedulers
+  - learning-rate-selection
+order: 147
+directory: 优化
+kind: long-form
+preserved:
+  subcategory: 优化
+  codeExplanation:
+    - OneCycle 每 update 调
+    - 顺序 optimizer 后
+    - 总步数需匹配
+  sourceDocuments:
+    - path: 学习资料/deeplearning/15_优化器与学习率调度进阶.md
+      title: 15_优化器与学习率调度进阶
+      kind: 原始文档
+  sourceSections:
+    - §7 调度原因
+    - §8 顺序
+    - §9–14 各调度器
+    - §15 查看 lr
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 选择调用单位
+- 正确顺序
+- 实现 warmup
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+保证学习率曲线正确
+
+梯度累积时尤关键
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+step 放错频率会把计划压缩或拉长数十倍。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Step/Cosine 常按 epoch，OneCycle 按 update，Plateau 在验证后接收指标。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+调度步就是你调用 step 的次数，不天然等于 epoch。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+常规先 optimizer.step 后 scheduler.step；Plateau 例外需要验证指标。
+
+梯度累积时按真实 optimizer update 推进。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+\eta_t=\eta_{min}+\frac12(\eta_{max}-\eta_{min})(1+\cos(\pi t/T))
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+余弦退火。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| T | 调度总调用次数 |
+| t | 当前调度步 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 梯度累积调度
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- 100 micro-batch
+- 每4批 step
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 100/4
+:::
+
+:::field{path="numericalExample.result" type="text"}
+每 epoch 推进 25 次
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 确定单位
+2. 构造 scheduler
+3. 训练更新参数
+4. 推进调度
+5. 记录 lr
+6. 保存状态
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 学习率调度器 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证学习率调度器的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+scheduler=torch.optim.lr_scheduler.OneCycleLR(optimizer,max_lr=1e-2,epochs=10,steps_per_epoch=len(loader))
+optimizer.step();scheduler.step()
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- OneCycle 每 update 调
+- 顺序 optimizer 后
+- 总步数需匹配
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+学习率按 OneCycle 曲线变化。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 训练收敛
+- 微调 warmup
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- step 顺序反
+- 所有 scheduler 放 epoch 末
+- Plateau 不传指标
+- 累积每微批推进
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### StepLR 的 step\_size 单位？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+scheduler.step 调用次数。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### Plateau 何时调用？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+验证完成后传入监控指标。
+:::
+

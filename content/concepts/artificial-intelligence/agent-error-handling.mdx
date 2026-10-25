@@ -1,0 +1,151 @@
+---
+id: agent-error-handling
+slug: agent-error-handling
+title: Agent 错误处理
+category: artificial-intelligence
+difficulty: 进阶
+summary: 把可重试、需修正、需审批和不可恢复错误分类处理。
+prerequisites:
+  - agent-loop
+  - tools
+relatedConcepts:
+  - agent-reliability
+  - tracing-observability
+order: 176
+directory: Agent
+kind: long-form
+preserved:
+  subcategory: Agent
+  entityType: agent
+  workflow:
+    - 捕获错误
+    - 分类瞬时/输入/权限/业务/未知
+    - 决定重试、修正、审批或停止
+    - 记录次数与最终原因
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls: []
+  versionDate: 2026-08-30
+  inputsSchema: 错误类型；调用参数；重试计数
+  outputsSchema: 恢复结果或明确失败
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明Agent 错误处理解决什么问题，以及何时适用。
+- 能解释为什么“无限重试”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+盲目重试会重复副作用，吞掉错误会让 Agent 用缺失结果继续生成。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Agent 错误处理是从模型、工具、网络、权限和验证失败中恢复或安全停止的策略。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+先判断是临时堵车、地址填错、权限不足还是道路永久关闭，再决定重试、改参、请人或停止。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+错误必须结构化分类并保留原始原因。
+
+只对瞬时且幂等的操作做有限退避重试。
+
+写操作重试需要幂等键或执行前查重。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 捕获错误
+2. 分类瞬时/输入/权限/业务/未知
+3. 决定重试、修正、审批或停止
+4. 记录次数与最终原因
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 可靠 Agent 运行器
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 无限重试
+- 隐藏错误细节
+- 写操作无幂等键
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 错误类型
+- 调用参数
+- 重试计数
+:::
+
+:::field{path="outputs" type="list"}
+- 恢复结果或明确失败
+:::
+
+:::field{path="capabilities" type="list"}
+- 可靠 Agent 运行器
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

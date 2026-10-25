@@ -1,0 +1,152 @@
+---
+id: llm-and-agent
+slug: llm-and-agent
+title: 大语言模型与 Agent
+category: artificial-intelligence
+difficulty: 进阶
+summary: 模型负责推断和生成，Agent 系统负责上下文、工具、循环、状态和结果控制。
+prerequisites:
+  - generative-ai
+  - intelligent-agent
+relatedConcepts:
+  - agent-loop
+  - tool-calling
+  - agent-evaluation
+order: 168
+directory: Agent
+kind: long-form
+preserved:
+  subcategory: Agent
+  entityType: agent
+  workflow:
+    - 模型接收状态
+    - 产生回答或工具请求
+    - 运行器验证并执行
+    - 结果回填
+    - 判断继续或结束
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls: []
+  versionDate: 2026-08-30
+  inputsSchema: 提示与上下文；工具 Schema
+  outputsSchema: 文本、结构化输出或工具调用意图
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明大语言模型与 Agent解决什么问题，以及何时适用。
+- 能解释为什么“把幻觉当成工具执行结果”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+把模型回答误当成已经执行，会造成“说完成了但没有动作”的可靠性缺口。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+LLM 是根据输入生成输出的模型；Agent 是围绕模型建立的目标驱动运行系统。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+LLM 能提出下一步，Agent 运行器才决定是否允许、如何执行、如何记录以及是否继续。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+模型输出是候选决策，不是权限凭证。
+
+工具执行结果要作为新观察返回模型或确定性控制器。
+
+最终完成状态应由可验证结果而非语言自信判断。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 模型接收状态
+2. 产生回答或工具请求
+3. 运行器验证并执行
+4. 结果回填
+5. 判断继续或结束
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 区分模型评测与系统评测
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 把幻觉当成工具执行结果
+- 忽略运行器责任
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 提示与上下文
+- 工具 Schema
+:::
+
+:::field{path="outputs" type="list"}
+- 文本、结构化输出或工具调用意图
+:::
+
+:::field{path="capabilities" type="list"}
+- 区分模型评测与系统评测
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

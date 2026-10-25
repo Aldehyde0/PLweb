@@ -1,0 +1,170 @@
+---
+id: gradient-descent-convergence
+slug: gradient-descent-convergence
+title: 梯度下降收敛诊断
+category: machine-learning
+difficulty: 进阶
+summary: 结合损失趋势、相对变化、梯度范数、耐心轮数和最大轮数判断优化是否稳定。
+prerequisites:
+  - 损失函数
+  - 学习率
+relatedConcepts:
+  - learning-rate-selection
+  - overfitting-diagnosis
+order: 34
+directory: 数据预处理与特征工程
+kind: long-form
+preserved:
+  codeExplanation:
+    - 使用相对变化适配不同损失量级。
+    - stable_count 在变化重新变大时清零。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/02_preprocessing_feature_engineering.md
+      title: 02｜数据预处理与特征工程
+      kind: 原始文档
+  sourceSections:
+    - §7 判断梯度下降是否收敛
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+运行固定 epochs 既可能提前停止，也可能浪费计算。某一轮变化小也可能只是震荡瞬间，因此需要阈值与 patience。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+收敛表示在当前模型、特征和优化设置下，参数更新带来的目标改善已经很小；它不等于模型泛化良好。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+不是看到车速慢一次就说已到终点，而是连续多次变化都很小，并确认没有发散或停在错误原因上。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+相对损失变化对不同损失量级更可比；梯度范数接近 0 是补充信号。训练和验证曲线还用于区分优化收敛与过拟合。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 相对损失变化
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+rₜ = |Jₜ-Jₜ₋₁| / max(|Jₜ₋₁|, ε)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+连续若干轮小于 tolerance 时可提前停止。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| ε | 防止分母为零的小常数。 |
+| patience | 允许连续稳定或未改善的轮数。 |
+:::
+
+::::
+
+<LearningRateDemo />
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 每轮记录训练损失。
+2. 检查 loss 和参数是否有限。
+3. 计算相对损失变化。
+4. 可同时计算梯度范数。
+5. 连续 patience 轮满足条件才停止。
+6. 设置最大轮数。
+7. 用验证曲线确认没有过拟合。
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 耐心机制判断稳定
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+Python
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+避免一次偶然的小变化导致过早停止。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```Python
+tolerance = 1e-8
+patience = 10
+stable_count = 0
+
+relative_change = abs(old_loss - new_loss) / max(abs(old_loss), 1e-12)
+stable_count = stable_count + 1 if relative_change < tolerance else 0
+
+if stable_count >= patience:
+    print("梯度下降已经收敛")
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 使用相对变化适配不同损失量级。
+- stable\_count 在变化重新变大时清零。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+连续 10 轮相对变化小于 1e-8 后打印收敛提示。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 手写梯度下降
+- 早停诊断
+- 优化器调试
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 把训练收敛等同泛化成功
+- 不设最大轮数
+- 忽略 nan/inf
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

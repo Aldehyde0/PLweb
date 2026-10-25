@@ -1,0 +1,230 @@
+---
+id: deep-overfitting-and-validation
+slug: deep-overfitting-and-validation
+title: 深度学习过拟合与验证
+category: deep-learning
+difficulty: 进阶
+summary: 结合训练/验证曲线判断欠拟合、过拟合和训练不稳定。
+prerequisites:
+  - 训练循环
+  - 数据划分
+relatedConcepts:
+  - dropout
+  - training-engineering
+order: 133
+directory: 泛化
+kind: long-form
+preserved:
+  subcategory: 泛化
+  codeExplanation:
+    - eval 控制 Dropout/BN
+    - inference_mode 关闭梯度
+    - 验证不 step
+  sourceDocuments:
+    - path: 学习资料/deeplearning/04_过拟合欠拟合与数据集划分.md
+      title: 04_过拟合欠拟合与数据集划分
+      kind: 原始文档
+  sourceSections:
+    - §1 泛化
+    - §2–4 过拟合/欠拟合
+    - §5–7 数据职责
+    - §8 改善方法
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 读懂训练验证曲线
+- 区分欠拟合与不稳定
+- 设计数据划分
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+保证可信泛化
+
+防止测试集泄漏
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+只看训练 loss 无法判断新数据表现。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+过拟合表现为训练持续改善而验证恶化；验证集用于选择模型，测试集只最终评估。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+训练题越做越熟，但模拟考试开始退步，说明模型在记细节。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+验证损失最低点常比训练末尾更适合作为保存检查点。
+
+解决方法包括代表性数据、合理增强、降低容量、权重衰减、Dropout 和早停。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+L_{total}=L_{data}+\lambda\sum_iw_i^2
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+λ 控制权重衰减强度。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| λ | 正则化强度 |
+| L\_data | 任务损失 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 曲线诊断
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- train loss\:0.8→0.1
+- val loss\:0.9→0.4→0.7
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 验证最低点在中间 epoch
+:::
+
+:::field{path="numericalExample.result" type="text"}
+应保存 val loss=0.4 的模型
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 划分 train/val/test
+2. 每 epoch 记录两类指标
+3. 保存验证最佳
+4. 早停
+5. 最终测试一次
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 深度学习过拟合与验证 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证深度学习过拟合与验证的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+model.eval()
+with torch.inference_mode():
+    val_logits=model(x_val)
+    val_loss=criterion(val_logits,y_val)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- eval 控制 Dropout/BN
+- inference\_mode 关闭梯度
+- 验证不 step
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+得到不更新参数的验证损失。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 模型选择
+- 早停
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 训练好即泛化好
+- 测试集调参
+- 验证随机增强
+- 正则过强
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### 验证损失上升时一定停止吗？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+应结合 patience、噪声和验证趋势。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 测试集能否选 epoch？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+不能，那会让测试集变成验证集。
+:::
+

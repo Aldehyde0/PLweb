@@ -1,0 +1,144 @@
+---
+id: elastic-net
+slug: elastic-net
+title: Elastic Net
+category: machine-learning
+difficulty: 进阶
+summary: 混合 L1 稀疏性和 L2 稳定收缩，适合相关特征较多的场景。
+prerequisites:
+  - L1/L2
+relatedConcepts:
+  - l1-regularization
+  - lasso-regression
+order: 78
+directory: 评估与模型选择
+kind: long-form
+preserved:
+  codeExplanation:
+    - 示例用于阅读、复制和本地运行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/11_l1_regularization.md
+      title: 11｜L1 正则化：稀疏模型与特征选择
+      kind: 原始文档
+  sourceSections:
+    - §4 L1 与 L2 的区别
+    - §11 高度相关的特征
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+L1 在高度相关特征中可能任意留一个，数据略变选择就交换；L2 更倾向共同缩小。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+l1\_ratio=ρ 控制 L1/L2 比例；ρ=1 接近纯 L1，ρ=0 接近纯 L2。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+既允许删掉弱特征，又避免相关特征之间过于武断地二选一。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+alpha 与 l1\_ratio 联合交叉验证；仍需标准化并检查稀疏性、验证表现和稳定性。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+J=Jdata+λ[ρ||w||₁+(1-ρ)||w||²₂/2]
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+alpha 与 l1\_ratio 联合交叉验证；仍需标准化并检查稀疏性、验证表现和稳定性。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 标准化
+2. 设 alpha 和 l1\_ratio 网格
+3. 交叉验证
+4. 检查系数路径
+5. 测试稳定性
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### Elastic Net 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的可靠评价或训练流程。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.linear_model import ElasticNetCV
+model=make_pipeline(StandardScaler(),ElasticNetCV(l1_ratio=[.1,.5,.9,1],cv=5))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 数据边界和划分方式是代码含义的一部分。
+- 结果应报告平均、波动或业务对应的指标。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+选择 alpha 与 l1\_ratio，输出折中稀疏权重。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 相关高维回归
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 不联合调参
+- 忽略相关特征含义
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

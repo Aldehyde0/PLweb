@@ -1,0 +1,164 @@
+---
+id: agent-architecture
+slug: agent-architecture
+title: Agent 基本结构
+category: artificial-intelligence
+difficulty: 进阶
+summary: 把模型、指令、上下文、状态、工具、运行器、护栏和追踪组织成可测试结构。
+prerequisites:
+  - intelligent-agent
+  - tools
+relatedConcepts:
+  - agent-loop
+  - agent-state-memory
+  - tracing-observability
+  - guardrails-prompt-injection
+order: 167
+directory: Agent
+kind: long-form
+preserved:
+  subcategory: Agent
+  entityType: agent
+  workflow:
+    - 定义 Agent 指令和输出契约
+    - 配置最小工具集
+    - 设计状态所有权
+    - 加入审批与护栏
+    - 定义追踪字段和评测集
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls:
+    - https://openai.github.io/openai-agents-js/
+    - https://openai.github.io/openai-agents-js/guides/tracing/
+  versionDate: 2026-08-30
+  inputsSchema: 指令；上下文；工具定义；应用状态
+  outputsSchema: 运行轨迹；最终输出；错误或审批中断
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+anchorAliases:
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明Agent 基本结构解决什么问题，以及何时适用。
+- 能解释为什么“把授权写在提示词里就认为安全”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+任务复杂后，提示词、工具和历史都塞入一个调用会导致上下文膨胀、权限模糊和难以定位错误。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Agent 架构说明每个组件的职责、数据流、信任边界与停止控制，而不只是画一个“LLM + Tools”框。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+像软件架构：模型不是整个应用，运行器负责调度，工具适配外部世界，状态存储当前事实，护栏与日志负责控制和诊断。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+职责分离让模型决策、应用状态和外部副作用可以分别测试。
+
+工具描述与 Schema 构成模型可见接口，真正授权仍由应用在执行前检查。
+
+追踪应覆盖每次模型生成、工具调用、Handoff、护栏结果与停止原因。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 定义 Agent 指令和输出契约
+2. 配置最小工具集
+3. 设计状态所有权
+4. 加入审批与护栏
+5. 定义追踪字段和评测集
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 生产 Agent 架构
+- 可观测工作流
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 把授权写在提示词里就认为安全
+- 状态归属不清
+- 没有追踪敏感数据策略
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 指令
+- 上下文
+- 工具定义
+- 应用状态
+:::
+
+:::field{path="outputs" type="list"}
+- 运行轨迹
+- 最终输出
+- 错误或审批中断
+:::
+
+:::field{path="capabilities" type="list"}
+- 生产 Agent 架构
+- 可观测工作流
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

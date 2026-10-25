@@ -1,0 +1,212 @@
+---
+id: agent-reliability
+slug: agent-reliability
+title: Agent 可靠性与可观测性
+category: artificial-intelligence
+difficulty: 挑战
+summary: 通过契约、限制、幂等、评测、追踪和人工升级提高端到端任务成功率。
+prerequisites:
+  - agent-evaluation
+  - tracing-observability
+relatedConcepts:
+  - agent-error-handling
+  - agent-security
+order: 194
+directory: Agent
+kind: long-form
+preserved:
+  subcategory: Agent
+  entityType: agent
+  workflow:
+    - 定义 SLO 与验收集
+    - 为工具添加超时和幂等
+    - 记录完整轨迹
+    - 注入故障测试
+    - 分析并回归
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls: []
+  versionDate: 2026-08-30
+  inputsSchema: 评测任务；运行轨迹；故障事件
+  outputsSchema: 成功率、恢复率、延迟与错误预算
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  codeExamples: []
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明Agent 可靠性与可观测性解决什么问题，以及何时适用。
+- 能解释为什么“只测顺利路径”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+模型、工具、网络、状态和权限都是独立失败源，端到端可靠性通常低于任一局部组件分数。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+可靠性是系统在正常与异常条件下持续满足明确验收标准，并能解释和恢复失败的能力。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+可靠系统不只“通常能做”，还知道什么时候不能做、失败在哪里以及如何安全重试。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+每个边界都使用结构化输入输出契约。
+
+限制步数、时间、成本和副作用。
+
+离线评测、线上追踪和人工反馈形成闭环。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 串行流程的联合成功概率
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+P(A\cap B\cap C)=P(A)\,P(B\mid A)\,P(C\mid A\cap B)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+A、B、C 分别表示规划、执行、验收三个环节达标。公式描述三者同时达标的概率，是条件概率的链式法则，不要求各环节独立。实际任务成功必须另有明确验收标准，不能把模型自报“通过”当作真实成功。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| A | 规划满足任务约束。 |
+| B | 执行按约定正确完成。 |
+| C | 结果满足预先定义的验收条件。 |
+| P(B\|A) | 在规划达标的样本中，执行达标的比例。 |
+| P(C\|A∩B) | 在规划和执行都达标的样本中，验收达标的比例。 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 从同一批任务统计端到端通过率
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- 以下数字仅为教学假设，不是实测数据。
+- 1000 个任务中，950 个规划达标；其中 855 个执行达标；最后 838 个通过验收。
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 规划达标比例为 950 / 1000。
+2. 在规划达标的任务中，执行达标比例为 855 / 950。
+3. 在前两步都达标的任务中，验收达标比例为 838 / 855。
+4. 三者相乘，得到 838 / 1000 = 83.8%。
+:::
+
+:::field{path="numericalExample.result" type="text"}
+这批假设任务的联合通过率为 83.8%，不需要假设三个环节相互独立。
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+- 不能直接相乘三个来自不同样本的总体通过率。
+- 线上评估还应按任务类型和失败原因分组，检查验收标准是否可靠。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 定义 SLO 与验收集
+2. 为工具添加超时和幂等
+3. 记录完整轨迹
+4. 注入故障测试
+5. 分析并回归
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 生产 Agent
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 只测顺利路径
+- 把重试当万能恢复
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 评测任务
+- 运行轨迹
+- 故障事件
+:::
+
+:::field{path="outputs" type="list"}
+- 成功率、恢复率、延迟与错误预算
+:::
+
+:::field{path="capabilities" type="list"}
+- 生产 Agent
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

@@ -1,0 +1,141 @@
+---
+id: feature-selection
+slug: feature-selection
+title: 特征选择
+category: machine-learning
+difficulty: 进阶
+summary: 删除低价值、冗余或不稳定特征，降低方差、成本与解释负担，并把选择过程限制在训练折内。
+prerequisites:
+  - 交叉验证
+  - 正则化
+relatedConcepts:
+  - l1-regularization
+  - feature-construction
+  - cv-pipeline-leakage
+order: 39
+directory: 数据预处理与特征工程
+kind: long-form
+preserved:
+  codeExplanation:
+    - 标准化让 L1 惩罚更公平。
+    - 每个交叉验证训练折独立完成选择。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/02_preprocessing_feature_engineering.md
+      title: 02｜数据预处理与特征工程
+      kind: 原始文档
+  sourceSections:
+    - §11 特征选择
+    - §12 使用 Pipeline 防止泄漏
+  extensionNotes: []
+  formulas: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+特征过多会增加训练成本和偶然相关性。常量、重复、噪声和预测时昂贵的列可能降低泛化或工程可用性。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+特征选择从候选输入中保留一部分列；它不同于 PCA 等特征提取，后者创建新的组合变量。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+不是给模型越多信息越好，而是保留稳定、有用、可获得且成本合理的信息。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+可用方法包括低方差/冗余删除、统计检验、L1、树重要性、递归消除和基于 CV 的选择。任何数据驱动选择必须在训练折内部完成。
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 删除不可用和泄漏特征。
+2. 删除常量、重复和明显冗余。
+3. 选择与任务匹配的方法。
+4. 放入 Pipeline。
+5. 用相同交叉验证比较性能与稳定性。
+6. 记录保留特征和采集成本。
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### Pipeline 内使用 L1 选择
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+避免先看完整数据再选择特征。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.feature_selection import SelectFromModel
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+model = make_pipeline(
+    StandardScaler(),
+    SelectFromModel(LogisticRegression(penalty="l1", solver="liblinear", C=0.1)),
+    LogisticRegression(max_iter=2000),
+)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 标准化让 L1 惩罚更公平。
+- 每个交叉验证训练折独立完成选择。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+模型只把被训练折 L1 选择器保留的列传给最终分类器。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 高维表格
+- 稀疏文本
+- 降低采集成本
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 完整数据选择后再 CV
+- 把重要性解释为因果
+- 高度相关特征选择不稳定
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

@@ -1,0 +1,229 @@
+---
+id: forward-propagation
+slug: forward-propagation
+title: 前向传播
+category: deep-learning
+difficulty: 入门
+summary: 使用当前参数从输入逐层计算预测，不更新参数。
+prerequisites:
+  - 神经网络
+  - 张量
+relatedConcepts:
+  - neural-network-training-loop
+  - pytorch-autograd
+order: 131
+directory: 训练基础
+kind: long-form
+preserved:
+  subcategory: 训练基础
+  codeExplanation:
+    - train 设置模块行为
+    - model(x) 调用 forward 与 hooks
+    - 前向不会更新参数
+  sourceDocuments:
+    - path: 学习资料/deeplearning/02_神经网络的训练与优化.md
+      title: 02_神经网络的训练与优化
+      kind: 原始文档
+  sourceSections:
+    - §2 前向传播
+    - §8 PyTorch 标准训练流程
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 区分前向与更新
+- 跟踪每层形状
+- 识别 logits
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+训练循环第一步
+
+确定张量形状和计算图
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+只有得到预测，才能计算损失并开始反向传播。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+前向传播执行模型定义的计算图，输出 logits、概率参数或连续预测。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+像把数据沿流水线送过每个加工站，先得到结果再评价。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+每层输出成为下一层输入；此过程构建 Autograd 计算图，但没有调用 optimizer.step。
+
+训练与推理都执行前向，区别在模块模式和是否记录梯度。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+\hat{y}=f_{L}(...f_2(f_1(x)))
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+f\_l 是第 l 层变换。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| x | 模型输入 |
+| ŷ | 当前参数产生的预测 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 简单线性前向
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- x=2
+- w=1.5
+- b=0.5
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. z=1.5×2+0.5
+:::
+
+:::field{path="numericalExample.result" type="text"}
+预测 z=3.5
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 读取 batch
+2. 移动设备
+3. 调用 model(x)
+4. 检查输出形状
+5. 送入损失
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 前向传播 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证前向传播的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+model.train()
+x=torch.randn(16,10)
+logits=model(x)
+print(logits.shape)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- train 设置模块行为
+- model(x) 调用 forward 与 hooks
+- 前向不会更新参数
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+输出形状由任务头决定。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 训练
+- 验证
+- 推理
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 直接调用 model.forward
+- 认为前向会更新参数
+- 设备不一致
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### 前向会改变权重吗？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+不会，参数更新由 optimizer.step 完成。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 验证也需要前向吗？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+需要，但通常关闭梯度并使用 eval 模式。
+:::
+

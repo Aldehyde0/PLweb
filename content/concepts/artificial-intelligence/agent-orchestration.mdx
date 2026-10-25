@@ -1,0 +1,157 @@
+---
+id: agent-orchestration
+slug: agent-orchestration
+title: Agent 编排
+category: artificial-intelligence
+difficulty: 挑战
+summary: 选择确定性代码、Manager、Handoff、Agents as Tools 或并行方式组织多个能力。
+prerequisites:
+  - single-vs-multi-agent
+relatedConcepts:
+  - manager-pattern
+  - handoffs
+  - agents-as-tools
+order: 179
+directory: Agent
+kind: long-form
+preserved:
+  subcategory: Agent
+  entityType: agent
+  workflow:
+    - 识别确定性与开放决策
+    - 选择编排模式
+    - 定义交接载荷
+    - 限制共享状态
+    - 聚合与验证
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls:
+    - https://openai.github.io/openai-agents-js/guides/multi-agent/
+  versionDate: 2026-08-30
+  inputsSchema: 任务图；Agent 能力；成本与风险约束
+  outputsSchema: 执行图；最终负责人；失败回退路径
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+anchorAliases:
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明Agent 编排解决什么问题，以及何时适用。
+- 能解释为什么“控制权循环转移”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+把所有分支都交给模型会降低可预测性；把所有路径硬编码又会失去开放任务适应性。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+编排定义控制权、任务拆分、状态传递、聚合和失败处理。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+固定铁路适合稳定路线，智能调度适合需求变化；关键枢纽仍要用明确规则。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+高风险边界使用确定性代码。
+
+Manager 适合统一最终输出；Handoff 适合专家接管对话。
+
+组合模式时必须定义控制权何时转移和如何返回。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 识别确定性与开放决策
+2. 选择编排模式
+3. 定义交接载荷
+4. 限制共享状态
+5. 聚合与验证
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 多 Agent 系统
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 控制权循环转移
+- 子任务契约含糊
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 任务图
+- Agent 能力
+- 成本与风险约束
+:::
+
+:::field{path="outputs" type="list"}
+- 执行图
+- 最终负责人
+- 失败回退路径
+:::
+
+:::field{path="capabilities" type="list"}
+- 多 Agent 系统
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

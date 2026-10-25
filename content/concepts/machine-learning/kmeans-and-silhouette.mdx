@@ -1,0 +1,151 @@
+---
+id: kmeans-and-silhouette
+slug: kmeans-and-silhouette
+title: K-Means 与轮廓系数
+category: machine-learning
+difficulty: 进阶
+summary: 交替把样本分给最近中心并更新均值，最小化簇内平方距离；轮廓系数辅助评价 K。
+prerequisites:
+  - 欧氏距离
+  - 标准化
+relatedConcepts:
+  - unsupervised-learning
+  - hierarchical-clustering
+  - dbscan
+order: 59
+directory: 模型与算法
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码展示而不在浏览器执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/06_unsupervised_learning.md
+      title: 06｜无监督学习
+      kind: 原始文档
+  sourceSections:
+    - §3 K-Means
+    - §4 如何选择 K
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+对尺度、初始化、异常值和非球形簇敏感；编号不带业务语义。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+K-Means 需要预先给 K，学习 K 个中心；轮廓系数比较本簇紧密度与最近其他簇距离。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+不断重复“按最近中心分组”和“把中心移到组均值”。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+使用多次初始化并标准化。K 增大会单调降低簇内误差，肘部和轮廓只是参考，还需稳定性与业务解释。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+min Σᵢ||xᵢ-μcᵢ||²；s=(b-a)/max(a,b)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+使用多次初始化并标准化。K 增大会单调降低簇内误差，肘部和轮廓只是参考，还需稳定性与业务解释。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 标准化
+2. 选择 K 和多次初始化
+3. 分配最近中心
+4. 更新中心
+5. 收敛
+6. 比较轮廓和稳定性
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### K-Means 与轮廓系数 实现
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的训练与预测逻辑。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+labels=KMeans(n_clusters=3,n_init=20,random_state=42).fit_predict(X_scaled)
+print(silhouette_score(X_scaled,labels))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 代码先建立符合输入要求的估计器。
+- 参数应在交叉验证中选择，测试集不参与。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+输出 -1 到 1 之间的轮廓系数。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 用户分群
+- 探索结构
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 簇号当真实标签
+- 只看肘部
+- 未标准化
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

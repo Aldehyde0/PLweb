@@ -1,0 +1,228 @@
+---
+id: pytorch-dataset-dataloader
+slug: pytorch-dataset-dataloader
+title: Dataset 与 DataLoader
+category: deep-learning
+difficulty: 入门
+summary: Dataset 定义单样本，DataLoader 负责抽样、组批、打乱和并行读取。
+prerequisites:
+  - Tensor
+relatedConcepts:
+  - data-pipeline
+  - sequence-padding-and-masks
+order: 141
+directory: 数据管道
+kind: long-form
+preserved:
+  subcategory: 数据管道
+  codeExplanation:
+    - 先 num_workers=0 调试
+    - 训练 shuffle
+    - 首维是 batch
+  sourceDocuments:
+    - path: 学习资料/deeplearning/11_数据管道与预处理.md
+      title: 11_数据管道与预处理
+      kind: 原始文档
+  sourceSections:
+    - §1 管道
+    - §2 Dataset
+    - §4 DataLoader
+    - §8 collate
+    - §10 Windows
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 写 Dataset
+- 配置 DataLoader
+- 理解 collate
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+训练输入入口
+
+支持大数据流式读取
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+正确数据管道与模型结构同等重要。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+\_\_getitem\_\_ 返回单样本；batch 维由 DataLoader 的 collate 过程添加。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+Dataset 回答第 i 条是什么，DataLoader 回答如何凑一批。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+训练通常 shuffle，验证不 shuffle；预处理统计只来自训练集。
+
+变长数据需 collate\_fn、padding 与 mask；Windows workers 需 main 保护。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+batches=\lceil N/B\rceil
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+drop\_last=False 时保留尾批。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| N | 样本数 |
+| B | batch size |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 103 条数据
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- N=103,B=16
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. ceil=7
+2. 尾批 7
+:::
+
+:::field{path="numericalExample.result" type="text"}
+7 个 batch
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 实现 Dataset
+2. 划分索引
+3. 定义 transform
+4. 配置 loader
+5. 检查首批
+6. 逐批搬设备
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### Dataset 与 DataLoader · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证Dataset 与 DataLoader的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+loader=DataLoader(dataset,batch_size=16,shuffle=True,num_workers=0)
+x,y=next(iter(loader));print(x.shape,y.shape)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 先 num\_workers=0 调试
+- 训练 shuffle
+- 首维是 batch
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+首维最多 16。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 图像/文本/表格训练
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 全数据拟合统计
+- 验证随机增强
+- 变长默认组批
+- getitem 搬 GPU
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### Dataset 返回 batch 吗？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+通常返回单样本。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 验证为何不随机增强？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+保证评价确定且含义稳定。
+:::
+

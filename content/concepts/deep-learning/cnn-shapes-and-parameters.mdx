@@ -1,0 +1,234 @@
+---
+id: cnn-shapes-and-parameters
+slug: cnn-shapes-and-parameters
+title: CNN 张量形状与参数量
+category: deep-learning
+difficulty: 进阶
+summary: 系统计算 NCHW、卷积/池化输出、Flatten 和 Linear 参数量。
+prerequisites:
+  - 卷积操作
+  - 池化
+relatedConcepts:
+  - convolutional-neural-networks
+  - convolution-operation
+order: 138
+directory: 计算机视觉
+kind: long-form
+preserved:
+  subcategory: 计算机视觉
+  codeExplanation:
+    - 随机输入不下载数据
+    - assert 验证手算
+    - 错误立即暴露
+  sourceDocuments:
+    - path: 学习资料/deeplearning/08_CNN张量形状与参数量计算.md
+      title: 08_CNN张量形状与参数量计算
+      kind: 原始文档
+  sourceSections:
+    - §1 NCHW
+    - §2–5 形状
+    - §10 Flatten
+    - §11–12 参数量
+    - §13 验证
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 逐层手算形状
+- 计算卷积参数
+- 用随机张量断言
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+避免形状错误
+
+估算模型容量
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+多数 CNN 报错来自通道衔接和 Linear in\_features 计算错误。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+普通层通常保留 N；Conv 改 C 和空间；池化改空间；Flatten 合并 C/H/W。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+每经过一层都记账：N 看输入，C 看 out\_channels，H/W 用公式。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+Conv 参数与 H/W 无关，Linear 参数与展平维度强相关。
+
+手算后必须用随机张量、打印和 assert 验证。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+params_{conv}=C_{out}(C_{in}K_hK_w+1)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+bias=True 的普通卷积。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| N | batch |
+| C | 通道 |
+| H,W | 空间尺寸 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### Conv+Pool
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- \[10,1,28,28\]
+- Conv 1→8,k3,p1
+- Pool2
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. Conv→\[10,8,28,28\]
+2. Pool→\[10,8,14,14\]
+:::
+
+:::field{path="numericalExample.result" type="text"}
+最终 \[10,8,14,14\]
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 保留 N
+2. 更新 C
+3. 计算 H/W
+4. 池化
+5. Flatten 相乘
+6. Linear 输出
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### CNN 张量形状与参数量 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证CNN 张量形状与参数量的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+model=nn.Sequential(nn.Conv2d(1,8,3,padding=1),nn.MaxPool2d(2))
+y=model(torch.randn(10,1,28,28))
+assert y.shape==(10,8,14,14)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 随机输入不下载数据
+- assert 验证手算
+- 错误立即暴露
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+断言通过。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 网络设计
+- 参数预算
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 通道不衔接
+- stride 只凭直觉
+- Flatten 算错
+- 忽略尾部池化
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### Conv 参数为何不含 H/W？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+同一核跨位置共享。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### Flatten 是否删除 batch？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+从 dim=1 开始时保留 batch。
+:::
+

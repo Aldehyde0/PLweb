@@ -1,0 +1,228 @@
+---
+id: gradient-clipping
+slug: gradient-clipping
+title: 梯度裁剪
+category: deep-learning
+difficulty: 进阶
+summary: 在 backward 后按总范数或元素值限制梯度，缓解梯度爆炸。
+prerequisites:
+  - 梯度爆炸
+relatedConcepts:
+  - gradient-initialization
+  - training-engineering
+order: 143
+directory: 训练稳定性
+kind: long-form
+preserved:
+  subcategory: 训练稳定性
+  codeExplanation:
+    - 必须在 backward 后
+    - 返回原范数
+    - step 使用裁剪后梯度
+  sourceDocuments:
+    - path: 学习资料/deeplearning/13_梯度问题与权重初始化.md
+      title: 13_梯度问题与权重初始化
+      kind: 原始文档
+  sourceSections:
+    - §3 梯度爆炸
+    - §4 监控
+    - §5 梯度裁剪
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 正确放置裁剪
+- 记录总范数
+- 区分根因修复
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+防止单步破坏参数
+
+AMP/RNN 常用护栏
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+RNN、长序列和不稳定训练可能产生巨大梯度。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+范数裁剪保持方向并统一缩小过大梯度；值裁剪逐元素截断。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+方向不变，只把过长箭头缩到安全半径。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+顺序 backward→AMP unscale→clip→step；裁剪不能修复 NaN 损失。
+
+clip\_grad\_norm\_ 原地修改梯度并返回裁剪前范数。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+g\leftarrow g\min(1,M/(\lVert g\rVert_2+\varepsilon))
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+M 是最大范数。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| g | 所有参数梯度 |
+| M | 最大范数 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 范数裁剪
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- \|\|g\|\|=5
+- M=1
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 缩放系数 1/5
+:::
+
+:::field{path="numericalExample.result" type="text"}
+新范数 1
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. zero\_grad
+2. forward/loss
+3. backward
+4. unscale AMP
+5. clip
+6. step
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 梯度裁剪 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证梯度裁剪的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+loss.backward()
+norm=torch.nn.utils.clip_grad_norm_(model.parameters(),1.0,error_if_nonfinite=True)
+optimizer.step()
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 必须在 backward 后
+- 返回原范数
+- step 使用裁剪后梯度
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+norm 可大于 1，但实际梯度已限制到 1。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- RNN
+- Transformer
+- AMP
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- backward 前裁剪
+- 掩盖学习率过大
+- NaN 后才裁剪
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### 裁剪解决梯度消失吗？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+不能。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### AMP 时先做什么？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+先 scaler.unscale\_。
+:::
+

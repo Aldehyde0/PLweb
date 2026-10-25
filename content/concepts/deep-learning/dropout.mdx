@@ -1,0 +1,229 @@
+---
+id: dropout
+slug: dropout
+title: Dropout
+category: deep-learning
+difficulty: 进阶
+summary: 训练时随机置零部分激活，减少神经元对固定组合的依赖。
+prerequisites:
+  - 过拟合
+  - train/eval
+relatedConcepts:
+  - deep-overfitting-and-validation
+  - deep-learning-regularization
+order: 134
+directory: 正则化
+kind: long-form
+preserved:
+  subcategory: 正则化
+  codeExplanation:
+    - train 输出随机零
+    - eval 原样通过
+    - 同一输入训练输出可不同
+  sourceDocuments:
+    - path: 学习资料/deeplearning/04_过拟合欠拟合与数据集划分.md
+      title: 04_过拟合欠拟合与数据集划分
+      kind: 原始文档
+  sourceSections:
+    - §8.5 Dropout
+    - §10 正确验证
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 解释 p
+- 区分训练与推理
+- 放置 Dropout
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+常用神经网络正则化
+
+要求正确 train/eval 模式
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+容量较大的网络在小数据上容易共同适应训练细节。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Dropout 以概率 p 屏蔽输出并对保留值缩放，评估时关闭随机屏蔽。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+每次训练随机让部分成员缺席，迫使网络学会更分散的表示。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+Dropout 只在训练模式随机；p 太大会欠拟合。
+
+它不替代数据划分、权重衰减或增加数据。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+\tilde h=\frac{m\odot h}{1-p},\quad m_i\sim Bernoulli(1-p)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+m 是随机 mask，p 是丢弃概率。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| p | 丢弃概率 |
+| h | 原激活 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### p=0.5
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- 4 个激活
+- 期望保留 2 个
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 训练随机屏蔽
+2. 保留值按 1/(1-p) 缩放
+:::
+
+:::field{path="numericalExample.result" type="text"}
+期望输出尺度不变
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 选择位置
+2. 设置 p
+3. train 启用
+4. eval 关闭
+5. 比较验证曲线
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### Dropout · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证Dropout的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+drop=nn.Dropout(p=0.5)
+x=torch.ones(8)
+drop.train();print(drop(x))
+drop.eval();print(drop(x))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- train 输出随机零
+- eval 原样通过
+- 同一输入训练输出可不同
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+训练输出含零且非零值缩放；评估输出全 1。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- MLP
+- CNN 分类头
+- Transformer FFN
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 验证忘记 eval
+- p 越大越好
+- 误当权重衰减
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### 推理时还随机吗？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+不会，eval 模式关闭 Dropout。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### Dropout 是否改变输出期望？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+PyTorch 训练时缩放保留值以保持期望。
+:::
+

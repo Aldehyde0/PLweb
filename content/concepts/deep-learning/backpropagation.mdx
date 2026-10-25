@@ -1,0 +1,229 @@
+---
+id: backpropagation
+slug: backpropagation
+title: 反向传播
+category: deep-learning
+difficulty: 进阶
+summary: 从损失开始按链式法则逆序计算每个参数对损失的影响。
+prerequisites:
+  - 导数
+  - 前向传播
+relatedConcepts:
+  - pytorch-autograd
+  - neural-network-training-loop
+order: 107
+directory: 自动微分
+kind: long-form
+preserved:
+  subcategory: 自动微分
+  codeExplanation:
+    - loss 是标量
+    - 梯度按链式法则
+    - backward 不 step
+  sourceDocuments:
+    - path: 学习资料/deeplearning/12_自动微分与反向传播详解.md
+      title: 12_自动微分与反向传播详解
+      kind: 原始文档
+  sourceSections:
+    - §1 自动微分
+    - §4 标量 backward
+    - §13 链式验证
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 手算链式梯度
+- 理解 backward 职责
+- 检查参数梯度
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+神经网络学习核心
+
+连接损失与优化器
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+深层复合函数的导数需要复用各操作局部梯度。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+反向传播是高效的向量—雅可比乘积过程，本身不更新参数。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+从最终误差倒查每层责任，并把下游影响乘回上游。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+局部导数沿依赖路径相乘并汇总；优化器在 afterward 读取 .grad。
+
+非标量输出需提供上游 gradient；高阶梯度需 create\_graph。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+\frac{\partial L}{\partial w}=\frac{\partial L}{\partial z}\frac{\partial z}{\partial w}
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+链式法则连接损失和权重。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| L | 损失 |
+| w | 权重 |
+| z | 中间值 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### z=wx+b,L=z²
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- x=2,w=.5,b=1
+- z=2
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. dL/dw=2z×x
+:::
+
+:::field{path="numericalExample.result" type="text"}
+梯度 8
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 前向
+2. 保存依赖
+3. 初始化上游梯度
+4. 逆序局部求导
+5. 累加叶子 grad
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 反向传播 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证反向传播的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+x=torch.tensor(2.)
+w=torch.tensor(.5,requires_grad=True)
+b=torch.tensor(1.,requires_grad=True)
+loss=(w*x+b).square();loss.backward();print(w.grad,b.grad)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- loss 是标量
+- 梯度按链式法则
+- backward 不 step
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+w.grad=8，b.grad=4。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 所有神经网络训练
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 反向等于更新
+- 同图重复 backward
+- 意外 detach
+- 原地破坏图
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### backward 会更新参数吗？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+不会，只计算梯度。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 为何 loss 常归约为标量？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+可直接从上游梯度 1 反传。
+:::
+

@@ -1,0 +1,106 @@
+---
+id: overfitting-regularization
+slug: overfitting-regularization
+title: 过拟合与正则化
+category: machine-learning
+difficulty: 进阶
+summary: 过拟合是记住训练噪声；正则化通过约束复杂度改善泛化。
+prerequisites:
+  - Python 基础
+  - 高中数学
+relatedConcepts:
+  - supervised-learning
+  - loss-functions
+order: 81
+directory: 评估与模型选择
+kind: legacy
+preserved: {}
+---
+
+## 前置知识 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 通俗直觉 {#intuition}
+
+:::field{path="explanation" type="text"}
+像把练习题答案背下来，却不会做新题。正则化要求模型用更简单稳定的规律作答。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="principle" type="text"}
+在数据损失之外加入参数惩罚，控制模型自由度，在偏差与方差之间取得平衡。
+:::
+
+
+## 数学公式 {#formulas}
+
+:::field{path="formula.expression" type="math"}
+$$
+J(θ) = Ldata(θ) + λ||θ||²₂
+$$
+:::
+
+:::field{path="formula.description" type="text"}
+λ 决定拟合训练数据与限制参数大小之间的权衡。
+:::
+
+
+## 工作流程 {#algorithm-steps}
+
+:::field{path="workflow" type="list"}
+- 观察训练/验证误差差距
+- 选择正则化方法
+- 用验证集调整强度
+- 在测试集确认泛化
+:::
+
+
+## 代码示例 {#code}
+
+:::field{path="code.language" type="text"}
+Python
+:::
+
+:::field{path="code.source" type="code" trailing="0"}
+```Python
+from sklearn.linear_model import Ridge
+
+model = Ridge(alpha=1.0)
+model.fit([[1], [2], [3]], [1.2, 1.9, 3.4])
+print(model.coef_)
+```
+:::
+
+:::field{path="code.highlights" type="list"}
+- Ridge 使用 L2 正则化
+- alpha 越大约束通常越强
+:::
+
+:::field{path="codeExplanation" type="text"}
+Ridge 在线性回归损失中加入权重平方惩罚，减少参数对少量训练样本的过度适配。
+:::
+
+
+## 应用场景 {#applications}
+
+:::field{path="applications" type="list"}
+- 小样本建模
+- 高维特征选择
+- 稳定模型参数
+:::
+
+
+## 常见误区 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 正则越强不一定越好
+- 用测试集调参会造成信息泄漏
+:::
+
+
+## 相关概念 {#related}
+
+<ConceptRelated />

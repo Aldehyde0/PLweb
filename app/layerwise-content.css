@@ -1,0 +1,192 @@
+/* Formal MDX reader. The homepage composition is outside this migration. */
+:root,
+[data-theme] {
+  --color-paper: var(--lw-paper);
+  --color-paper-2: var(--lw-surface);
+  --color-paper-3: var(--lw-raised);
+  --color-ink: var(--lw-ink);
+  --color-ink-2: var(--lw-secondary);
+  --color-muted: var(--lw-muted);
+  --color-neutral: var(--lw-secondary);
+  --color-rule: var(--lw-rule);
+  --color-accent: var(--lw-accent-ink);
+  --background: var(--lw-paper);
+  --foreground: var(--lw-ink);
+  --card: var(--lw-surface);
+  --card-foreground: var(--lw-ink);
+  --popover: var(--lw-surface);
+  --popover-foreground: var(--lw-ink);
+  --muted-foreground: var(--lw-secondary);
+  --border: var(--lw-rule);
+  --primary: var(--lw-accent-ink);
+  --primary-foreground: var(--lw-paper);
+  --secondary: var(--lw-raised);
+  --secondary-foreground: var(--lw-ink);
+}
+html {
+  scroll-padding-top: var(--lw-header-height);
+}
+.site-header {
+  inset: 0 0 auto;
+}
+.site-nav {
+  width: 100%;
+  max-width: none;
+  min-height: var(--lw-header-height);
+  border-radius: 0;
+  border-width: 0 0 var(--rule-hair);
+  padding-inline: var(--space-md);
+  box-shadow: none;
+  background: var(--lw-paper);
+  display: grid;
+  grid-template-columns: 1fr auto;
+}
+.site-nav__tools {
+  display: flex;
+  align-items: center;
+  justify-self: end;
+  gap: var(--space-2xs);
+}
+.site-nav__brand {
+  font-size: 18px;
+  font-weight: 500;
+}
+.site-nav__links {
+  justify-self: center;
+}
+.site-nav__mobile {
+  max-width: none;
+  border-radius: 0;
+  margin: 0;
+  background: var(--lw-paper);
+}
+.concept-shell {
+  width: 100%;
+  max-width: none;
+  margin-block-start: var(--lw-header-height);
+  padding: var(--space-md) var(--space-sm) var(--space-2xl);
+}
+.concept-article {
+  max-width: var(--lw-article-width);
+}
+.concept-directory {
+  padding: var(--space-md) var(--space-sm);
+  top: var(--lw-header-height);
+  height: calc(100dvh - var(--lw-header-height));
+}
+.concept-memo-desktop {
+  border-left: 0;
+  padding: var(--space-sm);
+  top: calc(var(--lw-header-height) + var(--space-sm));
+  height: calc(100dvh - var(--lw-header-height) - var(--space-md));
+}
+.article-toc {
+  display: flex;
+  flex-direction: column;
+  margin-block: var(--space-sm);
+}
+.article-toc a {
+  font-size: var(--text-xs);
+  color: var(--lw-secondary);
+  min-height: 44px;
+  padding: var(--space-2xs);
+  border-left: var(--rule-fine) solid transparent;
+}
+.article-toc a[aria-current] {
+  color: var(--lw-accent-ink);
+  border-color: var(--lw-accent);
+  background: var(--lw-selection);
+}
+.concept-memo-desktop .concept-memo-mobile {
+  display: block;
+}
+.concept-memo-desktop .concept-memo-mobile button > span:last-child {
+  display: none;
+}
+.mdx-article {
+  font-size: 1rem;
+  line-height: 1.9;
+}
+.mdx-field + .mdx-field {
+  margin-top: var(--space-sm);
+}
+.mdx-field p + p {
+  margin-top: var(--space-sm);
+}
+.mdx-field li {
+  margin-block: var(--space-2xs);
+}
+.mdx-article ul {
+  list-style: disc;
+  padding-left: var(--space-md);
+}
+.mdx-article ol {
+  list-style: decimal;
+  padding-left: var(--space-md);
+}
+.mdx-article img {
+  max-width: 100%;
+  height: auto;
+}
+.mdx-article table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.mdx-article th,
+.mdx-article td {
+  padding: var(--space-xs);
+  border-bottom: var(--rule-hair) solid var(--border);
+  text-align: left;
+}
+.mdx-article :is(p, li, td) {
+  overflow-wrap: anywhere;
+}
+.mdx-article h3 {
+  font-weight: 600;
+  margin-block: var(--space-sm);
+}
+.mdx-article .doc-section {
+  scroll-margin-top: var(--space-sm);
+}
+.mdx-article .code-lines code {
+  font-size: 15px;
+}
+@media (min-width: 960px) {
+  .site-nav {
+    grid-template-columns: 1fr auto 1fr;
+  }
+}
+@media (min-width: 1280px) {
+  .concept-shell {
+    grid-template-columns: var(--lw-directory-width) minmax(0, 1fr) var(
+        --lw-toc-width
+      );
+    padding: 0 0 var(--space-2xl);
+    gap: 0;
+  }
+  .concept-article {
+    width: 100%;
+    padding: var(--space-lg);
+    margin-inline: auto;
+  }
+  .concept-memo-desktop {
+    display: block;
+  }
+  .mobile-detail-tools {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .site-nav__brand {
+    font-size: 17px;
+  }
+  .site-nav {
+    padding-inline: var(--space-sm);
+  }
+  .mdx-article .code-lines code {
+    font-size: 13.5px;
+  }
+  .mdx-article .formula-context {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

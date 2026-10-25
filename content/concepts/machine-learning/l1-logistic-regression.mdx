@@ -1,0 +1,146 @@
+---
+id: l1-logistic-regression
+slug: l1-logistic-regression
+title: L1 逻辑回归
+category: machine-learning
+difficulty: 进阶
+summary: 在交叉熵上加入 L1，使部分分类权重归零；C 越小正则越强。
+prerequisites:
+  - 逻辑回归
+  - L1
+relatedConcepts:
+  - logistic-regression
+  - l1-regularization
+order: 77
+directory: 评估与模型选择
+kind: long-form
+preserved:
+  codeExplanation:
+    - 示例用于阅读、复制和本地运行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/11_l1_regularization.md
+      title: 11｜L1 正则化：稀疏模型与特征选择
+      kind: 原始文档
+  sourceSections:
+    - §10 L1 逻辑回归
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+高维稀疏分类可借此做嵌入式选择，但多分类策略和相关特征影响解释。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+L1 逻辑回归需要支持该 penalty 的求解器，如 liblinear 或 saga。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+在保持分类概率有效的同时，要求模型只使用一部分权重。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+标准化、solver/penalty 兼容和折内选择 C 缺一不可。C 与 λ 方向相反。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+CE(w,b)+λ||w||₁；C∝1/λ
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+标准化、solver/penalty 兼容和折内选择 C 缺一不可。C 与 λ 方向相反。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 标准化
+2. 选择支持 L1 的 solver
+3. 设置对数 C
+4. 分层 CV
+5. 查看非零权重
+6. 测试
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### L1 逻辑回归 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的可靠评价或训练流程。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+classifier=make_pipeline(StandardScaler(),LogisticRegression(penalty="l1",solver="liblinear",C=0.1,max_iter=5000))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 数据边界和划分方式是代码含义的一部分。
+- 结果应报告平均、波动或业务对应的指标。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+得到具有部分零权重的逻辑回归 Pipeline。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 高维二分类
+- 稀疏特征选择
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- C 方向搞反
+- solver 不支持
+- 零权重因果化
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

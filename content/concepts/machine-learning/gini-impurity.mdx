@@ -1,0 +1,150 @@
+---
+id: gini-impurity
+slug: gini-impurity
+title: 基尼不纯度与划分增益
+category: machine-learning
+difficulty: 入门
+summary: 基尼不纯度衡量节点类别混杂，决策树选择降低加权不纯度最多的划分。
+prerequisites:
+  - 概率
+  - 决策树
+relatedConcepts:
+  - decision-trees
+  - tree-feature-importance
+order: 23
+directory: 入门与数学基础
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码用于验证概念，不在网页中直接执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/01_math_data_foundations.md
+      title: 01｜数学与数据基础
+      kind: 原始文档
+  sourceSections:
+    - §7.3 基尼不纯度
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+树不能只看某个子节点是否纯，还要评估整个划分对父节点的总体改善。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Gini=1-类别比例平方和；纯节点为 0。左右子节点的不纯度按样本数加权。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+好问题应让两边都更“单一”，且不能靠把极少样本分出去制造假象。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+枚举特征和候选阈值，计算 Gain=父 Gini-子节点加权 Gini，贪心选择最大增益。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+Gini(S)=1-Σₖpₖ²；Gain=Gini(S)-Σc(nc/n)Gini(Sc)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+枚举特征和候选阈值，计算 Gain=父 Gini-子节点加权 Gini，贪心选择最大增益。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 统计父类别比例
+2. 生成候选阈值
+3. 分左右
+4. 计算加权 Gini
+5. 选择最大 Gain
+6. 递归
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 基尼不纯度与划分增益：最小可验证示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+NumPy
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+把正文原理映射为可检查的代码行为。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```NumPy
+import numpy as np
+def gini(y):
+    _, counts = np.unique(y, return_counts=True)
+    p = counts / len(y)
+    return 1 - np.sum(p**2)
+print(gini(np.array([0,0,1,1])))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 先确认输入形状和数据边界。
+- 把输出与公式或定义逐项对照。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+0.5。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 分类树分裂
+- 树结构解释
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 把 Gini 当最终测试指标
+- 忽略子节点样本权重
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

@@ -1,0 +1,233 @@
+---
+id: pytorch-autograd
+slug: pytorch-autograd
+title: PyTorch Autograd 与计算图
+category: deep-learning
+difficulty: 进阶
+summary: 前向动态记录运算，反向沿图计算并累加叶子参数梯度。
+prerequisites:
+  - 链式法则
+relatedConcepts:
+  - backpropagation
+  - gradient-clipping
+order: 142
+directory: 自动微分
+kind: long-form
+preserved:
+  subcategory: 自动微分
+  codeExplanation:
+    - 梯度默认累加
+    - 两个图分别反向
+    - 清零才能单独看第二次
+  sourceDocuments:
+    - path: 学习资料/deeplearning/12_自动微分与反向传播详解.md
+      title: 12_自动微分与反向传播详解
+      kind: 原始文档
+  sourceSections:
+    - §1 自动微分
+    - §2 动态图
+    - §3 叶子
+    - §5 累加
+    - §7 图释放
+    - §8–10 图控制
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 区分叶子/非叶子
+- 解释梯度累加
+- 使用 detach/no\_grad
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+理解 loss.backward
+
+安全控制图生命周期
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+数百万参数无法手工维护导数。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+requires\_grad 控制追踪；grad\_fn 描述反向节点；叶子参数把结果累积到 .grad。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+前向留下运算路线，反向沿路线逐站计算局部导数。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+标量 loss 从上游梯度 1 反传；图默认一次 backward 后释放。
+
+detach 切断路径，no\_grad 临时不记录，inference\_mode 面向纯推理。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+\nabla_{\theta}L=[\partial L/\partial\theta_1,\ldots]
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+每个参数获得同形状梯度。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| θ | 参数集合 |
+| .grad | 叶子梯度缓冲 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 梯度累加
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- (w×3).backward
+- (w×4).backward
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 第一次 grad=3
+2. 第二次累加 4
+:::
+
+:::field{path="numericalExample.result" type="text"}
+grad=7
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 前向建图
+2. 标量 loss
+3. backward
+4. 检查 grad
+5. 清梯度
+6. step
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### PyTorch Autograd 与计算图 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证PyTorch Autograd 与计算图的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+w=torch.tensor(2.,requires_grad=True)
+(w*3).backward();print(w.grad)
+(w*4).backward();print(w.grad)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 梯度默认累加
+- 两个图分别反向
+- 清零才能单独看第二次
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+tensor(3.)，随后 tensor(7.)。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 训练
+- 梯度惩罚
+- 敏感性分析
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 忘清梯度
+- item 后 backward
+- 日志保存带图 Tensor
+- 滥用 retain\_graph
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### eval 会关闭 Autograd 吗？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+不会。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### detach 与 clone 区别？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+detach 切图；clone 复制但保留梯度关系。
+:::
+

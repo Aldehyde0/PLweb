@@ -6,11 +6,11 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "npm run generate:katex-fonts && vinext dev",
+    "dev": "npm run content:generate && npm run generate:katex-fonts && vinext dev",
     "generate:katex-fonts": "node --experimental-strip-types scripts/generate-katex-fonts.ts",
-    "build": "npm run generate:katex-fonts && vinext build",
-    "test": "node --experimental-strip-types --test tests/*.test.ts",
-    "typecheck": "tsc --noEmit",
+    "build": "npm run content:generate && npm run generate:katex-fonts && vinext build",
+    "test": "npm run content:generate && node --experimental-strip-types --test tests/*.test.ts",
+    "typecheck": "npm run content:generate && tsc --noEmit",
     "check:resources": "node --experimental-strip-types scripts/check-resource-links.ts",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "preview": "npm run build && wrangler dev --config dist/server/wrangler.json",
@@ -18,8 +18,13 @@
     "deploy": "npm run build && wrangler deploy --config dist/server/wrangler.json",
     "deployments": "wrangler deployments list --config dist/server/wrangler.json",
     "rollback": "wrangler rollback --config dist/server/wrangler.json",
-    "lint": "oxlint",
-    "format": "oxfmt"
+    "lint": "npm run content:generate && oxlint",
+    "format": "oxfmt",
+    "content:generate": "node --experimental-strip-types scripts/generate-content.mjs",
+    "content:check": "node --experimental-strip-types scripts/generate-content.mjs --check",
+    "content:audit-migration": "node --experimental-strip-types scripts/capture-content-baseline.mjs && node --experimental-strip-types scripts/check-migration-parity.mjs",
+    "test:mdx-browser": "node --experimental-strip-types scripts/verify-mdx-browser.mjs",
+    "test:mdx-authoring": "node --experimental-strip-types scripts/verify-mdx-authoring.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",
@@ -48,7 +53,6 @@
     "@cloudflare/vite-plugin": "1.37.1",
     "@cloudflare/workers-types": "4.20260515.1",
     "@mdx-js/mdx": "^3.1.1",
-    "@mdx-js/rollup": "^3.1.1",
     "@openai/sites-vite-plugin": "0.2.0",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
@@ -56,7 +60,7 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.35",
-    "mdast-util-to-string": "^4.0.0",
+    "esbuild": "^0.27.3",
     "oxfmt": "0.61.0",
     "oxlint": "1.76.0",
     "oxlint-tsgolint": "7.0.2001",

@@ -1,0 +1,154 @@
+---
+id: agents-as-tools
+slug: agents-as-tools
+title: Agents as Tools
+category: artificial-intelligence
+difficulty: 挑战
+summary: 把专业 Agent 包装成主管 Agent 可调用的工具，主管保持对话控制并汇总结果。
+prerequisites:
+  - agent-orchestration
+relatedConcepts:
+  - manager-pattern
+  - handoffs
+order: 181
+directory: Agent
+kind: long-form
+preserved:
+  subcategory: Agent
+  entityType: agent
+  workflow:
+    - 定义专业 Agent
+    - 包装为具名工具
+    - 主管选择并调用
+    - 专家返回结果
+    - 主管验证并汇总
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls:
+    - https://openai.github.io/openai-agents-js/guides/tools/
+  versionDate: 2026-08-30
+  inputsSchema: 边界明确的子任务
+  outputsSchema: 供主管使用的专业结果
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+anchorAliases:
+  official-sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明Agents as Tools解决什么问题，以及何时适用。
+- 能解释为什么“子 Agent 直接承担最终责任”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+有时专家只需要返回材料，不应接管用户对话；主管还要统一格式、规则和最终判断。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Agents as Tools 让一个 Agent 作为另一个 Agent 的函数工具运行，用于有边界的专业子任务。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+负责人把分析任务交给专家，专家交回报告，但最终由负责人向用户汇报。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+Manager 始终拥有最终回答责任。
+
+子 Agent 输入应收窄为必要任务，输出应有明确契约。
+
+嵌套运行增加延迟与成本，需要追踪父子关系。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 定义专业 Agent
+2. 包装为具名工具
+3. 主管选择并调用
+4. 专家返回结果
+5. 主管验证并汇总
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 研究摘要
+- 领域分析
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 子 Agent 直接承担最终责任
+- 输出契约不明确
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 边界明确的子任务
+:::
+
+:::field{path="outputs" type="list"}
+- 供主管使用的专业结果
+:::
+
+:::field{path="capabilities" type="list"}
+- 研究摘要
+- 领域分析
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

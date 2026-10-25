@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { aiLongForms } from '../lib/ai-long-form.ts';
-import { applyAICodeOverrides } from '../lib/ai-code-overrides.ts';
 import { getLongFormSections } from '../lib/section-utils.ts';
-const items = applyAICodeOverrides(structuredClone(aiLongForms));
+import manifest from '../migration/content-manifest.json' with { type: 'json' };
+const items = aiLongForms;
 void test('AI foundations explain concepts without injected formulas or code', () => {
   for (const slug of [
     'ai-overview',
@@ -51,8 +51,18 @@ void test('AI code is topic-specific rather than a repeated default loop', () =>
   );
 });
 void test('all existing AI routes remain and boilerplate prose is removed', () => {
-  assert.equal(items.length, 35);
-  assert.equal(new Set(items.map((item) => item.slug)).size, 35);
+  const original = manifest.entries.filter(
+    (entry) =>
+      entry.category === 'artificial-intelligence' &&
+      entry.longFormHash !== null,
+  );
+  assert.equal(original.length, 35);
+  for (const entry of original)
+    assert.ok(
+      items.some((item) => item.slug === entry.slug),
+      entry.slug,
+    );
+  assert.equal(new Set(items.map((item) => item.slug)).size, items.length);
   assert.ok(
     items.every((item) => item.definition.length && item.corePrinciple.length),
   );

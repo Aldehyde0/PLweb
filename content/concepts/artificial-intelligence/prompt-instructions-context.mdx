@@ -1,0 +1,155 @@
+---
+id: prompt-instructions-context
+slug: prompt-instructions-context
+title: Prompt、指令与上下文
+category: artificial-intelligence
+difficulty: 进阶
+summary: 区分任务输入、持久行为规则和运行时上下文，并建立优先级与注入边界。
+prerequisites:
+  - llm-and-agent
+relatedConcepts:
+  - agent-state-memory
+  - retrieval-augmented-generation
+  - guardrails-prompt-injection
+order: 169
+directory: Agent
+kind: long-form
+preserved:
+  subcategory: Agent
+  entityType: agent
+  workflow:
+    - 分离系统规则与用户目标
+    - 选择相关上下文
+    - 标记来源与权限
+    - 生成后验证输出契约
+  codeExplanation: []
+  expectedOutput: ""
+  sourceDocuments: []
+  sourceSections: []
+  sourceUrls: []
+  versionDate: 2026-08-30
+  inputsSchema: 系统指令；用户输入；检索与工具结果
+  outputsSchema: 结构化模型输入；可审计来源
+  executionEnvironment: ""
+  approvalRequired: false
+  readOnly: true
+  importance: []
+  extensionNotes: []
+  permissions: []
+  securityRisks: []
+  trustBoundary: []
+  performanceNotes: []
+  failureModes: []
+  commonQuestions: []
+  formulas: []
+  variableDefinitions: []
+  codeExamples: []
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 能说明Prompt、指令与上下文解决什么问题，以及何时适用。
+- 能解释为什么“提示词堆叠”是误区。
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+把所有文字视为同等可信，会让网页、文件或工具结果中的恶意指令覆盖应用目标。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+Prompt 是送入模型的信息集合；指令规定行为与约束；上下文提供当前任务所需事实、历史和工具结果。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+指令像工作守则，上下文像手头资料；资料可以被引用，但不应改写工作守则。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+不同来源应保留 provenance 与信任级别。
+
+只加载当前决策需要的上下文，减少冲突与成本。
+
+不可信内容中的命令应作为数据处理，不自动执行。
+:::
+
+
+## 理解与实践步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 分离系统规则与用户目标
+2. 选择相关上下文
+3. 标记来源与权限
+4. 生成后验证输出契约
+:::
+
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 提示设计
+- RAG
+- 安全边界
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 提示词堆叠
+- 忽略间接提示注入
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 输入、输出与执行边界 {#inputs-outputs}
+
+:::field{path="inputs" type="list"}
+- 系统指令
+- 用户输入
+- 检索与工具结果
+:::
+
+:::field{path="outputs" type="list"}
+- 结构化模型输入
+- 可审计来源
+:::
+
+:::field{path="capabilities" type="list"}
+- 提示设计
+- RAG
+- 安全边界
+:::
+
+
+
+<ArticleFlags />
+
+## 安全风险与信任边界 {#security-risks}
+
+
+
+
+## 性能与失败模式 {#performance-notes}
+
+
+

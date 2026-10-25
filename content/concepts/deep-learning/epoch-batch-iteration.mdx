@@ -1,0 +1,226 @@
+---
+id: epoch-batch-iteration
+slug: epoch-batch-iteration
+title: Epoch、Batch 与 Iteration
+category: deep-learning
+difficulty: 入门
+summary: Batch 是一次输入样本组，iteration 是一次训练计算，epoch 是完整遍历训练集。
+prerequisites:
+  - Dataset 与 DataLoader
+relatedConcepts:
+  - pytorch-dataset-dataloader
+  - neural-network-training-loop
+order: 105
+directory: 训练基础
+kind: long-form
+preserved:
+  subcategory: 训练基础
+  codeExplanation:
+    - DataLoader 负责组批
+    - drop_last 控制尾批
+    - len(loader) 是批次数
+  sourceDocuments:
+    - path: 学习资料/deeplearning/03_Epoch_Batch与Iteration.md
+      title: 03_Epoch_Batch与Iteration
+      kind: 原始文档
+  sourceSections:
+    - §1–5 基本概念与换算
+    - §8 Batch Size 影响
+    - §10 梯度累积
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 完成三者换算
+- 解释 drop\_last
+- 区分梯度累积
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+正确计算更新次数
+
+理解 batch size 与显存
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+大数据无法一次装入显存，因此按 batch 流式训练。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+小批量训练平衡显存、硬件并行和梯度噪声。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+一本题库分多页做，一页是 batch，做完一页是 iteration，整本做完是 epoch。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+保留尾批时每 epoch 批次数是 ceil(N/B)；梯度累积时 iteration 不一定等于参数更新。
+
+小 batch 梯度波动大，大 batch 占内存多且更新次数少。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+steps=\left\lceil\frac{N}{B}\right\rceil
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+N 是训练样本数，B 是 batch size。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| N | 训练样本数 |
+| B | batch size |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 1050 个样本
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- N=1050
+- B=100
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. ceil(1050/100)=11
+2. 尾批 50
+:::
+
+:::field{path="numericalExample.result" type="text"}
+每 epoch 11 次 iteration
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 确定 N/B
+2. 设置 DataLoader
+3. 遍历 batch
+4. 每 epoch 打乱
+5. 记录更新数
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### Epoch、Batch 与 Iteration · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证Epoch、Batch 与 Iteration的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+loader=DataLoader(dataset,batch_size=100,shuffle=True,drop_last=False)
+print(len(loader))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- DataLoader 负责组批
+- drop\_last 控制尾批
+- len(loader) 是批次数
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+1050 条数据时输出 11。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 训练预算
+- 显存规划
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- SGD 等于 batch=1
+- 忽略尾批
+- 梯度累积仍逐 batch step
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### epoch 是否等于更新一次？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+不是，通常包含多个 batch 更新。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### drop\_last 何时考虑？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+固定 batch 统计或尾批过小时。
+:::
+

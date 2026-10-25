@@ -1,0 +1,149 @@
+---
+id: unsupervised-evaluation
+slug: unsupervised-evaluation
+title: 无监督学习结果评价
+category: machine-learning
+difficulty: 进阶
+summary: 从内部结构、稳定性、外部标签、下游价值和领域解释多角度评价无标签结果。
+prerequisites:
+  - 聚类
+  - 评价
+relatedConcepts:
+  - kmeans-and-silhouette
+  - principal-component-analysis
+order: 63
+directory: 模型与算法
+kind: long-form
+preserved:
+  codeExplanation:
+    - 代码展示而不在浏览器执行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/06_unsupervised_learning.md
+      title: 06｜无监督学习
+      kind: 原始文档
+  sourceSections:
+    - §8 聚类和分类的区别
+    - §9 无监督结果如何评价
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+高轮廓系数不保证分组可行动，降维保留方差也不保证保留预测信息。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+没有标准标签时不能只用准确率；内部指标衡量数学结构，业务意义必须另行验证。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+算法找到“像”的群体，但“像什么、是否有用”需要领域和独立实验回答。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+检查随机种子与参数稳定性、专家解释、下游任务提升和独立数据复现。真实标签若存在只能用于事后外部评价。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+评价 = 内部指标 + 稳定性 + 外部验证 + 业务价值
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+检查随机种子与参数稳定性、专家解释、下游任务提升和独立数据复现。真实标签若存在只能用于事后外部评价。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 计算内部指标
+2. 改变参数/种子
+3. 检查簇规模和样本
+4. 领域命名
+5. 独立数据验证
+6. 评估下游价值
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 无监督学习结果评价 实现
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的训练与预测逻辑。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+for seed in [1,2,3,4,5]:
+    labels=KMeans(3,n_init=20,random_state=seed).fit_predict(X_scaled)
+    print(seed,silhouette_score(X_scaled,labels))
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 代码先建立符合输入要求的估计器。
+- 参数应在交叉验证中选择，测试集不参与。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+输出多个随机种子下的轮廓系数，用于观察稳定性。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 聚类审查
+- 降维验证
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 簇直接命名业务类别
+- 只追求内部指标
+- 偷用标签训练
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

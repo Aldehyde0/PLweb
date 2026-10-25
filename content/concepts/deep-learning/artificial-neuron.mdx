@@ -1,0 +1,236 @@
+---
+id: artificial-neuron
+slug: artificial-neuron
+title: 人工神经元
+category: deep-learning
+difficulty: 入门
+summary: 用权重、偏置和激活函数把输入特征转换为一个输出。
+prerequisites:
+  - 点积与加权求和
+relatedConcepts:
+  - neural-networks
+  - activation-functions
+  - forward-propagation
+order: 101
+directory: 基础组件
+kind: long-form
+preserved:
+  subcategory: 基础组件
+  codeExplanation:
+    - x 是一条两特征样本
+    - Linear 保存 weight 与 bias
+    - ReLU 只改变数值不改变形状
+  sourceDocuments:
+    - path: 学习资料/deeplearning/01_人工神经元.md
+      title: 01_人工神经元
+      kind: 原始文档
+  sourceSections:
+    - §1 人工神经元是什么
+    - §2 各部分作用
+    - §3 数值例子
+    - §7 PyTorch 神经元
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 手算一个神经元输出
+- 解释权重、偏置、激活
+- 用 nn.Linear 验证
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+理解参数如何影响输出
+
+连接前向、损失和梯度
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+神经元是 Linear、卷积和注意力投影的共同局部基础。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+人工神经元先计算仿射变换，再由激活函数产生输出；权重与偏置由训练学习。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+每项输入乘上重要程度后汇总，偏置移动门槛，激活决定响应方式。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+线性部分负责组合证据，非线性让多层网络表达弯曲关系。
+
+多个神经元并排形成层，多层通过反向传播共同调整参数；激活函数不是损失函数。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+y=f(\mathbf{w}^{T}\mathbf{x}+b)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+x 是输入，w 是权重，b 是偏置，f 是激活，y 是输出。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| x | 输入特征向量 |
+| w | 可学习权重 |
+| b | 可学习偏置 |
+| f | 激活函数 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 两输入 ReLU 神经元
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- x=\[2,3\]
+- w=\[0.5,-1\]
+- b=1
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. z=0.5×2-1×3+1=-1
+2. ReLU(-1)=0
+:::
+
+:::field{path="numericalExample.result" type="text"}
+输出 y=0
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 准备输入
+2. 线性加权
+3. 加偏置
+4. 应用激活
+5. 通过损失反传梯度
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 人工神经元 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证人工神经元的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+import torch
+from torch import nn
+neuron=nn.Linear(2,1)
+x=torch.tensor([[2.,3.]])
+z=neuron(x)
+y=torch.relu(z)
+print(z.shape,y.shape)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- x 是一条两特征样本
+- Linear 保存 weight 与 bias
+- ReLU 只改变数值不改变形状
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+z 与 y 均为 torch.Size(\[1,1\])。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- MLP
+- 卷积通道投影
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 激活与损失混淆
+- 权重人工固定不训练
+- 多层无非线性
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### 偏置为什么重要？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+它让决策边界不必经过原点。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 权重越大越重要吗？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+需结合输入尺度和其他特征解释。
+:::
+

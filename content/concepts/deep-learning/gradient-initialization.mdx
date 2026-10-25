@@ -1,0 +1,226 @@
+---
+id: gradient-initialization
+slug: gradient-initialization
+title: 梯度问题与权重初始化
+category: deep-learning
+difficulty: 进阶
+summary: 通过与激活匹配的初始化维持前向激活和反向梯度尺度。
+prerequisites:
+  - 梯度
+  - 激活函数
+relatedConcepts:
+  - gradient-clipping
+  - residual-networks
+order: 108
+directory: 训练稳定性
+kind: long-form
+preserved:
+  subcategory: 训练稳定性
+  codeExplanation:
+    - 权重按 Kaiming
+    - 偏置归零
+    - 在优化器前初始化
+  sourceDocuments:
+    - path: 学习资料/deeplearning/13_梯度问题与权重初始化.md
+      title: 13_梯度问题与权重初始化
+      kind: 原始文档
+  sourceSections:
+    - §1 深度问题
+    - §2–3 消失爆炸
+    - §6–9 Xavier/Kaiming
+    - §11 示例
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 识别消失/爆炸
+- 计算 fan\_in
+- 匹配激活初始化
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+避免训练初期失效
+
+解释 Xavier/Kaiming
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+网络更深不代表更容易优化。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+深层雅可比连乘可使梯度消失或爆炸；初始化控制训练起点的方差。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+每层都稍缩小或放大，经过很多层会指数变化。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+tanh/sigmoid 常用 Xavier，ReLU/LeakyReLU 常用 Kaiming；输出层单独处理。
+
+PyTorch 默认初始化通常合理，无证据时不盲目覆盖。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+Var(w)\approx\frac{2}{fan_{in}}
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+ReLU 的 Kaiming 起点。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| fan\_in | 每个输出接收的输入数 |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### fan\_in=256
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- ReLU
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. sqrt(2/256)
+:::
+
+:::field{path="numericalExample.result" type="text"}
+std≈0.0884
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 检查激活
+2. 计算 fan
+3. 初始化隐藏层
+4. 初始化输出层
+5. 监控激活/梯度
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 梯度问题与权重初始化 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证梯度问题与权重初始化的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+layer=nn.Linear(256,64)
+nn.init.kaiming_normal_(layer.weight,mode='fan_in',nonlinearity='relu')
+nn.init.zeros_(layer.bias)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 权重按 Kaiming
+- 偏置归零
+- 在优化器前初始化
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+权重标准差接近 0.088。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 深层 MLP/CNN
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 每 epoch 重置
+- 激活不匹配
+- 输出层照搬
+- 初始化后替换 Parameter
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### 初始化要猜最终参数吗？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+不需要，只要保持可训练尺度。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### LeakyReLU 要传什么？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+实际 negative\_slope。
+:::
+

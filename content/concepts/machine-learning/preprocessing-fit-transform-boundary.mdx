@@ -1,0 +1,180 @@
+---
+id: preprocessing-fit-transform-boundary
+slug: preprocessing-fit-transform-boundary
+title: 预处理的 fit / transform 边界
+category: machine-learning
+difficulty: 入门
+summary: 先划分数据，只在训练数据上学习预处理参数，再把同一规则应用到验证、测试和未来数据。
+prerequisites:
+  - 训练/验证/测试职责
+  - fit、transform、predict
+relatedConcepts:
+  - numerical-standardization
+  - missing-value-imputation
+  - sklearn-pipeline-column-transformer
+  - data-leakage
+order: 26
+directory: 数据预处理与特征工程
+kind: long-form
+preserved:
+  codeExplanation:
+    - fit 时三步都只看到训练集。
+    - predict 对测试集依次调用 transform、transform、predict。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/02_preprocessing_feature_engineering.md
+      title: 02｜数据预处理与特征工程
+      kind: 原始文档
+  sourceSections:
+    - §1 先划分，再学习预处理参数
+    - §12 使用 Pipeline 防止泄漏
+    - §14 预处理检查清单
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+许多评价泄漏并不发生在分类器内部，而发生在模型之前。即使测试标签未被使用，只要测试特征参与计算均值、类别词表或选择阈值，评价就不再独立。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+预处理中的 fit 会从数据学习状态，例如填补中位数、标准化均值与标准差、One-Hot 类别集合或 PCA 方向；transform 只使用已学状态转换输入。
+
+数据划分不是预处理之后的步骤，而是所有会学习参数的变换之前的边界。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+把测试集想成封存试卷。fit 相当于总结试卷规律，只有训练材料允许被总结；验证和测试只能按已有规则作答。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+正确顺序是 split → fit preprocessing on train → transform train/validation/test。
+
+交叉验证时，每一折都拥有自己的训练边界，因此预处理器必须放进 Pipeline，让每个训练折独立 fit。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 数据边界
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+θprep = fit(Xtrain)，Xsplit′ = transform(Xsplit; θprep)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+θprep 只能由训练数据产生，所有数据分块复用它。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| θprep | 预处理器学到的中位数、均值、类别表、主成分等状态。 |
+| Xsplit | 训练、验证、测试或线上输入之一。 |
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 在查看任何整体统计量前确定划分策略。
+2. 保留最终测试集。
+3. 只把训练数据传给预处理器 fit。
+4. 对所有分块调用 transform。
+5. 交叉验证时使用完整 Pipeline。
+6. 保存预处理器与模型的完整组合。
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### Pipeline 保证折内拟合
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+让填补、标准化和分类器共享正确的数据边界。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+model = make_pipeline(
+    SimpleImputer(strategy="median"),
+    StandardScaler(),
+    LogisticRegression(max_iter=2000),
+)
+model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- fit 时三步都只看到训练集。
+- predict 对测试集依次调用 transform、transform、predict。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+得到长度与 y\_test 相同的预测数组；测试集不会改变任何预处理状态。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 缺失值填补
+- 数值缩放
+- 类别编码
+- PCA 与特征选择
+- 交叉验证
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 完整数据 fit\_transform 后再划分
+- 测试集重新 fit
+- 手工处理导致训练与预测规则不一致
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

@@ -1,0 +1,146 @@
+---
+id: cross-val-predict
+slug: cross-val-predict
+title: cross_val_predict
+category: machine-learning
+difficulty: 进阶
+summary: 为每条样本产生其不在训练折时的预测，适合诊断和严格堆叠特征。
+prerequisites:
+  - 交叉验证
+  - 概率
+relatedConcepts:
+  - error-analysis
+  - nested-cross-validation
+order: 89
+directory: 评估与模型选择
+kind: long-form
+preserved:
+  codeExplanation:
+    - 示例用于阅读、复制和本地运行。
+  sourceDocuments:
+    - path: 学习资料/learning_tech/13_cross_validation.md
+      title: 13｜交叉验证：可靠评估与模型选择
+      kind: 原始文档
+  sourceSections:
+    - §14 cross_val_predict 的用途与限制
+  extensionNotes: []
+  variableDefinitions: []
+anchorAliases:
+  sources: related
+---
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+它可绘制较少训练内偏差的混淆矩阵，但不自动提供无偏超参数选择。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+每条预测来自不同折模型，不是一个最终部署模型的输出集合。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+每条样本都由没看过它的临时模型作答，最后把答案拼起来。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+阈值或上层模型若使用这些预测，也需额外独立验证和严格嵌套；不能把拼接预测误称最终模型预测。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心表达
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+ŷᵢ=f⁽⁻fold(i)⁾(xᵢ)
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+阈值或上层模型若使用这些预测，也需额外独立验证和严格嵌套；不能把拼接预测误称最终模型预测。
+:::
+
+::::
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 固定 CV
+2. 选择 method
+3. 生成 out-of-fold 预测
+4. 诊断错误/概率
+5. 额外验证阈值或堆叠
+6. 训练最终模型
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### cross\_val\_predict 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+scikit-learn
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+对应文档中的可靠评价或训练流程。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```scikit-learn
+prob=cross_val_predict(pipeline,X,y,cv=5,method="predict_proba")[:,1]
+print(prob.shape)
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- 数据边界和划分方式是代码含义的一部分。
+- 结果应报告平均、波动或业务对应的指标。
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+长度等于样本数的 out-of-fold 正类概率。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 诊断概率
+- 堆叠训练特征
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- 当最终模型概率
+- 用其选阈值后无独立验证
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />

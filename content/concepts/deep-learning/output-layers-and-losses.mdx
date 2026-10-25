@@ -1,0 +1,231 @@
+---
+id: output-layers-and-losses
+slug: output-layers-and-losses
+title: 输出层与损失函数搭配
+category: deep-learning
+difficulty: 入门
+summary: 根据回归、二分类、多分类和多标签选择输出形状、标签格式与损失。
+prerequisites:
+  - 激活函数
+  - 概率
+relatedConcepts:
+  - loss-functions
+  - dl-evaluation-imbalance
+order: 135
+directory: 训练基础
+kind: long-form
+preserved:
+  subcategory: 训练基础
+  codeExplanation:
+    - logits 不做 Softmax
+    - target 是 long 类别索引
+    - loss 是标量
+  sourceDocuments:
+    - path: 学习资料/deeplearning/06_输出层与损失函数.md
+      title: 06_输出层与损失函数
+      kind: 原始文档
+  sourceSections:
+    - §1 任务表
+    - §2 Logit
+    - §3–6 四类任务
+    - §9 常见错误
+  extensionNotes: []
+anchorAliases:
+  sources: related
+---
+
+## 学习目标 {#learning-objectives}
+
+:::field{path="learningObjectives" type="list"}
+- 列出四类任务搭配
+- 解释 logit
+- 检查 shape/dtype
+:::
+
+
+## 为什么需要这个概念 {#importance}
+
+:::field{path="importance" type="paragraphs"}
+决定任务数学含义
+
+避免重复激活
+:::
+
+
+## 学习前需要掌握 {#prerequisites}
+
+<ConceptPrerequisites />
+
+## 背景与问题 {#background}
+
+:::field{path="background" type="paragraphs"}
+输出、标签、dtype 和损失不匹配会直接导致错误训练。
+:::
+
+
+## 概念定义 {#definition}
+
+:::field{path="definition" type="paragraphs"}
+输出头表达答案空间，损失把 logits 与目标映射为可优化标量。
+:::
+
+
+## 直观理解 {#intuition}
+
+:::field{path="intuition" type="paragraphs"}
+先决定模型要回答什么格式的问题，再决定最后一层和评分规则。
+:::
+
+
+## 核心原理 {#core-principle}
+
+:::field{path="corePrinciple" type="paragraphs"}
+回归直接实数；二分类 1 logit+BCEWithLogits；互斥多分类 C logits+CE；多标签 C logits+BCE。
+
+训练使用 logits 提高数值稳定性，推理再 Sigmoid/Softmax。
+:::
+
+
+## 数学表达 {#formulas}
+
+::::formula{index="0"}
+:::field{path="formulas.0.label" type="text"}
+### 核心公式
+:::
+
+:::field{path="formulas.0.expression" type="math"}
+$$
+L_{CE}=-\log\frac{e^{z_y}}{\sum_c e^{z_c}}
+$$
+:::
+
+:::field{path="formulas.0.description" type="text"}
+z\_y 是真实类别 logit。
+:::
+
+::::
+
+## 变量解释 {#variables}
+
+::::variables
+:::field{path="variableDefinitions" type="table"}
+| 变量 | 含义 |
+| --- | --- |
+| C | 类别或标签数 |
+| z | 原始 logits |
+:::
+
+::::
+
+## 完整数值示例 {#numerical-example}
+
+:::field{path="numericalExample.title" type="text"}
+### 十分类
+:::
+
+:::field{path="numericalExample.given" type="list"}
+- N=32
+- C=10
+:::
+
+:::field{path="numericalExample.steps" type="ordered"}
+1. 输出 \[32,10\]
+2. target \[32\] long
+:::
+
+:::field{path="numericalExample.result" type="text"}
+CrossEntropyLoss 接收二者
+:::
+
+:::field{path="numericalExample.comparison" type="list"}
+
+:::
+
+
+## 计算与实现步骤 {#algorithm-steps}
+
+:::field{path="algorithmSteps" type="ordered"}
+1. 确认任务
+2. 设置 out\_features
+3. 准备标签 dtype
+4. 选择损失
+5. 检查 logits
+6. 推理转换
+:::
+
+
+## 代码实现 {#code}
+
+::::code-example{index="0"}
+:::field{path="codeExamples.0.title" type="text"}
+### 输出层与损失函数搭配 · PyTorch 示例
+:::
+
+:::field{path="codeExamples.0.language" type="text"}
+PyTorch
+:::
+
+:::field{path="codeExamples.0.purpose" type="text"}
+验证输出层与损失函数搭配的输入、计算和输出。
+:::
+
+:::field{path="codeExamples.0.source" type="code" trailing="0"}
+```PyTorch
+logits=torch.randn(32,10)
+target=torch.randint(0,10,(32,))
+loss=nn.CrossEntropyLoss()(logits,target)
+print(loss.item())
+```
+:::
+
+:::field{path="codeExamples.0.explanation" type="list"}
+- logits 不做 Softmax
+- target 是 long 类别索引
+- loss 是标量
+:::
+
+:::field{path="codeExamples.0.expectedOutput" type="text"}
+输出正标量损失。
+:::
+
+::::
+
+## 实际应用 {#applications}
+
+:::field{path="applications" type="list"}
+- 回归/分类/多标签
+:::
+
+
+## 常见错误 {#pitfalls}
+
+:::field{path="pitfalls" type="list"}
+- CE 前 Softmax
+- BCEWithLogits 前 Sigmoid
+- 类别回归成单数
+- target dtype 错
+:::
+
+
+## 与其他概念的关系 {#related}
+
+<ConceptRelated />
+
+## 常见问题 {#common-questions}
+
+:::field{path="commonQuestions.0.question" type="text"}
+### 二分类能否输出两个 logits？
+:::
+
+:::field{path="commonQuestions.0.answer" type="text"}
+可以配 CE，但一 logit+BCE 更直接。
+:::
+
+:::field{path="commonQuestions.1.question" type="text"}
+### 多标签为何不用 Softmax？
+:::
+
+:::field{path="commonQuestions.1.answer" type="text"}
+标签不互斥，需要每类独立 Sigmoid。
+:::
+
