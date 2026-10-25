@@ -1,0 +1,2745 @@
+{
+  "base": "http://127.0.0.1:8794",
+  "generatedAt": "2026-10-25T11:26:37.181Z",
+  "routes": [
+    {
+      "slug": "a2c-a3c",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "activation-functions",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "actor-critic",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "adaboost",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "adam-and-adamw",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "agent-architecture",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "agent-environment",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "agent-error-handling",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "agent-evaluation",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "agent-loop",
+      "status": 200,
+      "sections": 14
+    },
+    {
+      "slug": "agent-orchestration",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "agent-reliability",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "agent-security",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "agent-skill-tool-mcp-comparison",
+      "status": 200,
+      "sections": 12
+    },
+    {
+      "slug": "agent-state-memory",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "agents-as-tools",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "ai-history",
+      "status": 200,
+      "sections": 12
+    },
+    {
+      "slug": "ai-ml-dl-relationship",
+      "status": 200,
+      "sections": 12
+    },
+    {
+      "slug": "ai-overview",
+      "status": 200,
+      "sections": 12
+    },
+    {
+      "slug": "alignment-training-risks",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "artificial-neuron",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "attention",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "automatic-mixed-precision",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "backpropagation",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "bagging",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "bagging-vs-boosting",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "baseline-advantage-entropy",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "baseline-models",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "batch-normalization",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "behavior-policy-constraints",
+      "status": 200,
+      "sections": 20
+    },
+    {
+      "slug": "bellman-equations",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "bias-variance-learning-curves",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "categorical-encoding",
+      "status": 200,
+      "sections": 10
+    },
+    {
+      "slug": "class-imbalance",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "classification-metrics",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "classification-vs-regression",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "cnn-shapes-and-parameters",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "codex-skills",
+      "status": 200,
+      "sections": 14
+    },
+    {
+      "slug": "conditional-probability-bayes",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "confusion-matrix",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "convolution-operation",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "convolutional-neural-networks",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "cql",
+      "status": 200,
+      "sections": 20
+    },
+    {
+      "slug": "cross-entropy",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "cross-val-predict",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "cross-validation",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "cross-validation-reporting",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "cross-validation-scoring",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "cross-validation-splitters",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "cv-pipeline-leakage",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "data-leakage",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "data-pipeline",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "data-preprocessing",
+      "status": 200,
+      "sections": 9
+    },
+    {
+      "slug": "data-quality-audit",
+      "status": 200,
+      "sections": 10
+    },
+    {
+      "slug": "dataset-shapes",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "dbscan",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "ddpg",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "decision-trees",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "deep-generative-models",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "deep-learning-directions",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "deep-learning-math-foundations",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "deep-learning-regularization",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "deep-overfitting-and-validation",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "detection-segmentation",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "diffusion-models",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "digits-error-analysis",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "digits-ml-project",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "digits-model-comparison",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "digits-project-delivery",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "dl-evaluation-imbalance",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "dot-product-weighted-sum",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "double-dqn",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "double-q-learning",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "dpo",
+      "status": 200,
+      "sections": 20
+    },
+    {
+      "slug": "dqn",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "dropout",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "dueling-dqn",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "dynamic-programming",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "elastic-net",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "embeddings-sequences",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "end-to-end-ml-project",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "environment-state-action-goal",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "epoch-batch-iteration",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "error-analysis",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "euclidean-distance",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "evaluation-design",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "expected-sarsa",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "experience-replay-target-network",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "exploration-exploitation",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "feature-construction",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "feature-engineering",
+      "status": 200,
+      "sections": 9
+    },
+    {
+      "slug": "feature-selection",
+      "status": 200,
+      "sections": 10
+    },
+    {
+      "slug": "forward-propagation",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "function-calling",
+      "status": 200,
+      "sections": 14
+    },
+    {
+      "slug": "future-information-leakage",
+      "status": 200,
+      "sections": 10
+    },
+    {
+      "slug": "gae",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "gan",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "generative-ai",
+      "status": 200,
+      "sections": 9
+    },
+    {
+      "slug": "gini-impurity",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "gradient-boosting-trees",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "gradient-clipping",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "gradient-descent",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "gradient-descent-convergence",
+      "status": 200,
+      "sections": 12
+    },
+    {
+      "slug": "gradient-initialization",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "gridworld",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "group-cross-validation",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "grpo",
+      "status": 200,
+      "sections": 20
+    },
+    {
+      "slug": "gru",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "guardrails-prompt-injection",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "handoffs",
+      "status": 200,
+      "sections": 14
+    },
+    {
+      "slug": "hierarchical-clustering",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "hyperparameter-search",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "imitation-inverse-rl",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "inference-input-contract",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "intelligent-agent",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "iql",
+      "status": 200,
+      "sections": 20
+    },
+    {
+      "slug": "kmeans-and-silhouette",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "knn",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "knowledge-representation",
+      "status": 200,
+      "sections": 9
+    },
+    {
+      "slug": "l1-logistic-regression",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "l1-regularization",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "lasso-regression",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "layer-normalization",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "learning-rate-schedulers",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "learning-rate-selection",
+      "status": 200,
+      "sections": 12
+    },
+    {
+      "slug": "linear-model-interpretation",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "linear-model-scope",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "linear-regression",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "llm-and-agent",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "local-mcp-server",
+      "status": 200,
+      "sections": 14
+    },
+    {
+      "slug": "logistic-regression",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "loss-functions",
+      "status": 200,
+      "sections": 9
+    },
+    {
+      "slug": "lstm",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "machine-learning-overview",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "manager-pattern",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "markov-decision-process",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "markov-property",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "math-data-foundations",
+      "status": 200,
+      "sections": 9
+    },
+    {
+      "slug": "mcp-client-server",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "mcp-overview",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "mcp-security",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "mcp-transports",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "mean-variance-standard-deviation",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "min-max-scaling",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "missing-value-imputation",
+      "status": 200,
+      "sections": 10
+    },
+    {
+      "slug": "ml-experiment-reporting",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "ml-project-lifecycle",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "mnist-end-to-end-project",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "model-debugging",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "model-evaluation",
+      "status": 200,
+      "sections": 9
+    },
+    {
+      "slug": "model-family-comparison",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "model-free-vs-based",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "model-monitoring-and-drift",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "model-saving-inference",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "monte-carlo-methods",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "mse-rmse",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "multi-agent-hierarchical-rl",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "multi-head-attention",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "naive-bayes",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "nested-cross-validation",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "neural-network-training-loop",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "neural-networks",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "normalization",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "numerical-standardization",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "numpy-data-operations",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "offline-data-distribution-shift",
+      "status": 200,
+      "sections": 20
+    },
+    {
+      "slug": "on-vs-off-policy",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "online-vs-offline-rl",
+      "status": 200,
+      "sections": 20
+    },
+    {
+      "slug": "optimizers-schedulers",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "output-layers-and-losses",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "overfitting-diagnosis",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "overfitting-regularization",
+      "status": 200,
+      "sections": 9
+    },
+    {
+      "slug": "pca-clustering",
+      "status": 200,
+      "sections": 9
+    },
+    {
+      "slug": "policy-based-methods",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "policy-episode-trajectory",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "policy-gradient",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "pomdp",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "pooling",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "ppo",
+      "status": 200,
+      "sections": 20
+    },
+    {
+      "slug": "ppo-grpo-dpo-comparison",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "preprocessing-fit-transform-boundary",
+      "status": 200,
+      "sections": 12
+    },
+    {
+      "slug": "principal-component-analysis",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "prioritized-experience-replay",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "probability-and-thresholds",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "prompt-instructions-context",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "proximal-gradient-soft-thresholding",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "pytorch-autograd",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "pytorch-dataset-dataloader",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "pytorch-tensor-shape-device",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "pytorch-tensors-modules",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "q-learning",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "rainbow-dqn",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "random-forest",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "random-forest-boosting",
+      "status": 200,
+      "sections": 9
+    },
+    {
+      "slug": "recurrent-neural-network",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "regression-metrics",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "regularization-l1-l2",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "reinforce",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "reinforcement-learning-overview",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "residual-networks",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "retrieval-augmented-generation",
+      "status": 200,
+      "sections": 12
+    },
+    {
+      "slug": "return-discount-factor",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "reward-model-rlhf-rlaif-rft",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "reward-shaping-safe-robust",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "rl-algorithm-comparison",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "rl-evaluation-reproducibility",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "rl-vs-supervised-unsupervised",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "rnn-lstm-gru",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "robust-scaling-and-outliers",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "sac",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "sarsa",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "scalars-vectors-matrices",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "search-planning-decision",
+      "status": 200,
+      "sections": 12
+    },
+    {
+      "slug": "semi-and-self-supervised-learning",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "sequence-padding-and-masks",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "single-vs-multi-agent",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "skewed-and-cyclical-features",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "sklearn-model-persistence",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "sklearn-pipeline-column-transformer",
+      "status": 200,
+      "sections": 10
+    },
+    {
+      "slug": "sparse-delay-credit",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "state-action-reward",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "state-space-search",
+      "status": 200,
+      "sections": 9
+    },
+    {
+      "slug": "supervised-learning",
+      "status": 200,
+      "sections": 9
+    },
+    {
+      "slug": "support-vector-machines",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "symbolic-connectionist-behaviorist",
+      "status": 200,
+      "sections": 12
+    },
+    {
+      "slug": "td-learning",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "td3",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "time-series-cross-validation",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "tool-calling",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "tool-selection-filtering",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "tools",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "tracing-observability",
+      "status": 200,
+      "sections": 13
+    },
+    {
+      "slug": "train-validation-test-split",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "training-engineering",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "training-prediction-generalization",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "transfer-learning",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "transformer",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "transformer-masks",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "tree-feature-importance",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "underfitting-overfitting",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "unsupervised-evaluation",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "unsupervised-learning",
+      "status": 200,
+      "sections": 9
+    },
+    {
+      "slug": "unsupervised-overfitting",
+      "status": 200,
+      "sections": 11
+    },
+    {
+      "slug": "vae",
+      "status": 200,
+      "sections": 16
+    },
+    {
+      "slug": "value-based-methods",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "value-functions",
+      "status": 200,
+      "sections": 19
+    },
+    {
+      "slug": "world-model-mpc",
+      "status": 200,
+      "sections": 19
+    }
+  ],
+  "results": [
+    {
+      "name": "all MDX routes return rendered sections",
+      "pass": true,
+      "detail": {
+        "count": 247
+      }
+    },
+    {
+      "name": "pre-migration recent records restore",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "pre-migration bookmarks and important flags restore",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "formula, table and both code examples render",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "source section stays hidden and old anchor remains",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "Layerwise desktop layout",
+      "pass": true,
+      "detail": {
+        "directory": {
+          "x": 0,
+          "width": 240
+        },
+        "article": {
+          "x": 240,
+          "width": 1020
+        },
+        "nav": {
+          "x": 522,
+          "width": 396
+        },
+        "overflow": false
+      }
+    },
+    {
+      "name": "both old notes, including removed source-section note, remain accessible",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "new section note survives refresh",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "TOC scroll and active section",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "chapter highlight persists",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "code copy preserves complete source",
+      "pass": true,
+      "detail": {
+        "actualLength": 611,
+        "expectedLength": 591,
+        "actualStart": "import numpy as np\r\n\r\nX_train = np.array([[50.0], [60.0], [70.0]])\r\nX_",
+        "expectedStart": "import numpy as np\n\nX_train = np.array([[50.0], [60.0], [70.0]])\nX_val"
+      }
+    },
+    {
+      "name": "standardization controls change live output",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "standardization output follows all three parameters",
+      "pass": true,
+      "detail": {
+        "formula": "z=\n8.4\n81.0−61.0\n\t​\n\n=2.381",
+        "values": [
+          81,
+          61,
+          8.4
+        ],
+        "expectedZ": "2.381"
+      }
+    },
+    {
+      "name": "demo LearningRateDemo: responds",
+      "pass": true,
+      "detail": {
+        "slug": "gradient-descent-convergence"
+      }
+    },
+    {
+      "name": "demo StandardizationDemo: responds",
+      "pass": true,
+      "detail": {
+        "slug": "numerical-standardization"
+      }
+    },
+    {
+      "name": "demo AIInteractiveDemo:agent-loop responds",
+      "pass": true,
+      "detail": {
+        "slug": "agent-loop"
+      }
+    },
+    {
+      "name": "demo AIInteractiveDemo:tool-call responds",
+      "pass": true,
+      "detail": {
+        "slug": "tools"
+      }
+    },
+    {
+      "name": "demo AIInteractiveDemo:single-multi responds",
+      "pass": true,
+      "detail": {
+        "slug": "single-vs-multi-agent"
+      }
+    },
+    {
+      "name": "demo AIInteractiveDemo:capability-comparison responds",
+      "pass": true,
+      "detail": {
+        "slug": "agent-skill-tool-mcp-comparison"
+      }
+    },
+    {
+      "name": "demo AIInteractiveDemo:mcp-flow responds",
+      "pass": true,
+      "detail": {
+        "slug": "mcp-overview"
+      }
+    },
+    {
+      "name": "demo RLAlgorithmMatrix: table mounts",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "mobile concept directory opens",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "client navigation loads the next MDX article",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "mobile memo opens",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "agent-loop 1440px dark",
+      "pass": true,
+      "detail": {
+        "theme": "dark",
+        "overflow": false,
+        "width": 1440,
+        "article": 1020
+      }
+    },
+    {
+      "name": "agent-loop 1440px light",
+      "pass": true,
+      "detail": {
+        "theme": "light",
+        "overflow": false,
+        "width": 1440,
+        "article": 1020
+      }
+    },
+    {
+      "name": "agent-loop 375px dark",
+      "pass": true,
+      "detail": {
+        "theme": "dark",
+        "overflow": false,
+        "width": 375,
+        "article": 343
+      }
+    },
+    {
+      "name": "agent-loop 375px light",
+      "pass": true,
+      "detail": {
+        "theme": "light",
+        "overflow": false,
+        "width": 375,
+        "article": 343
+      }
+    },
+    {
+      "name": "transformer 1440px dark",
+      "pass": true,
+      "detail": {
+        "theme": "dark",
+        "overflow": false,
+        "width": 1440,
+        "article": 1020
+      }
+    },
+    {
+      "name": "transformer 1440px light",
+      "pass": true,
+      "detail": {
+        "theme": "light",
+        "overflow": false,
+        "width": 1440,
+        "article": 1020
+      }
+    },
+    {
+      "name": "transformer 375px dark",
+      "pass": true,
+      "detail": {
+        "theme": "dark",
+        "overflow": false,
+        "width": 375,
+        "article": 343
+      }
+    },
+    {
+      "name": "transformer 375px light",
+      "pass": true,
+      "detail": {
+        "theme": "light",
+        "overflow": false,
+        "width": 375,
+        "article": 343
+      }
+    },
+    {
+      "name": "ppo 1440px dark",
+      "pass": true,
+      "detail": {
+        "theme": "dark",
+        "overflow": false,
+        "width": 1440,
+        "article": 1020
+      }
+    },
+    {
+      "name": "ppo 1440px light",
+      "pass": true,
+      "detail": {
+        "theme": "light",
+        "overflow": false,
+        "width": 1440,
+        "article": 1020
+      }
+    },
+    {
+      "name": "ppo 375px dark",
+      "pass": true,
+      "detail": {
+        "theme": "dark",
+        "overflow": false,
+        "width": 375,
+        "article": 343
+      }
+    },
+    {
+      "name": "ppo 375px light",
+      "pass": true,
+      "detail": {
+        "theme": "light",
+        "overflow": false,
+        "width": 375,
+        "article": 343
+      }
+    },
+    {
+      "name": "numerical-standardization 1440px dark",
+      "pass": true,
+      "detail": {
+        "theme": "dark",
+        "overflow": false,
+        "width": 1440,
+        "article": 1020
+      }
+    },
+    {
+      "name": "numerical-standardization 1440px light",
+      "pass": true,
+      "detail": {
+        "theme": "light",
+        "overflow": false,
+        "width": 1440,
+        "article": 1020
+      }
+    },
+    {
+      "name": "numerical-standardization 375px dark",
+      "pass": true,
+      "detail": {
+        "theme": "dark",
+        "overflow": false,
+        "width": 375,
+        "article": 343
+      }
+    },
+    {
+      "name": "numerical-standardization 375px light",
+      "pass": true,
+      "detail": {
+        "theme": "light",
+        "overflow": false,
+        "width": 375,
+        "article": 343
+      }
+    },
+    {
+      "name": "knowledge-representation 1440px dark",
+      "pass": true,
+      "detail": {
+        "theme": "dark",
+        "overflow": false,
+        "width": 1440,
+        "article": 1020
+      }
+    },
+    {
+      "name": "knowledge-representation 1440px light",
+      "pass": true,
+      "detail": {
+        "theme": "light",
+        "overflow": false,
+        "width": 1440,
+        "article": 1020
+      }
+    },
+    {
+      "name": "knowledge-representation 375px dark",
+      "pass": true,
+      "detail": {
+        "theme": "dark",
+        "overflow": false,
+        "width": 375,
+        "article": 343
+      }
+    },
+    {
+      "name": "knowledge-representation 375px light",
+      "pass": true,
+      "detail": {
+        "theme": "light",
+        "overflow": false,
+        "width": 375,
+        "article": 343
+      }
+    },
+    {
+      "name": "responsive shell 320px",
+      "pass": true,
+      "detail": {
+        "overflow": false,
+        "navCenter": 0,
+        "navVisible": false,
+        "width": 320,
+        "brand": 76.953125
+      }
+    },
+    {
+      "name": "responsive shell 768px",
+      "pass": true,
+      "detail": {
+        "overflow": false,
+        "navCenter": 0,
+        "navVisible": false,
+        "width": 768,
+        "brand": 81.46875
+      }
+    },
+    {
+      "name": "responsive shell 960px",
+      "pass": true,
+      "detail": {
+        "overflow": false,
+        "navCenter": 480,
+        "navVisible": true,
+        "width": 960,
+        "brand": 81.46875
+      }
+    },
+    {
+      "name": "responsive shell 1024px",
+      "pass": true,
+      "detail": {
+        "overflow": false,
+        "navCenter": 512,
+        "navVisible": true,
+        "width": 1024,
+        "brand": 81.46875
+      }
+    },
+    {
+      "name": "responsive shell 1920px",
+      "pass": true,
+      "detail": {
+        "overflow": false,
+        "navCenter": 960,
+        "navVisible": true,
+        "width": 1920,
+        "brand": 81.46875
+      }
+    },
+    {
+      "name": "search includes actual MDX body",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "old learned records unchanged",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "old bookmarks records unchanged",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "old practiced records unchanged",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "old importantConcepts records unchanged",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "old note records unchanged",
+      "pass": true,
+      "detail": {}
+    },
+    {
+      "name": "runtime errors",
+      "pass": true,
+      "detail": {
+        "errors": []
+      }
+    },
+    {
+      "name": "no unexplained failed requests",
+      "pass": true,
+      "detail": {
+        "unexpectedRequests": [],
+        "verifiedCancellations": [
+          {
+            "requestId": "41560.2826",
+            "url": "http://127.0.0.1:8794/concept/gradient-descent?_rsc=QHFHUx250UtIC5Vq",
+            "type": "Fetch",
+            "errorText": "net::ERR_ABORTED",
+            "canceled": true
+          }
+        ]
+      }
+    }
+  ],
+  "errors": [],
+  "warnings": [],
+  "failedRequests": [
+    {
+      "url": "http://127.0.0.1:8794/concept/gradient-descent?_rsc=QHFHUx250UtIC5Vq",
+      "type": "fetch",
+      "navigation": false,
+      "reason": "net::ERR_ABORTED"
+    }
+  ],
+  "verifiedCancellations": [
+    {
+      "requestId": "41560.2826",
+      "url": "http://127.0.0.1:8794/concept/gradient-descent?_rsc=QHFHUx250UtIC5Vq",
+      "type": "Fetch",
+      "errorText": "net::ERR_ABORTED",
+      "canceled": true
+    }
+  ],
+  "cancellationEvidence": [
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization#formulas",
+        "navigationType": "fragment"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization#formulas",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization#formulas",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization#formulas",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/gradient-descent-convergence",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/gradient-descent-convergence",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/gradient-descent-convergence",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/agent-loop",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/agent-loop",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/agent-loop",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/tools",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/tools",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/tools",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/single-vs-multi-agent",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/single-vs-multi-agent",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/single-vs-multi-agent",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/agent-skill-tool-mcp-comparison",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/agent-skill-tool-mcp-comparison",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/agent-skill-tool-mcp-comparison",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/mcp-overview",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/mcp-overview",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/mcp-overview",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/rl-algorithm-comparison",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/rl-algorithm-comparison",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/rl-algorithm-comparison",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Network.requestWillBeSent",
+      "params": {
+        "requestId": "41560.2826",
+        "loaderId": "E1CC6A115E7D929017385EEA00E0856C",
+        "documentURL": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "request": {
+          "url": "http://127.0.0.1:8794/concept/gradient-descent?_rsc=QHFHUx250UtIC5Vq",
+          "method": "GET",
+          "headers": {
+            "rsc": "1",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "Referer": "http://127.0.0.1:8794/concept/numerical-standardization",
+            "x-vinext-client-reuse-manifest": "{\"entries\":[{\"artifactCompatibility\":{\"schemaVersion\":1,\"graphVersion\":\"static-layout-graph:6ceb30185560c2cc\",\"deploymentVersion\":\"21887a6a-ee9a-4283-819d-ab9bcd68a0a4\",\"appElementsSchemaVersion\":1,\"rscPayloadSchemaVersion\":1,\"rootBoundaryId\":\"/\",\"renderEpoch\":\"static-layout:c866a498022d2cc0\"},\"id\":\"layout:/\",\"payloadHash\":\"a2626770023de10c\",\"privacy\":\"public\",\"variantCacheKey\":\"cp1:5794d0704d0bb9d5\"}],\"hashAlgorithm\":\"fnv1a64\",\"replayWindow\":{\"validFromVisibleCommitVersion\":0,\"validUntilVisibleCommitVersion\":0},\"schemaVersion\":1,\"visibleCommitVersion\":0}",
+            "sec-ch-ua": "\"Google Chrome\";v=\"155\", \"Chromium\";v=\"155\", \"Not(A:Brand\";v=\"24\"",
+            "sec-ch-ua-mobile": "?0",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/155.0.0.0 Safari/537.36",
+            "accept": "text/x-component",
+            "x-vinext-rsc-state-fingerprint": "3fa93080c0598c6b"
+          },
+          "mixedContentType": "none",
+          "initialPriority": "High",
+          "referrerPolicy": "strict-origin-when-cross-origin",
+          "isSameSite": true
+        },
+        "timestamp": 22457.833573,
+        "wallTime": 1792927574.107822,
+        "initiator": {
+          "type": "script",
+          "stack": {
+            "callFrames": [
+              {
+                "functionName": "navigate",
+                "scriptId": "7",
+                "url": "http://127.0.0.1:8794/_next/static/chunks/index-CSUnzOHv.js",
+                "lineNumber": 2,
+                "columnNumber": 57257
+              }
+            ]
+          }
+        },
+        "redirectHasExtraInfo": false,
+        "type": "Fetch",
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "hasUserGesture": true
+      }
+    },
+    {
+      "method": "Network.loadingFailed",
+      "params": {
+        "requestId": "41560.2826",
+        "timestamp": 22457.863373,
+        "type": "Fetch",
+        "errorText": "net::ERR_ABORTED",
+        "canceled": true
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/gradient-descent",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/gradient-descent",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Verification.routeVerified",
+      "params": {
+        "url": "http://127.0.0.1:8794/concept/gradient-descent",
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "loaderId": "E1CC6A115E7D929017385EEA00E0856C",
+        "label": "MDX title and exact definition rendered after client navigation"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/agent-loop",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/agent-loop",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/agent-loop",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/agent-loop",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/agent-loop",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/agent-loop",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/agent-loop",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/agent-loop",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/agent-loop",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/agent-loop",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/agent-loop",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/agent-loop",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/transformer",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/transformer",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/transformer",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/transformer",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/transformer",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/transformer",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/transformer",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/transformer",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/transformer",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/transformer",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/transformer",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/transformer",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/ppo",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/ppo",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/ppo",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/ppo",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/ppo",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/ppo",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/ppo",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/ppo",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/ppo",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/ppo",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/ppo",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/ppo",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/knowledge-representation",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/knowledge-representation",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/knowledge-representation",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/knowledge-representation",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/knowledge-representation",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/knowledge-representation",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/knowledge-representation",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/knowledge-representation",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/knowledge-representation",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/knowledge-representation",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/knowledge-representation",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/knowledge-representation",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/concept/numerical-standardization",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/category/machine-learning",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/category/machine-learning",
+        "navigationType": "historyApi"
+      }
+    },
+    {
+      "method": "Page.navigatedWithinDocument",
+      "params": {
+        "frameId": "ECEDFDC624CF62DB9FB3B9513DDC9EBB",
+        "url": "http://127.0.0.1:8794/category/machine-learning",
+        "navigationType": "historyApi"
+      }
+    }
+  ]
+}

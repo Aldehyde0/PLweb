@@ -1,0 +1,25 @@
+{
+  "base": "http://localhost:8793",
+  "results": [
+    {
+      "name": "new article enters generated index automatically",
+      "pass": true
+    },
+    {
+      "name": "new pure Markdown article renders with formula and code",
+      "pass": true
+    },
+    {
+      "name": "new article enters full-text search",
+      "pass": true
+    },
+    {
+      "name": "edited article reloads through MDX",
+      "pass": true
+    },
+    {
+      "name": "removed article leaves index automatically",
+      "pass": true
+    }
+  ]
+}
