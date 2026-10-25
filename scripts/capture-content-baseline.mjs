@@ -1,0 +1,6 @@
+import { build } from 'esbuild';
+import { mkdirSync, writeFileSync } from 'node:fs';
+await build({stdin:{contents:`import {concepts,categories} from './lib/content'; import {longFormMap} from './lib/long-form-content'; import {conceptDirectory,directoryConcepts} from './lib/category-directory'; import {getLongFormSections,legacySections} from './lib/section-utils'; export default {concepts,categories,longFormMap,directory:directoryConcepts([...concepts]).map(x=>x.slug),groups:Object.fromEntries(concepts.map(x=>[x.slug,conceptDirectory(x)])),sections:Object.fromEntries(concepts.map(x=>[x.slug,longFormMap[x.slug]?getLongFormSections(longFormMap[x.slug]):legacySections]))};`,resolveDir:process.cwd(),loader:'ts'},bundle:true,platform:'node',format:'esm',outfile:'outputs/mdx-migration/baseline.mjs'});
+const {default:data}=await import('../outputs/mdx-migration/baseline.mjs');
+mkdirSync('migration',{recursive:true});writeFileSync('migration/baseline.json',JSON.stringify(data,null,2)+'\n');
+console.log(JSON.stringify({concepts:data.concepts.length,longforms:Object.keys(data.longFormMap).length,categories:Object.fromEntries(data.categories.map(x=>[x.slug,data.concepts.filter(c=>c.category===x.slug).length])),fields:[...new Set(Object.values(data.longFormMap).flatMap(Object.keys))]}));

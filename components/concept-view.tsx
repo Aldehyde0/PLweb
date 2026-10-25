@@ -32,13 +32,16 @@ import { LongFormBody } from '@/components/long-form-body';
 import { BlockMath } from '@/components/math';
 import { CodeBlock } from '@/components/code-block';
 import { Button } from '@/components/ui/button';
+import { contentIndex } from '@/lib/content-index';
 
 export function ConceptView({
   concept,
   category,
+  children,
 }: {
   concept: Concept;
   category: Category;
+  children?: React.ReactNode;
 }) {
   const {
     ready,
@@ -55,7 +58,7 @@ export function ConceptView({
   const important = importantConcepts.includes(concept.slug);
   const longForm = longFormMap[concept.slug];
   const categoryConcepts = getConceptsByCategory(category.slug);
-  const sections = longForm ? getLongFormSections(longForm) : legacySections;
+  const sections = contentIndex[concept.slug]?.sections ?? (longForm ? getLongFormSections(longForm) : legacySections);
   useEffect(() => {
     if (ready) visit(concept.slug);
   }, [ready, concept.slug, visit]);
@@ -134,11 +137,11 @@ export function ConceptView({
             </Button>
           </div>
         </header>
-        {longForm ? (
+        {children ?? (longForm ? (
           <LongFormBody content={longForm} />
         ) : (
           <LegacyBody concept={concept} />
-        )}
+        ))}
         <ConceptResources conceptSlug={concept.slug} />
         <ConceptNavigation current={concept} concepts={categoryConcepts} />
       </article>

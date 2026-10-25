@@ -186,7 +186,7 @@ export function LongFormBody({ content }: { content: LongFormConcept }) {
     </div>
   );
 }
-function FormulaCard({
+export function FormulaCard({
   formula,
   content,
 }: {
@@ -251,7 +251,7 @@ function FormulaCard({
     </article>
   );
 }
-function VariableTable({ content }: { content: LongFormConcept }) {
+export function VariableTable({ content }: { content: LongFormConcept }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-border">
       <table className="w-full min-w-[520px] text-left text-sm">

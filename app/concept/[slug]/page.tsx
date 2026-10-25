@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { ConceptView } from '@/components/concept-view';
 import { categoryMap, conceptMap, concepts } from '@/lib/content';
+import { articleLoaders } from '@/lib/generated/mdx-registry';
+import { mdxComponents } from '@/components/mdx-components';
 
 export function generateStaticParams() {
   return concepts.map((concept) => ({ slug: concept.slug }));
@@ -30,7 +32,11 @@ export default async function ConceptPage({
   const { slug } = await params;
   const concept = conceptMap[slug];
   if (!concept) notFound();
+  const loader = articleLoaders[slug as keyof typeof articleLoaders];
+  const Article = loader ? (await loader()).default : null;
   return (
-    <ConceptView concept={concept} category={categoryMap[concept.category]} />
+    <ConceptView concept={concept} category={categoryMap[concept.category]}>
+      {Article ? <div className="article-flow mdx-article"><Article components={mdxComponents} /></div> : undefined}
+    </ConceptView>
   );
 }
