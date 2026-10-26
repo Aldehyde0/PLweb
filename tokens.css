@@ -179,6 +179,15 @@
   --lw-accent: #8ec5ff;
   --lw-accent-ink: #2466a3;
   --lw-selection: #edf6ff;
+  --lw-difficulty-beginner-ink: #187441;
+  --lw-difficulty-beginner-surface: #edf9f0;
+  --lw-difficulty-beginner-rule: #a7d9b7;
+  --lw-difficulty-intermediate-ink: #1e5fa8;
+  --lw-difficulty-intermediate-surface: #edf5ff;
+  --lw-difficulty-intermediate-rule: #b4d2f3;
+  --lw-difficulty-advanced-ink: #b42336;
+  --lw-difficulty-advanced-surface: #fff0f1;
+  --lw-difficulty-advanced-rule: #f0b3bd;
   /* Shared by Home, MDX, answer blocks and snippets, including portal content. */
   --lw-code-paper: #f0f6ff;
   --lw-code-header: #e3eeff;
@@ -203,6 +212,15 @@
   --lw-rule: #2c2734;
   --lw-accent-ink: #8ec5ff;
   --lw-selection: #202b3b;
+  --lw-difficulty-beginner-ink: #f4d36c;
+  --lw-difficulty-beginner-surface: #302817;
+  --lw-difficulty-beginner-rule: #66532b;
+  --lw-difficulty-intermediate-ink: #f3aa69;
+  --lw-difficulty-intermediate-surface: #332317;
+  --lw-difficulty-intermediate-rule: #74482d;
+  --lw-difficulty-advanced-ink: #c9a4f4;
+  --lw-difficulty-advanced-surface: #2a1c3a;
+  --lw-difficulty-advanced-rule: #67448b;
   --lw-code-paper: #15121c;
   --lw-code-header: #201b29;
   --lw-code-rule: #3a2d49;

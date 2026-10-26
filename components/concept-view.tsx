@@ -82,7 +82,9 @@ export function ConceptView({
         >
           <div className="doc-eyebrow">
             <span className="category-badge">{category.shortTitle}</span>
-            <span className="difficulty-label">
+            <span
+              className={`difficulty difficulty-label difficulty-${concept.difficulty}`}
+            >
               {difficultyNames[concept.difficulty]}
             </span>
             {important && (

@@ -109,23 +109,29 @@
 .difficulty {
   display: inline-flex;
   align-items: center;
+  border: 1px solid var(--difficulty-rule);
   border-radius: 999px;
+  background: var(--difficulty-surface);
+  color: var(--difficulty-ink);
   padding: 0.22rem 0.55rem;
   font-size: 0.65rem;
   font-weight: 650;
   white-space: nowrap;
 }
 .difficulty-入门 {
-  background: #2b3135;
-  color: #a7bac6;
+  --difficulty-ink: var(--lw-difficulty-beginner-ink);
+  --difficulty-surface: var(--lw-difficulty-beginner-surface);
+  --difficulty-rule: var(--lw-difficulty-beginner-rule);
 }
 .difficulty-进阶 {
-  background: #303038;
-  color: #b5b4cb;
+  --difficulty-ink: var(--lw-difficulty-intermediate-ink);
+  --difficulty-surface: var(--lw-difficulty-intermediate-surface);
+  --difficulty-rule: var(--lw-difficulty-intermediate-rule);
 }
 .difficulty-挑战 {
-  background: #373126;
-  color: #d2b77c;
+  --difficulty-ink: var(--lw-difficulty-advanced-ink);
+  --difficulty-surface: var(--lw-difficulty-advanced-surface);
+  --difficulty-rule: var(--lw-difficulty-advanced-rule);
 }
 .select-control {
   height: 2.5rem;
@@ -875,21 +881,6 @@ table td {
 
 .select-control[data-state='success'] {
   border-color: var(--color-success);
-}
-
-.difficulty-入门 {
-  background: var(--color-official-surface);
-  color: var(--color-official-ink);
-}
-
-.difficulty-进阶 {
-  background: var(--color-research-surface);
-  color: var(--color-research-ink);
-}
-
-.difficulty-挑战 {
-  background: var(--color-book-surface);
-  color: var(--color-book-ink);
 }
 
 .exercise-type {

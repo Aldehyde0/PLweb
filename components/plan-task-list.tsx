@@ -117,7 +117,15 @@ export function PlanTaskList({
                 <span>
                   {task.category ? categoryLabel(task.category) : '自定义'}
                 </span>
-                <span>{task.difficulty ?? '自定难度'}</span>
+                <span
+                  className={
+                    task.difficulty
+                      ? `difficulty difficulty-${task.difficulty}`
+                      : undefined
+                  }
+                >
+                  {task.difficulty ?? '自定难度'}
+                </span>
                 <span>{task.estimatedMinutes} 分钟</span>
                 <span>
                   <CalendarDays />

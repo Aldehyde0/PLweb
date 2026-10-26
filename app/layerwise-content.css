@@ -247,9 +247,7 @@ html {
 }
 .doc-eyebrow .difficulty-label {
   padding: 3px 7px;
-  border: 1px solid var(--lw-rule);
   border-radius: 5px;
-  color: var(--lw-secondary);
   font: 11px var(--font-body);
 }
 .doc-action-row {

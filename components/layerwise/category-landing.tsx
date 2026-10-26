@@ -239,7 +239,9 @@ export function CategoryLanding({
                     href={`/concept/${concept.slug}`}
                   >
                     <div>
-                      <span>
+                      <span
+                        className={`difficulty difficulty-${concept.difficulty}`}
+                      >
                         {concept.difficulty === '入门'
                           ? 'BEGINNER'
                           : concept.difficulty === '挑战'

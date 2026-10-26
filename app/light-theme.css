@@ -186,19 +186,8 @@
   color: var(--color-official-ink);
 }
 
-/* ------------------------------------------------- difficulty / category tags */
+/* ------------------------------------------------ category / importance tags */
 
-[data-theme='light'] .difficulty-入门 {
-  background: var(--color-official-surface);
-  color: var(--color-official-ink);
-}
-
-[data-theme='light'] .difficulty-进阶 {
-  background: var(--color-research-surface);
-  color: var(--color-research-ink);
-}
-
-[data-theme='light'] .difficulty-挑战,
 [data-theme='light'] .concept-important-badge {
   background: var(--color-book-surface);
   color: var(--color-book-ink);

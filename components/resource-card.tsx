@@ -45,7 +45,7 @@ export function ResourceCard({ resource }: { resource: LearningResource }) {
   const bookmarked = bookmarkIds.includes(resource.id);
   const Icon = iconByType[resource.type] ?? FileText;
   const concepts = resource.conceptSlugs
-    .map((slug) => conceptMap[aliases[slug]??slug])
+    .map((slug) => conceptMap[aliases[slug] ?? slug])
     .filter(Boolean);
   return (
     <article className="resource-card">
@@ -65,7 +65,9 @@ export function ResourceCard({ resource }: { resource: LearningResource }) {
       <h2>{resource.title}</h2>
       <p className="resource-summary">{resource.summary}</p>
       <div className="resource-meta">
-        <span>{resource.difficulty}</span>
+        <span className={`difficulty difficulty-${resource.difficulty}`}>
+          {resource.difficulty}
+        </span>
         <span>{resource.language}</span>
         <span>{resource.isFree ? '免费' : '付费'}</span>
         {resource.duration && <span>{resource.duration}</span>}
