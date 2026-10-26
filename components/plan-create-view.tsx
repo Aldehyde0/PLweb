@@ -144,7 +144,7 @@ export function PlanCreateView() {
       />
     );
   return (
-    <main className="plan-page">
+    <main id="main" className="plan-page">
       <div className="plan-container plan-create-container">
         <nav aria-label="面包屑" className="breadcrumbs">
           <Link href="/">知识库</Link>
@@ -412,7 +412,11 @@ export function PlanCreateView() {
             </div>
           </section>
           <div className="plan-form-actions">
-            <Button variant="outline" render={<Link href="/plans" />}>
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={<Link href="/plans" />}
+            >
               <ArrowLeft />
               返回计划列表
             </Button>
@@ -456,7 +460,7 @@ function PlanPreview({
     ['预计总时长', `${summary.totalMinutes} 分钟`],
   ];
   return (
-    <main className="plan-page">
+    <main id="main" className="plan-page">
       <div className="plan-container">
         <nav aria-label="面包屑" className="breadcrumbs">
           <Link href="/plans">学习计划</Link>

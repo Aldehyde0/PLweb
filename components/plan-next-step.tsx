@@ -42,7 +42,7 @@ export function PlanNextStep({ plan }: { plan: LearningPlan }) {
           预计 {step?.estimatedMinutes ?? task.estimatedMinutes} 分钟
         </span>
       </div>
-      <Button render={<Link href={href} />}>
+      <Button nativeButton={false} render={<Link href={href} />}>
         开始下一步
         <ArrowRight />
       </Button>

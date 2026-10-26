@@ -153,7 +153,7 @@ try {
   check(
     'pre-migration bookmarks and important flags restore',
     (await page
-      .getByRole('button', { name: '已收藏', exact: true })
+      .getByRole('button', { name: 'Bookmarked', exact: true })
       .count()) === 1 &&
       (await page.locator('#formulas').getAttribute('data-important')) ===
         'true',
@@ -194,7 +194,7 @@ try {
   await screenshot('ml-desktop-dark');
   await page
     .locator('.concept-memo-desktop')
-    .getByRole('button', { name: /备忘录与重点/ })
+    .getByRole('button', { name: /Notes & highlights/ })
     .click();
   const dialog = page.getByRole('dialog');
   await dialog.waitFor();
@@ -213,7 +213,7 @@ try {
   await page.reload({ waitUntil: 'networkidle' });
   await page
     .locator('.concept-memo-desktop')
-    .getByRole('button', { name: /备忘录与重点/ })
+    .getByRole('button', { name: /Notes & highlights/ })
     .click();
   check(
     'new section note survives refresh',
@@ -335,7 +335,7 @@ try {
   }
   await page.setViewportSize({ width: 375, height: 1000 });
   await goto('numerical-standardization');
-  await page.getByRole('button', { name: /当前目录/ }).click();
+  await page.getByRole('button', { name: /Learning directory/ }).click();
   await page
     .getByRole('dialog')
     .locator('a[href="/concept/gradient-descent"]')
@@ -375,8 +375,8 @@ try {
   check('client navigation loads the next MDX article', true);
   await page.keyboard.press('Escape');
   await page
-    .locator('.mobile-detail-tools')
-    .getByRole('button', { name: /备忘录与重点/ })
+    .locator('.doc-action-row')
+    .getByRole('button', { name: 'Notes', exact: true })
     .click();
   await page.getByRole('dialog').getByRole('textbox').waitFor();
   check('mobile memo opens', true);
@@ -443,6 +443,7 @@ try {
   await page.goto(`${base}/category/machine-learning`, {
     waitUntil: 'networkidle',
   });
+  await page.getByRole('button', { name: /^All concepts/ }).click();
   await page.locator('#concept-search').fill('Wine 数据中的 hue');
   await page
     .locator('a[href="/concept/numerical-standardization"]')

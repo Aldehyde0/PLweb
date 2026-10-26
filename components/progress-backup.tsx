@@ -24,7 +24,7 @@ import {
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 
-export function ProgressBackup() {
+export function ProgressBackup({ english = false }: { english?: boolean }) {
   const learning = useLearning();
   const plans = usePlans();
   const resources = useResources();
@@ -99,21 +99,29 @@ export function ProgressBackup() {
     <div className="progress-backup">
       <div className="progress-backup-actions">
         <button type="button" disabled={!ready || reading} onClick={download}>
-          导出进度
+          {english ? 'Export progress' : '导出进度'}
         </button>
         <button
           type="button"
           disabled={!ready || reading}
           onClick={() => input.current?.click()}
         >
-          {reading ? '读取备份…' : '导入进度'}
+          {english
+            ? reading
+              ? 'Reading backup…'
+              : 'Import progress'
+            : reading
+              ? '读取备份…'
+              : '导入进度'}
         </button>
         <input
           ref={input}
           type="file"
           accept=".json,application/json"
           hidden
-          aria-label="选择进度备份 JSON"
+          aria-label={
+            english ? 'Choose a progress backup JSON file' : '选择进度备份 JSON'
+          }
           onChange={(event) => {
             const file = event.target.files?.[0];
             event.target.value = '';
@@ -121,7 +129,13 @@ export function ProgressBackup() {
           }}
         />
       </div>
-      {error && <p role="alert">{error} 可重新选择文件或导出当前进度。</p>}
+      {error && (
+        <p role="alert">
+          {english
+            ? 'The backup could not be read or saved. Choose a valid backup, check browser storage permissions, or export your current progress and retry.'
+            : `${error} 可重新选择文件或导出当前进度。`}
+        </p>
+      )}
       <AlertDialog
         open={pending !== null}
         onOpenChange={(open) => {
@@ -130,15 +144,21 @@ export function ProgressBackup() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>覆盖当前浏览器的学习进度？</AlertDialogTitle>
+            <AlertDialogTitle>
+              {english
+                ? 'Replace progress in this browser?'
+                : '覆盖当前浏览器的学习进度？'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              将用备份中的学习记录、笔记、收藏、练习、计划、资料进度和显示主题覆盖当前数据。建议先导出当前进度。
+              {english
+                ? 'This backup replaces learning records, notes, bookmarks, exercises, plans, resource progress and theme. Export your current progress first.'
+                : '将用备份中的学习记录、笔记、收藏、练习、计划、资料进度和显示主题覆盖当前数据。建议先导出当前进度。'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{english ? 'Cancel' : '取消'}</AlertDialogCancel>
             <AlertDialogAction onClick={restore}>
-              确认导入并覆盖
+              {english ? 'Import and replace' : '确认导入并覆盖'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

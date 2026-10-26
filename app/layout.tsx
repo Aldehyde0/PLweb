@@ -7,7 +7,7 @@ import {
 } from '@/components/persistence-store';
 import { ResourceProvider } from '@/components/resource-store';
 import { SiteHeader } from '@/components/site-header';
-import { ProgressBackup } from '@/components/progress-backup';
+import { SiteFooter } from '@/components/site-footer';
 import { StudyReminderBanner } from '@/components/study-reminder-banner';
 import { themeBootScript, THEME_STORAGE_KEY } from '@/lib/theme';
 import { resolveMetadataBase } from '@/lib/site-metadata';
@@ -25,10 +25,14 @@ import './light-theme.css';
 import './mindmap.css';
 import './ux-controls.css';
 import './layerwise-content.css';
+import './layerwise-shell.css';
+import './layerwise-home.css';
+import './layerwise-category.css';
+import './layerwise-workspace.css';
 
-const title = 'Layerwise · 个人学习知识库';
+const title = 'Layerwise — Learn AI, one layer at a time';
 const description =
-  '从直觉、原理、代码到练习，系统学习人工智能、机器学习、深度学习与强化学习。';
+  'Understand artificial intelligence, machine learning, deep learning and reinforcement learning through ideas, code and practice.';
 
 /**
  * Share metadata is resolved per request: `SITE_ORIGIN` wins when it is set at
@@ -51,7 +55,7 @@ export async function generateMetadata(): Promise<Metadata> {
           url: '/og.png',
           width: 1200,
           height: 630,
-          alt: 'Layerwise 个人学习知识库',
+          alt: 'Layerwise — Learn AI, one layer at a time',
         },
       ],
     },
@@ -68,7 +72,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="zh-CN" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -84,16 +88,7 @@ export default function RootLayout({
                 <SiteHeader />
                 {children}
                 <StudyReminderBanner />
-                <footer className="site-footer">
-                  <p className="site-footer__statement">
-                    理解一个概念，再独立解决一个问题。
-                  </p>
-                  <div className="site-footer__meta">
-                    <span>Layerwise</span>
-                    <span>学习数据仅保存在当前浏览器</span>
-                  </div>
-                  <ProgressBackup />
-                </footer>
+                <SiteFooter />
                 <PersistenceBanner />
               </PlanProvider>
             </ResourceProvider>

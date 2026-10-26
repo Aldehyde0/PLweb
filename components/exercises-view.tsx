@@ -57,16 +57,21 @@ export function ExercisesView() {
   const page = Math.min(Number(filters.page), pageCount);
   const visible = filtered.slice((page - 1) * 20, page * 20);
   return (
-    <main>
-      <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
-        <header className="grid gap-7 border-b border-border pb-9 lg:grid-cols-[1fr_280px] lg:items-end">
+    <main id="main" className="practice-page">
+      <div className="practice-container">
+        <nav aria-label="面包屑" className="breadcrumbs">
+          <Link href="/">Workspace</Link>
+          <span>/</span>
+          <span>Practice</span>
+        </nav>
+        <header className="practice-header">
           <div className="max-w-3xl">
             <p className="eyebrow flex items-center gap-2">
               <Dumbbell size={15} />
               练习
             </p>
             <h1 className="mt-3 text-4xl font-semibold tracking-[-.04em]">
-              把理解变成能独立作答的能力。
+              Practice
             </h1>
             <p className="mt-4 text-base leading-7 text-muted-foreground">
               题目整理自本地机器学习与深度学习资料。先独立作答，再展开答案，并通过标签或来源回到对应学习位置。
@@ -199,7 +204,8 @@ export function ExercisesView() {
               return (
                 <article
                   key={item.id}
-                  className="rounded-2xl border border-border bg-card p-5 sm:p-6"
+                  className="exercise-panel rounded-2xl border border-border bg-card p-5 sm:p-6"
+                  data-exercise={item.id}
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <span
@@ -254,6 +260,7 @@ export function ExercisesView() {
                   <div className="mt-5 flex flex-wrap gap-2">
                     <Button
                       variant="outline"
+                      aria-expanded={answered}
                       onClick={() =>
                         setOpen((prev) =>
                           prev.includes(item.id)
@@ -267,6 +274,7 @@ export function ExercisesView() {
                     </Button>
                     <Button
                       variant={done ? 'secondary' : 'default'}
+                      aria-pressed={done}
                       onClick={() => togglePractice(item.id)}
                     >
                       {done && <Check />}

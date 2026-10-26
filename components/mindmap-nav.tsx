@@ -1,15 +1,18 @@
 'use client';
 import Link from 'next/link';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, GitFork } from 'lucide-react';
 import { categories } from '@/lib/content';
+import { categoryNames } from '@/lib/english-display';
 
-export function MindMapNav() {
+export function MindMapNav({ english = false }: { english?: boolean }) {
   const [open, setOpen] = useState(false);
   const holder = useRef<HTMLDivElement>(null),
     trigger = useRef<HTMLButtonElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const id = useId();
+  // There is exactly one global navigation panel. A stable ID also keeps its
+  // relationship intact across vinext's server/client layout boundaries.
+  const id = 'site-mindmap-options';
   const clear = () => {
     if (timer.current) clearTimeout(timer.current);
   };
@@ -54,6 +57,7 @@ export function MindMapNav() {
         ref={trigger}
         type="button"
         className="site-nav__link mindmap-nav-trigger"
+        aria-label={english ? 'Mind maps' : '思维导图'}
         aria-expanded={open}
         aria-controls={id}
         onClick={() => {
@@ -62,14 +66,14 @@ export function MindMapNav() {
         }}
       >
         <GitFork size={16} aria-hidden="true" />
-        思维导图
+        <span>{english ? 'Mind maps' : '思维导图'}</span>
         <ChevronDown size={13} aria-hidden="true" />
       </button>
       {open && (
         <div
           id={id}
           className="mindmap-nav-panel"
-          aria-label="选择思维导图方向"
+          aria-label={english ? 'Choose a mind map' : '选择思维导图方向'}
         >
           {categories.map((category) => (
             <Link
@@ -83,7 +87,9 @@ export function MindMapNav() {
               href={`/mindmaps/${category.slug}`}
               onClick={() => setOpen(false)}
             >
-              <span>{category.title}</span>
+              <span>
+                {english ? categoryNames[category.slug] : category.title}
+              </span>
               <small>{category.shortTitle}</small>
             </Link>
           ))}

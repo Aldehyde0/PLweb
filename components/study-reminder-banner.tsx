@@ -11,11 +11,71 @@ import {
 } from 'lucide-react';
 import { usePlans } from '@/components/plan-store';
 import { Button } from '@/components/ui/button';
+import { usePathname } from 'next/navigation';
 
 export function StudyReminderBanner() {
   const { activePlan, reminderView, dismissReminder, setPlanStatus } =
     usePlans();
+  const pathname = usePathname();
+  const english = pathname === '/' || pathname.startsWith('/category/');
   if (!activePlan || !reminderView) return null;
+  if (english)
+    return (
+      <aside className="study-reminder" aria-label="Learning reminder">
+        <div className="study-reminder-inner">
+          <div className="study-reminder-copy">
+            <strong>
+              {reminderView.paused
+                ? 'Your learning plan is paused.'
+                : 'Ready for your next layer?'}
+            </strong>
+            <p>
+              {reminderView.paused
+                ? 'Resume whenever you are ready.'
+                : `${reminderView.daysAway} days since your last session · ${reminderView.estimatedMinutes} minutes suggested today.`}
+            </p>
+          </div>
+          <div className="study-reminder-actions">
+            {reminderView.paused ? (
+              <Button onClick={() => setPlanStatus(activePlan.id, 'active')}>
+                Resume plan
+              </Button>
+            ) : (
+              <Button
+                nativeButton={false}
+                render={<Link href={`/plans/${activePlan.id}`} />}
+              >
+                Continue learning
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={<Link href={`/plans/${activePlan.id}/today`} />}
+            >
+              Today’s tasks
+            </Button>
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={<Link href={`/plans/${activePlan.id}#adjust-plan`} />}
+            >
+              Adjust plan
+            </Button>
+            <Button variant="ghost" onClick={dismissReminder}>
+              Remind me later
+            </Button>
+          </div>
+          <button
+            className="study-reminder-close"
+            aria-label="Dismiss today’s reminder"
+            onClick={dismissReminder}
+          >
+            <X />
+          </button>
+        </div>
+      </aside>
+    );
   return (
     <aside className="study-reminder" aria-label="本地学习提醒">
       <div className="study-reminder-inner">
@@ -57,6 +117,7 @@ export function StudyReminderBanner() {
           ) : (
             <Button
               size="sm"
+              nativeButton={false}
               render={<Link href={`/plans/${activePlan.id}`} />}
             >
               <ArrowRight />
@@ -66,6 +127,7 @@ export function StudyReminderBanner() {
           <Button
             size="sm"
             variant="outline"
+            nativeButton={false}
             render={<Link href={`/plans/${activePlan.id}/today`} />}
           >
             查看今日任务
@@ -73,6 +135,7 @@ export function StudyReminderBanner() {
           <Button
             size="sm"
             variant="outline"
+            nativeButton={false}
             render={<Link href={`/plans/${activePlan.id}#adjust-plan`} />}
           >
             <Settings2 />

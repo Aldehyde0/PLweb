@@ -1,8 +1,26 @@
 'use client';
 
 import Link from 'next/link';
-import { Bookmark, CheckCircle2, ListTree } from 'lucide-react';
-import type { Category, Concept } from '@/lib/content';
+import {
+  Bookmark,
+  BookOpen,
+  CheckCircle2,
+  ChevronDown,
+  ArrowUpRight,
+  Search,
+  ListTree,
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  categories,
+  getConceptsByCategory,
+  type Category,
+  type Concept,
+  type CategorySlug,
+} from '@/lib/content';
+import { conceptDirectory, directoryConcepts } from '@/lib/category-directory';
+import { categoryNames, englishConceptName } from '@/lib/english-display';
+import { topicNames } from '@/lib/topic-display';
 import { getConceptHref, sortConcepts } from '@/lib/concept-utils';
 import { useLearning } from '@/components/learning-store';
 import { ConceptSortControl } from '@/components/concept-sort-control';
@@ -28,9 +46,10 @@ export function DesktopConceptDirectory({
   return (
     <aside
       className="concept-directory hidden xl:block"
-      aria-label={`${category.title}概念目录`}
+      aria-label="Concept directory"
     >
       <DirectoryContent
+        key={category.slug}
         category={category}
         concepts={concepts}
         currentSlug={currentSlug}
@@ -47,35 +66,40 @@ export function MobileConceptDirectory({
   concepts: Concept[];
   currentSlug: string;
 }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div className="mb-4 xl:hidden">
-      <Sheet>
+    <div className="concept-directory-mobile">
+      <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger
+          id="mobile-directory-trigger"
           render={
             <Button variant="outline" className="w-full justify-between" />
           }
         >
           <span className="flex items-center gap-2">
             <ListTree />
-            当前目录 · {category.title}
+            Learning directory
           </span>
-          <span className="text-muted-foreground">{concepts.length} 项</span>
+          <span className="sr-only">{concepts.length} concepts</span>
         </SheetTrigger>
         <SheetContent
           side="left"
           className="concept-sheet w-[88vw] max-w-sm gap-0 p-0"
         >
           <SheetHeader className="border-b border-border px-5 py-4">
-            <SheetTitle>{category.title}</SheetTitle>
+            <SheetTitle>Learning directory</SheetTitle>
             <SheetDescription>
-              绿色勾选表示已学习，状态保存在当前浏览器
+              Check marks show learned concepts. Progress stays in this browser.
             </SheetDescription>
           </SheetHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          <div className="doc-directory-sheet-body">
             <DirectoryContent
+              key={category.slug}
               category={category}
               concepts={concepts}
               currentSlug={currentSlug}
+              prefix="mobile"
+              onNavigate={() => setOpen(false)}
             />
           </div>
         </SheetContent>
@@ -85,61 +109,165 @@ export function MobileConceptDirectory({
 }
 function DirectoryContent({
   category,
-  concepts,
   currentSlug,
+  prefix = 'desktop',
+  onNavigate,
 }: {
   category: Category;
   concepts: Concept[];
   currentSlug: string;
+  prefix?: string;
+  onNavigate?: () => void;
 }) {
   const { bookmarks, learned, sortMode } = useLearning();
-  const ordered = sortConcepts(concepts, bookmarks, sortMode);
-  const saved = new Set(bookmarks);
-  const completed = new Set(learned);
+  const [selectedCategory, setSelectedCategory] = useState<CategorySlug>(
+    category.slug,
+  );
+  const [query, setQuery] = useState('');
+  const [closed, setClosed] = useState<string[]>([]);
+  const nav = useRef<HTMLElement>(null);
+  const all = getConceptsByCategory(selectedCategory);
+  const q = query.trim().toLowerCase();
+  const ordered = sortConcepts(
+    directoryConcepts(all),
+    bookmarks,
+    sortMode,
+  ).filter(
+    (c) =>
+      !q ||
+      `${c.title} ${englishConceptName(c)} ${c.slug}`.toLowerCase().includes(q),
+  );
+  const groups = [...new Set(directoryConcepts(all).map(conceptDirectory))];
+  const saved = new Set(bookmarks),
+    completed = new Set(learned);
+  useEffect(() => {
+    const container = nav.current;
+    const active = container?.querySelector<HTMLElement>(
+      '[aria-current="page"]',
+    );
+    if (container && active && !query)
+      container.scrollTop = Math.max(
+        0,
+        active.offsetTop - container.offsetTop - container.clientHeight * 0.4,
+      );
+  }, [currentSlug, selectedCategory, query, sortMode]);
   return (
-    <>
-      <div className="border-b border-border px-2 pb-3">
-        <p className="eyebrow">{category.shortTitle} 目录</p>
-        <h2 className="mt-1 text-sm font-semibold text-foreground">
-          {category.title}
-        </h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {concepts.filter((concept) => completed.has(concept.slug)).length}{' '}
-          已学习 · {concepts.length} 个概念
-        </p>
-        <ConceptSortControl compact />
+    <div className="doc-directory-panel">
+      <div className="doc-directory-controls">
+        <Link
+          className="doc-directory-home"
+          href="/#directions"
+          onClick={onNavigate}
+        >
+          <BookOpen />
+          Knowledge library
+          <ArrowUpRight />
+        </Link>
+        <label htmlFor={`${prefix}-directory-category`}>Learning path</label>
+        <div className="doc-category-select">
+          <select
+            id={`${prefix}-directory-category`}
+            aria-label="Learning path"
+            value={selectedCategory}
+            onChange={(e) => {
+              setSelectedCategory(e.target.value as CategorySlug);
+              setQuery('');
+              setClosed([]);
+            }}
+          >
+            {categories.map((c) => (
+              <option key={c.slug} value={c.slug}>
+                {c.shortTitle} · {categoryNames[c.slug]}
+              </option>
+            ))}
+          </select>
+          <ChevronDown aria-hidden="true" />
+        </div>
+        <label className="doc-directory-filter">
+          <Search aria-hidden="true" />
+          <input
+            aria-label="Filter concepts"
+            placeholder="Filter concepts…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </label>
+        <details className="doc-directory-sort">
+          <summary>Reading order</summary>
+          <ConceptSortControl compact english />
+        </details>
       </div>
-      <nav className="concept-list">
-        {ordered.map((concept) => {
-          const isLearned = completed.has(concept.slug);
+      <nav
+        ref={nav}
+        className="concept-list doc-directory-scroll"
+        aria-label="Concepts"
+      >
+        {groups.map((group) => {
+          const items = ordered.filter((c) => conceptDirectory(c) === group);
+          if (!items.length) return null;
+          const collapsed = closed.includes(group);
           return (
-            <Link
-              key={concept.slug}
-              href={getConceptHref(concept)}
-              aria-current={concept.slug === currentSlug ? 'page' : undefined}
-              data-learned={isLearned ? 'true' : 'false'}
-              className="concept-list-link"
-            >
-              <span className="min-w-0 flex-1 truncate">{concept.title}</span>
-              {isLearned && (
-                <span className="learned-directory-state" aria-label="已学习">
-                  <CheckCircle2 />
-                  已学习
-                </span>
-              )}
-              {saved.has(concept.slug) && (
-                <Bookmark
-                  className="size-3 shrink-0 fill-current text-primary"
-                  aria-label="已收藏"
+            <div key={group} className="doc-directory-group">
+              <button
+                className="doc-directory-group-title"
+                aria-expanded={!collapsed}
+                onClick={() =>
+                  setClosed((prev) =>
+                    collapsed
+                      ? prev.filter((x) => x !== group)
+                      : [...prev, group],
+                  )
+                }
+              >
+                <span>{topicNames[group] ?? 'Concepts'}</span>
+                <ChevronDown
+                  className={collapsed ? 'is-collapsed' : ''}
+                  aria-hidden="true"
                 />
-              )}
-              <span className={`difficulty difficulty-${concept.difficulty}`}>
-                {concept.difficulty ?? '进阶'}
-              </span>
-            </Link>
+              </button>
+              {!collapsed &&
+                items.map((concept) => (
+                  <Link
+                    key={concept.slug}
+                    href={getConceptHref(concept)}
+                    onClick={onNavigate}
+                    aria-current={
+                      concept.slug === currentSlug ? 'page' : undefined
+                    }
+                    data-learned={
+                      completed.has(concept.slug) ? 'true' : 'false'
+                    }
+                    className="concept-list-link"
+                  >
+                    <span>{concept.title}</span>
+                    {completed.has(concept.slug) && (
+                      <CheckCircle2
+                        className="learned-directory-state"
+                        aria-label="Learned"
+                      />
+                    )}
+                    {saved.has(concept.slug) && (
+                      <Bookmark
+                        className="size-3 fill-current"
+                        aria-label="Bookmarked"
+                      />
+                    )}
+                    {concept.slug === currentSlug && (
+                      <i className="doc-current-dot" aria-hidden="true" />
+                    )}
+                  </Link>
+                ))}
+            </div>
           );
         })}
+        {!ordered.length && (
+          <output className="doc-directory-empty">No matching concepts.</output>
+        )}
       </nav>
-    </>
+      <div className="doc-directory-footer">
+        {all.filter((c) => completed.has(c.slug)).length} learned · {all.length}{' '}
+        concepts
+      </div>
+    </div>
   );
 }

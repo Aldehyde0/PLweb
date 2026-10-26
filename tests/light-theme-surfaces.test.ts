@@ -48,7 +48,7 @@ void test('defines a neutral reading surface distinct from form controls', () =>
   );
 });
 
-void test('uses the learning surface for content cards while keeping code blocks dark', () => {
+void test('uses the learning surface for content cards and a separate code palette', () => {
   const globals = readProjectFile('app/globals.css');
   const learning = readProjectFile('app/learning-features.css');
   const conceptCard = readProjectFile('components/concept-card.tsx');
@@ -180,12 +180,58 @@ void test('portal drawers and learning demos use semantic surfaces', () => {
   );
 });
 
-void test('code blocks are deliberately left dark', () => {
-  // The syntax palette is tuned for the dark code surface; restyling it here
-  // would make the highlighted code unreadable.
-  assert.doesNotMatch(lightTheme, /\.code-figure/);
-  assert.doesNotMatch(lightTheme, /\.code-lines/);
-  assert.doesNotMatch(lightTheme, /\.syntax-(comment|string|number|keyword)/);
+void test('code palettes are light blue / dark purple with readable syntax', () => {
+  const tokens = readProjectFile('tokens.css');
+  const rgb = (value: string) => {
+    assert.match(value, /^#[\da-f]{6}$/i);
+    return [1, 3, 5].map((offset) =>
+      parseInt(value.slice(offset, offset + 2), 16),
+    );
+  };
+  const luminance = (color: number[]) => {
+    const [r, g, b] = color.map((channel) => {
+      const c = channel / 255;
+      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+  };
+  for (const theme of ['light', 'dark']) {
+    const palette = Object.fromEntries(
+      parseRules(tokens)
+        .filter(({ selector }) => selector.includes(`[data-theme='${theme}']`))
+        .flatMap(({ body }) =>
+          [...body.matchAll(/--lw-code-([\w-]+):\s*(#[\da-f]{6})/gi)].map(
+            ([, name, color]) => [name, rgb(color!)],
+          ),
+        ),
+    );
+    assert.ok(
+      palette.paper,
+      `${theme}: code palette must be available at root, including portals`,
+    );
+    const [r, g, b] = palette.paper;
+    assert.ok(
+      b! > r! && (theme === 'light' ? g! > r! : r! > g!),
+      `${theme}: expected blue / purple paper`,
+    );
+    assert.ok(
+      theme === 'light'
+        ? luminance(palette.paper) > 0.7
+        : luminance(palette.paper) < 0.05,
+    );
+    for (const text of ['ink', 'muted', 'keyword', 'string', 'number']) {
+      assert.ok(palette[text], `${theme}: missing ${text}`);
+      for (const surface of ['paper', 'header']) {
+        assert.ok(palette[surface], `${theme}: missing ${surface}`);
+        const a = luminance(palette[text]!);
+        const b = luminance(palette[surface]!);
+        assert.ok(
+          (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) >= 4.5,
+          `${theme}: ${text} on ${surface} must meet AA`,
+        );
+      }
+    }
+  }
 });
 
 void test('every rule is scoped to the light theme or is a wrapping guard', () => {

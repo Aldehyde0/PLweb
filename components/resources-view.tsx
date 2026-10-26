@@ -15,16 +15,26 @@ import {
 } from '@/lib/resources';
 import { ResourceCard } from '@/components/resource-card';
 import { Input } from '@/components/ui/input';
-import { resourceFilterSchema, defaultFilters } from '@/lib/filter-query';
+import { defaultFilters } from '@/lib/filter-query';
+import { libraryFilterSchema } from '@/lib/workspace-filters';
+import { useResources } from '@/components/resource-store';
 import { useFilterQuery } from '@/hooks/use-filter-query';
 
-const initialFilters = defaultFilters(resourceFilterSchema);
+const initialFilters = defaultFilters(libraryFilterSchema);
 
 export function ResourcesView() {
-  const { filters, update, clear } = useFilterQuery(resourceFilterSchema);
+  const { filters, update, clear } = useFilterQuery(libraryFilterSchema);
+  const { bookmarkIds, viewedIds } = useResources();
   const resources = useMemo(
-    () => filterResources(learningResources, filters),
-    [filters],
+    () =>
+      filterResources(learningResources, filters).filter(
+        (r) =>
+          filters.view === 'all' ||
+          (filters.view === 'bookmarked'
+            ? bookmarkIds.includes(r.id)
+            : viewedIds.includes(r.id)),
+      ),
+    [filters, bookmarkIds, viewedIds],
   );
   function set<K extends keyof ResourceFilters>(
     key: K,
@@ -33,7 +43,7 @@ export function ResourcesView() {
     update({ [key]: value }, key === 'query');
   }
   return (
-    <main className="resources-page">
+    <main id="main" className="resources-page">
       <div className="resources-container">
         <nav aria-label="面包屑" className="breadcrumbs">
           <Link href="/">知识库</Link>
@@ -43,7 +53,7 @@ export function ResourcesView() {
         <header className="resources-header">
           <div>
             <p className="eyebrow">外部资料索引</p>
-            <h1>学习资料参考库</h1>
+            <h1>Resources</h1>
             <p>
               只保存简短介绍、关联概念和外部链接，不复制外部文章或课程内容。
             </p>
@@ -51,7 +61,7 @@ export function ResourcesView() {
           <div>
             <LibraryBig />
             <strong>{learningResources.length}</strong>
-            <span>条已核对资料</span>
+            <span>条参考资料</span>
           </div>
         </header>
         <section className="resource-filters" aria-label="筛选学习资料">

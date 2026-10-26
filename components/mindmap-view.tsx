@@ -280,7 +280,7 @@ export function MindMapView({
       bySlug.has(slug) ? [bySlug.get(slug)!] : [],
     );
   return (
-    <main className="mindmap-page">
+    <main id="main" className="mindmap-page">
       <div className="mindmap-page-heading">
         <nav className="breadcrumbs" aria-label="面包屑">
           <Link href="/">知识库</Link>

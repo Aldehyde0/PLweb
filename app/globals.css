@@ -534,9 +534,10 @@
 .code-figure {
   width: 100%;
   min-width: 0;
-  border: 1px solid #333;
+  border: 1px solid var(--lw-code-rule);
   border-radius: 0.72rem;
-  background: #111;
+  background: var(--lw-code-paper);
+  color: var(--lw-code-ink);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02);
 }
 .code-caption {
@@ -544,21 +545,27 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  border-bottom: 1px solid #303030;
-  background: #181818;
+  border-bottom: 1px solid var(--lw-code-rule);
+  background: var(--lw-code-header);
   padding: 0.75rem 0.9rem;
   border-radius: 0.72rem 0.72rem 0 0;
 }
+.code-caption .text-foreground {
+  color: var(--lw-code-ink);
+}
+.code-caption .text-muted-foreground {
+  color: var(--lw-code-muted);
+}
 .code-purpose {
-  border-bottom: 1px solid #2c2c2c;
-  background: #151515;
+  border-bottom: 1px solid var(--lw-code-rule);
+  background: var(--lw-code-paper);
   padding: 0.72rem 0.9rem;
-  color: #979797;
+  color: var(--lw-code-muted);
   font-size: 0.78rem;
   line-height: 1.6;
 }
 .code-purpose strong {
-  color: #c8c8c8;
+  color: var(--lw-code-ink);
 }
 .code-scroll {
   width: 100%;
@@ -566,7 +573,7 @@
   overflow-y: visible;
   padding: 1rem 0;
   scrollbar-width: thin;
-  scrollbar-color: #454545 #151515;
+  scrollbar-color: var(--lw-code-muted) var(--lw-code-paper);
 }
 .code-scroll:focus-visible {
   box-shadow: inset 0 0 0 2px var(--ring);
@@ -575,7 +582,7 @@
   display: block;
   min-width: max-content;
   font-family: var(--font-mono-local);
-  font-size: 0.79rem;
+  font-size: 15px;
   line-height: 1.75;
   white-space: pre;
 }
@@ -585,25 +592,25 @@
   padding-right: 1rem;
   text-align: right;
   user-select: none;
-  color: #555;
+  color: var(--lw-code-muted);
 }
 .code-line-content {
   display: inline-block;
   min-width: calc(100% - 3.2rem);
   padding-right: 1.25rem;
-  color: #c9c9c9;
+  color: var(--lw-code-ink);
 }
 .syntax-comment {
-  color: #7f8990;
+  color: var(--lw-code-muted);
 }
 .syntax-string {
-  color: #c3a67b;
+  color: var(--lw-code-string);
 }
 .syntax-number {
-  color: #a99abf;
+  color: var(--lw-code-number);
 }
 .syntax-keyword {
-  color: #8eb3c8;
+  color: var(--lw-code-keyword);
   font-weight: 550;
 }
 .code-analysis {
@@ -661,13 +668,16 @@
   margin-top: 0.7rem;
   max-width: 100%;
   overflow-x: auto;
+  border: 1px solid var(--lw-code-rule);
   border-radius: 0.4rem;
-  background: #141414;
+  background: var(--lw-code-paper);
   padding: 0.7rem;
-  color: #aaa;
+  color: var(--lw-code-ink);
   font-family: var(--font-mono-local);
-  font-size: 0.68rem;
+  font-size: 15px;
   line-height: 1.6;
+  scrollbar-width: thin;
+  scrollbar-color: var(--lw-code-muted) var(--lw-code-paper);
 }
 .variable-grid {
   display: grid;
@@ -773,8 +783,9 @@ table td {
   .code-caption {
     align-items: flex-start;
   }
-  .code-lines {
-    font-size: 0.74rem;
+  .code-lines,
+  .analysis-snippet {
+    font-size: 13.5px;
   }
   .analysis-card {
     grid-template-columns: 1.55rem minmax(0, 1fr);

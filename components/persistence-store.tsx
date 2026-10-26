@@ -15,6 +15,7 @@ import {
   type StorageProblem,
   type WriteOutcome,
 } from '@/lib/browser-storage';
+import { usePathname } from 'next/navigation';
 
 export type PersistenceKey = 'learning' | 'plans' | 'resources' | 'theme';
 
@@ -164,6 +165,8 @@ export const PERSISTENCE_LABELS: Record<PersistenceKey, string> = {
 
 export function PersistenceBanner() {
   const { issues, retry, dismiss } = usePersistence();
+  const pathname = usePathname();
+  const english = pathname === '/' || pathname.startsWith('/category/');
   if (!issues.length) return null;
   const keys = issues.map((issue) => issue.key);
   return (
@@ -174,25 +177,32 @@ export function PersistenceBanner() {
       data-testid="persistence-banner"
     >
       <div className="persistence-banner__body">
-        <strong>本次修改尚未保存到当前浏览器</strong>
+        <strong>
+          {english
+            ? 'Your changes could not be saved in this browser'
+            : '本次修改尚未保存到当前浏览器'}
+        </strong>
         <p>
           {issues.map((issue) => (
             <span key={issue.key}>
-              {PERSISTENCE_LABELS[issue.key]}：{issue.message}
+              {english
+                ? `${issue.key}: ${issue.problem === 'corrupt' ? 'Stored data is damaged. The original record has been preserved.' : issue.problem === 'quota-exceeded' ? 'Browser storage is full.' : 'Browser storage is unavailable.'}`
+                : `${PERSISTENCE_LABELS[issue.key]}：${issue.message}`}
             </span>
           ))}
         </p>
         <p className="persistence-banner__hint">
-          页面仍可继续使用。请检查浏览器隐私模式或站点存储权限，清理部分空间后再重试；
-          未保存前刷新页面会丢失本次修改。
+          {english
+            ? 'You can keep using this page. Check storage permissions or free some space, then retry. Export your progress before reloading to keep unsaved changes.'
+            : '页面仍可继续使用。请检查浏览器隐私模式或站点存储权限，清理部分空间后再重试；未保存前刷新页面会丢失本次修改。'}
         </p>
       </div>
       <div className="persistence-banner__actions">
         <button type="button" onClick={retry}>
-          重新保存
+          {english ? 'Retry saving' : '重新保存'}
         </button>
         <button type="button" onClick={dismiss}>
-          暂时忽略
+          {english ? 'Dismiss for now' : '暂时忽略'}
         </button>
       </div>
       <span className="sr-only">{keys.join(',')}</span>

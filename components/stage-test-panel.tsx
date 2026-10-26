@@ -48,7 +48,7 @@ export function StageTestPanel({
       />
     );
   return (
-    <main className="plan-page">
+    <main id="main" className="plan-page">
       <div className="plan-container plan-test-container">
         <nav aria-label="面包屑" className="breadcrumbs">
           <Link href="/plans">学习计划</Link>
@@ -128,7 +128,7 @@ function TestUnavailable({
   onClose: () => void;
 }) {
   return (
-    <main className="plan-page">
+    <main id="main" className="plan-page">
       <div className="plan-container plan-test-container">
         <header className="plan-page-header">
           <div>
@@ -263,7 +263,7 @@ function TestResult({
   );
   const score = phase.test.score;
   return (
-    <main className="plan-page">
+    <main id="main" className="plan-page">
       <div className="plan-container plan-test-container">
         <header className="test-result-hero">
           <CheckCircle2 />

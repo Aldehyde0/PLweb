@@ -1,4 +1,4 @@
-import { Dashboard } from '@/components/dashboard';
+import { LayerwiseHome } from '@/components/layerwise/home';
 export default function Home() {
-  return <Dashboard />;
+  return <LayerwiseHome />;
 }

@@ -14,11 +14,17 @@ import { usePlans } from '@/components/plan-store';
 import { PlanDeleteButton } from '@/components/plan-delete-button';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { useFilterQuery } from '@/hooks/use-filter-query';
+import { planFilterSchema } from '@/lib/workspace-filters';
 
 export function PlansView() {
   const { plans, ready } = usePlans();
+  const { filters } = useFilterQuery(planFilterSchema);
+  const visible = plans.filter(
+    (p) => filters.status === 'all' || p.status === filters.status,
+  );
   return (
-    <main className="plan-page">
+    <main id="main" className="plan-page">
       <div className="plan-container">
         <nav aria-label="面包屑" className="breadcrumbs">
           <Link href="/">知识库</Link>
@@ -28,16 +34,34 @@ export function PlansView() {
         <header className="plan-page-header">
           <div>
             <p className="eyebrow">本地学习规划</p>
-            <h1>学习计划</h1>
+            <h1>Planning</h1>
             <p>
               把现有知识目录组织成可调整的阶段和任务。计划数据只保存在当前浏览器。
             </p>
           </div>
-          <Button size="lg" render={<Link href="/plans/new" />}>
+          <Button
+            size="lg"
+            nativeButton={false}
+            render={<Link href="/plans/new" />}
+          >
             <Plus />
             创建学习计划
           </Button>
         </header>
+        <dl className="lw-planning-stats">
+          <div>
+            <dt>进行中</dt>
+            <dd>{plans.filter((p) => p.status === 'active').length}</dd>
+          </div>
+          <div>
+            <dt>已完成</dt>
+            <dd>{plans.filter((p) => p.status === 'completed').length}</dd>
+          </div>
+          <div>
+            <dt>已保存计划</dt>
+            <dd>{plans.length}</dd>
+          </div>
+        </dl>
         {!ready ? (
           <div className="plan-empty" aria-busy="true">
             正在读取本地计划…
@@ -47,14 +71,17 @@ export function PlansView() {
             <CalendarDays />
             <h2>还没有学习计划</h2>
             <p>先选择目标、方向、方法和可用时间，生成预览后再决定是否保存。</p>
-            <Button render={<Link href="/plans/new" />}>
+            <Button nativeButton={false} render={<Link href="/plans/new" />}>
               <Plus />
               创建第一个计划
             </Button>
           </section>
         ) : (
           <section className="plan-card-list" aria-label="已保存计划">
-            {plans.map((plan) => {
+            {visible.length === 0 && (
+              <output>当前状态下没有计划。可在左侧选择其他状态。</output>
+            )}
+            {visible.map((plan) => {
               const method =
                 PLAN_METHODS.find((item) => item.value === plan.method)
                   ?.label ?? plan.method;

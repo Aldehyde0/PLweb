@@ -24,7 +24,14 @@
     "content:check": "node --experimental-strip-types scripts/generate-content.mjs --check",
     "content:audit-migration": "node --experimental-strip-types scripts/capture-content-baseline.mjs && node --experimental-strip-types scripts/check-migration-parity.mjs",
     "test:mdx-browser": "node --experimental-strip-types scripts/verify-mdx-browser.mjs",
-    "test:mdx-authoring": "node --experimental-strip-types scripts/verify-mdx-authoring.mjs"
+    "test:mdx-authoring": "node --experimental-strip-types scripts/verify-mdx-authoring.mjs",
+    "test:layerwise-browser": "node scripts/verify-layerwise-browser.mjs",
+    "test:docs-entry": "node scripts/verify-docs-entry.mjs",
+    "content:verify-core": "node --experimental-strip-types scripts/verify-core-content.mjs",
+    "content:audit-library": "node --experimental-strip-types scripts/audit-content-library.mjs",
+    "content:verify-examples": "node scripts/verify-library-examples.mjs",
+    "test:library-browser": "node scripts/verify-library-browser.mjs",
+    "test:code-theme-browser": "node scripts/verify-code-theme-browser.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

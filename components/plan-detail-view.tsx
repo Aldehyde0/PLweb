@@ -43,7 +43,7 @@ export function PlanDetailView({
 
   if (!store.ready)
     return (
-      <main className="plan-page">
+      <main id="main" className="plan-page">
         <div className="plan-container">
           <div className="plan-empty" aria-busy="true">
             正在读取本地计划…
@@ -53,13 +53,13 @@ export function PlanDetailView({
     );
   if (!plan)
     return (
-      <main className="plan-page">
+      <main id="main" className="plan-page">
         <div className="plan-container">
           <div className="plan-empty">
             <AlertTriangle />
             <h1>没有找到这个计划</h1>
             <p>它可能已被删除，或者这个链接来自另一个浏览器。</p>
-            <Button render={<Link href="/plans" />}>
+            <Button nativeButton={false} render={<Link href="/plans" />}>
               <ArrowLeft />
               返回计划列表
             </Button>
@@ -125,7 +125,7 @@ export function PlanDetailView({
   }
 
   return (
-    <main className="plan-page">
+    <main id="main" className="plan-page">
       <div className="plan-container">
         <nav aria-label="面包屑" className="breadcrumbs">
           <Link href="/">知识库</Link>
@@ -155,6 +155,7 @@ export function PlanDetailView({
           <div className="plan-header-actions">
             <Button
               variant="outline"
+              nativeButton={false}
               render={<Link href={`/plans/${plan.id}/today`} />}
             >
               <CalendarDays />
@@ -162,6 +163,7 @@ export function PlanDetailView({
             </Button>
             <Button
               variant="outline"
+              nativeButton={false}
               render={<Link href={`/plans/${plan.id}/week`} />}
             >
               <CalendarRange />
@@ -170,6 +172,7 @@ export function PlanDetailView({
             {view !== 'all' && (
               <Button
                 variant="outline"
+                nativeButton={false}
                 render={<Link href={`/plans/${plan.id}`} />}
               >
                 <ArrowLeft />

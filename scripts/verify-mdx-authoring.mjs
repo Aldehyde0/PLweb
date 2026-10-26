@@ -58,6 +58,8 @@ try {
   await page.goto(`${base}/category/machine-learning`, {
     waitUntil: 'networkidle',
   });
+  // The category now deliberately waits for an explicit topic selection.
+  await page.getByRole('button', { name: /^All concepts/ }).click();
   await page
     .locator('#concept-search')
     .fill('authoring-discovery-unique-token');
@@ -70,9 +72,24 @@ try {
   await waitFor(
     () => index()['mdx-authoring-check']?.concept.title === 'MDX 修改文章验证',
   );
-  await page.goto(`${base}/concept/mdx-authoring-check`, {
-    waitUntil: 'networkidle',
-  });
+  const editedUrl = `${base}/concept/mdx-authoring-check`;
+  try {
+    await page.goto(editedUrl, { waitUntil: 'networkidle' });
+  } catch (error) {
+    // Vite's full reload can race this navigation after the registry changes.
+    // Accept only an aborted navigation whose exact target actually commits
+    // and displays the newly edited heading; all other failures still fail.
+    if (!error.message.includes('net::ERR_ABORTED')) throw error;
+    await page.waitForURL(editedUrl);
+    await page
+      .getByRole('heading', { level: 1, name: 'MDX 修改文章验证', exact: true })
+      .waitFor();
+    await page.waitForLoadState('networkidle');
+    results.push({
+      name: 'HMR navigation cancellation verified against committed edited article',
+      pass: true,
+    });
+  }
   check(
     'edited article reloads through MDX',
     (await page

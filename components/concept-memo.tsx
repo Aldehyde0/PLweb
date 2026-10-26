@@ -8,6 +8,7 @@ import {
   Plus,
   Save,
   Star,
+  List,
   Trash2,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -50,8 +51,8 @@ export function DesktopConceptMemo({
   }, [sections]);
   return (
     <aside className="concept-memo-desktop">
-      <p className="eyebrow">本页目录</p>
-      <nav aria-label="本页目录" className="article-toc">
+      <p className="eyebrow">On this page</p>
+      <nav aria-label="On this page" className="article-toc">
         {sections.map((section) => (
           <a
             key={section.id}
@@ -69,31 +70,36 @@ export function DesktopConceptMemo({
 export function MobileConceptMemo({
   concept,
   sections,
+  label = 'Notes & highlights',
 }: {
   concept: Concept;
   sections: SectionDescriptor[];
+  label?: string;
 }) {
   return (
     <div className="concept-memo-mobile">
       <Sheet>
         <SheetTrigger
+          id={label === 'Notes' ? 'article-notes-trigger' : 'toc-notes-trigger'}
           render={
             <Button variant="outline" className="w-full justify-between" />
           }
         >
           <span className="flex items-center gap-2">
             <NotebookPen />
-            备忘录与重点
+            {label}
           </span>
-          <span className="text-muted-foreground">打开</span>
+          <span className="text-muted-foreground">Open</span>
         </SheetTrigger>
         <SheetContent
           side="right"
           className="concept-sheet w-[92vw] max-w-md gap-0 p-0"
         >
           <SheetHeader className="border-b border-border px-5 py-4">
-            <SheetTitle>{concept.title} · 备忘录</SheetTitle>
-            <SheetDescription>笔记和重点只保存在当前浏览器</SheetDescription>
+            <SheetTitle>Notes · {concept.title}</SheetTitle>
+            <SheetDescription>
+              Notes and highlights stay in this browser.
+            </SheetDescription>
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
             <MemoContent concept={concept} sections={sections} />
@@ -101,6 +107,47 @@ export function MobileConceptMemo({
         </SheetContent>
       </Sheet>
     </div>
+  );
+}
+
+export function MobileArticleContents({
+  sections,
+}: {
+  sections: SectionDescriptor[];
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger
+        id="mobile-contents-trigger"
+        render={<Button variant="outline" />}
+      >
+        <List />
+        On this page
+      </SheetTrigger>
+      <SheetContent
+        side="right"
+        className="concept-sheet w-[88vw] max-w-sm gap-0 p-0"
+      >
+        <SheetHeader className="border-b border-border px-5 py-4">
+          <SheetTitle>On this page</SheetTitle>
+          <SheetDescription>
+            Jump to a section in this article.
+          </SheetDescription>
+        </SheetHeader>
+        <nav className="article-toc p-4" aria-label="Article sections">
+          {sections.map((section) => (
+            <a
+              key={section.id}
+              href={`#${section.id}`}
+              onClick={() => setOpen(false)}
+            >
+              {section.title}
+            </a>
+          ))}
+        </nav>
+      </SheetContent>
+    </Sheet>
   );
 }
 

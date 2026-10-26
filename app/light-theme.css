@@ -7,8 +7,8 @@
  * 1. Never flatten a semantic state. good / warn / danger / muted, goal /
  *    blocked / path, current / deprecated, active / done / hover must stay
  *    visually distinguishable; map them onto the semantic tokens in tokens.css.
- * 2. Keep code blocks dark. `code-figure` and the `.syntax-*` palette are an
- *    intentional dark island; do not restyle them here.
+ * 2. Code surfaces and syntax use the shared --lw-code-* theme tokens in
+ *    globals.css and layerwise-home.css (light blue / dark purple).
  * 3. Prefer tokens over literal colours, and keep body text at >= 4.5:1 against
  *    the surface it sits on.
  * Hallmark · genre: modern-minimal · macrostructure: Long Document · theme: studied-DNA

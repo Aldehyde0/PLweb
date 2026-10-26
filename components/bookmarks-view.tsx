@@ -11,7 +11,7 @@ export function BookmarksView() {
   const { bookmarks, toggleBookmark, ready } = useLearning();
   const saved = bookmarks.map((slug) => conceptMap[slug]).filter(Boolean);
   return (
-    <main>
+    <main id="main">
       <div className="mx-auto max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
         <header className="max-w-2xl">
           <p className="eyebrow">稍后阅读</p>
