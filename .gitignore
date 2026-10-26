@@ -64,6 +64,11 @@ next-env.d.ts
 # local documentation
 /docs/
 
+# Keep working notes and reports local; publish the overview and licenses only.
+*.[mM][dD]
+!/[rR][eE][aA][dD][mM][eE].[mM][dD]
+!/public/licenses/*.[mM][dD]
+
 # Private prompts, agent instructions and local workspace metadata
 *[Pp][Rr][Oo][Mm][Pp][Tt]*.[mM][dD]
 *提示词*.[mM][dD]
