@@ -56,18 +56,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义DDPG并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 在连续动作中通过 critic 对动作的导数更新确定性 actor。
+- 独立复核“沿着 critic 的动作梯度改进确定性动作”的输入、计算和解释。
+- 这里对 critic 求导，不要求真实环境可微。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-DDPG位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+在连续动作中通过 critic 对动作的导数更新确定性 actor。
 :::
 
 
@@ -78,36 +76,32 @@ DDPG位于“状态—行动—反馈—更新”学习链中的关键位置。
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+连续力矩无法像 DQN 那样列出所有动作后取最大。DDPG 用 actor 直接给出动作，再通过 critic 对该动作的评分梯度改进 actor，从而将连续动作最大化变为参数学习。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Actor 输出确定性动作，Critic 估计 Q，使用 replay 和 target networks。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+DDPG 是确定性 off-policy actor-critic 方法，critic 拟合 r+γQtarget(s′,μtarget(s′))，actor 最大化 Q(s,μ(s))。它使用 replay 与目标 actor/critic，采集数据时通常在确定动作上添加探索噪声。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-Actor 直接给油门值，Critic 对这个连续动作打分。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+actor 提议一个力矩，critic 告诉它“略大还是略小可能更好”。如果 critic 的局部坡度错了，actor 会沿着错误坡度走，甚至专门找到 critic 的漏洞。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-需要探索噪声。
+actor 梯度包含两段链式法则：Q 对动作的导数乘 actor 对参数的导数。critic 更新时目标停止梯度，actor 更新时则保留穿过 Q 对动作的路径，但不把 critic 参数本身当 actor 参数一起优化。
 
-易受 Q 过估计与超参数影响。
+确定性 actor 本身不提供采样多样性，行为噪声的尺度与动作单位、边界有关。简单裁剪探索动作会改变实际分布，应记录实际执行动作；replay 训练目标仍使用无噪声目标 actor。
+
+DDPG 容易利用 Q 的过估计和非平滑误差，目标网络并不能完全解决。TD3 加双 critic、延迟 actor 与目标平滑，SAC 改用带熵的随机策略，都是针对相关问题的不同取舍。
 :::
 
 
@@ -115,17 +109,17 @@ Actor 直接给油门值，Critic 对这个连续动作打分。
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### 确定性 actor 的链式梯度
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+\nabla_\theta J\approx\mathbb E_{s\sim\mathcal D}[\nabla_a Q_\phi(s,a)|_{a=\mu_\theta(s)}\nabla_\theta\mu_\theta(s)]
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+状态来自 replay；本式是 critic 提供的策略改进方向。
 :::
 
 ::::
@@ -136,9 +130,9 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| μθ | 确定性 actor |
+| Qφ | 动作价值 critic |
+| D | 回放数据分布 |
 :::
 
 ::::
@@ -146,30 +140,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### DDPG的最小计算
+### 沿着 critic 的动作梯度改进确定性动作
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 假设当前 critic 恰好为 Q(a)=−(a−2)²，动作边界为 −3 到 3。
+- actor 直接输出参数 a=0.5，学习率 0.1。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 动作梯度为 −2×(0.5−2)=3。
+2. 梯度上升得到动作 0.5+0.1×3=0.8。
+3. 本构造 critic 值从 −2.25 变为 −1.44。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+在假设 critic 正确的局部示例中，动作由 0.500 变为 0.800，估值提高。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 这里对 critic 求导，不要求真实环境可微。
+- 如果 critic 梯度错误，增加预测 Q 不保证增加真实回报。
 :::
 
 
@@ -188,7 +179,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### DDPG的本地数值骨架
+### 沿着 critic 的动作梯度改进确定性动作
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -196,28 +187,30 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+在假设 critic 正确的局部示例中，动作由 0.500 变为 0.800，估值提高。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+action, rate = 0.5, 0.1
+old_q = -(action - 2) ** 2
+gradient = -2 * (action - 2)
+action += rate * gradient
+new_q = -(action - 2) ** 2
+print(f"action={action:.3f}, old_Q={old_q:.3f}, new_Q={new_q:.3f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 动作梯度为 −2×(0.5−2)=3。
+- 梯度上升得到动作 0.5+0.1×3=0.8。
+- 本构造 critic 值从 −2.25 变为 −1.44。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+action=0.800, old_Q=-2.250, new_Q=-1.440
+```
 :::
 
 ::::
@@ -233,9 +226,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 确定性 actor 未加探索机制，数据覆盖很窄。
+- actor 更新时把动作 detach，切断确定性梯度。
+- critic 还不准确就高频大步更新 actor，放大误差。
 :::
 
 
@@ -246,7 +239,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [OpenAI Spinning Up：DDPG](https://spinningup.openai.com/en/latest/algorithms/ddpg.html)。
 :::
 
 
@@ -257,9 +250,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 确定性 actor 未加探索机制，数据覆盖很窄。
+- actor 更新时把动作 detach，切断确定性梯度。
+- critic 还不准确就高频大步更新 actor，放大误差。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -276,11 +269,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### DDPG是 on-policy 还是 off-policy？
+### actor 是确定的，DDPG 如何探索？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-本页算法/方法按 off-policy 组织。
+常在采样动作上加 Gaussian 或其他相关噪声，并按合法动作边界执行；训练 actor 目标仍针对确定性动作映射。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -290,4 +283,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

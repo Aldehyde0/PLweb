@@ -35,28 +35,40 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-单个分数无法区分问题类型。模型复杂度、数据量、特征质量、正则化和划分设计共同影响结果。
+同一个模型在训练样本上表现很好，却可能在新样本上失败。反过来，训练和验证都很差，也不一定说明“再训练久一点”就能解决问题；数据、特征、模型能力和优化过程都需要检查。
+
+判断拟合状态时，要比较同一评价协议下的训练与验证结果，并明确指标方向：MSE 越小越好，准确率等分数通常越大越好。不能把不同指标或不同数据范围的数字直接相减。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-欠拟合时训练和验证都差；过拟合时训练很好但验证明显下降；合适拟合时两者均好且差距与波动合理。
+欠拟合通常指模型没有充分捕捉任务中可利用的规律，训练误差和验证误差都较高。它可能来自模型表达能力不足，也可能来自特征缺失、正则化过强、优化失败或实现错误。
+
+过拟合通常表现为训练表现明显优于验证表现，模型适应了训练数据中特有的细节或噪声。合适拟合则需要验证表现、波动、任务代价和资源约束共同支持，不能只用“两个分数接近”来判断。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-不会做练习是欠拟合，只会背原题是过拟合，能解决新题才是合适学习。
+把一组带噪声的数据点想成测量得到的曲线。过于简单的直线可能连主要弯曲趋势都抓不住；足够灵活的高次曲线又可能穿过每个噪声点。我们希望学到能预测新数据的规律，而不是把训练纸面上的每个小波动都记下来。
+
+训练误差与验证误差之间的差距是一条诊断线索，并不是病因本身。分布变化、标签质量不一致、数据泄漏或划分不合理，也可能制造看似相似的现象。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-同时报告训练/验证指标、泛化差距和多折波动，并先排除数据泄漏与分布变化。
+先确认实验可信：训练与验证使用同样定义的目标和指标，预处理没有泄漏，样本划分符合实际使用，代码中的训练/评估模式正确。基础边界有问题时，继续调模型可能只是在优化错误的实验。
+
+欠拟合时，可以检查输入特征是否提供足够信息、模型是否表达所需关系、优化是否真正进行以及正则化是否过强；不应未经诊断就同时改动所有因素。
+
+过拟合时，可以尝试更简单的模型、合理正则化、更多有代表性的数据、数据增强或验证早停。每种措施都有前提，例如增加与目标分布不一致的数据未必有帮助。
+
+学习曲线有助于区分问题：观察训练数据量或训练轮数变化时，训练与验证指标如何变化，并用多次划分或适当的交叉验证检查结论是否稳定。测试集保留到选型结束后使用。
 :::
 
 
@@ -79,6 +91,20 @@ $$
 
 ::::
 
+## 对照例子：为什么训练误差最低的模型反而输掉验证 {#worked-example}
+
+下面使用一份固定构造数据：真实趋势是平方函数，6 个训练点上叠加少量交替正负噪声，另取 5 个没有加噪声的验证位置。分别拟合一次、二次、五次多项式，MSE 越小越好。
+
+| 多项式次数 | 训练 MSE | 验证 MSE | 对这份数据的解释 |
+| --- | --- | --- | --- |
+| 1 | 7.2340 | 3.7463 | 直线抓不住主要的弯曲趋势 |
+| 2 | 0.1861 | 0.0236 | 抓住平方趋势，对这份验证数据最合适 |
+| 5 | 0.0000 | 0.5717 | 几乎逐点拟合训练数据，也追随了训练噪声 |
+
+五次模型的训练误差最低，但验证误差比二次模型高。这里的 0.0000 是四位小数显示结果，不代表浮点计算绝对没有误差。
+
+这些数值只针对下面这份人工数据，不是模型性能基准，也不能推导出“所有任务都该选二次模型”。真实任务仍需按数据结构设计验证方案。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
@@ -94,8 +120,9 @@ $$
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 欠拟合、过拟合与合适拟合：最小可验证示例
+### 在同一份固定数据上比较三种模型容量
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -103,24 +130,40 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-把正文原理映射为可检查的代码行为。
+把上表的训练与验证 MSE 算出来，区分拟合能力和泛化检查。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-from sklearn.model_selection import cross_validate
-result = cross_validate(model, X, y, cv=5, return_train_score=True)
-print(result["train_score"].mean(), result["test_score"].mean())
+import numpy as np
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
+
+x_train = np.array([-2., -1., 0., 1., 2., 3.]).reshape(-1, 1)
+y_train = x_train[:, 0] ** 2 + np.array([.7, -.4, .3, -.6, .5, -.2])
+x_val = np.array([-1.5, -.5, .5, 1.5, 2.5]).reshape(-1, 1)
+y_val = x_val[:, 0] ** 2
+for degree in [1, 2, 5]:
+    model = make_pipeline(PolynomialFeatures(degree, include_bias=False),
+                          LinearRegression()).fit(x_train, y_train)
+    train_mse = mean_squared_error(y_train, model.predict(x_train))
+    val_mse = mean_squared_error(y_val, model.predict(x_val))
+    print(f"degree={degree} train_mse={train_mse:.4f} val_mse={val_mse:.4f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 先确认输入形状和数据边界。
-- 把输出与公式或定义逐项对照。
+- 只改变多项式次数，训练和验证数据、指标与输出精度保持一致。
+- PolynomialFeatures 与回归器放进同一个 Pipeline，拟合只使用训练数据。
+- 二次模型在这份验证数据上表现最好；本例没有独立测试集，因此不能把它的验证误差称为最终测试成绩。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-输出平均训练分数与验证分数，用于判断能力和差距。
+degree=1 train_mse=7.2340 val_mse=3.7463
+degree=2 train_mse=0.1861 val_mse=0.0236
+degree=5 train_mse=0.0000 val_mse=0.5717
 :::
 
 ::::
@@ -136,9 +179,10 @@ print(result["train_score"].mean(), result["test_score"].mean())
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 训练 100% 就断言过拟合
-- 只追求最小差距
-- 正则化越强越好
+- 只看训练分数选择模型，把几乎零训练误差当成必然优点。
+- 两个分数接近就认为拟合良好，忽略它们可能都很差。
+- 对一个随机划分过度解读，或者把分布漂移造成的验证失败全部归因于模型复杂度。
+- 先增加模型容量和训练轮数，却没有检查标签、泄漏、预处理和优化过程。
 :::
 
 

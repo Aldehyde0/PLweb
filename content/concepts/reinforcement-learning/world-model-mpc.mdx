@@ -56,18 +56,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义World Model、Planning 与 MPC并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 用有限时域预测比较计划，只执行首个动作后依据新观察重新规划。
+- 独立复核“两步规划为何先执行看似不最优的动作”的输入、计算和解释。
+- 计划长度与一次实际执行的动作数不同。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-World Model、Planning 与 MPC位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+用有限时域预测比较计划，只执行首个动作后依据新观察重新规划。
 :::
 
 
@@ -78,36 +76,32 @@ World Model、Planning 与 MPC位于“状态—行动—反馈—更新”学�
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+机器人推箱子时，可以用模型预测若干动作序列的后果，选择眼前较好的计划。但执行第一步后，摩擦和碰撞可能使箱子偏离预测，继续盲目执行整串动作会放大误差。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-World Model 预测未来；MPC 每步规划有限 horizon、执行首个动作后重规划。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+世界模型预测环境未来，可能在物理状态、观察或潜在空间中建模。模型预测控制 MPC 在当前信息下搜索有限时域动作序列，只执行首个动作，然后更新状态估计并重规划。世界模型是预测工具，MPC 是使用模型的决策过程。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-在脑中预演几步，只执行当前一步，再根据真实反馈修正。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+导航先规划一段路线，开过一个路口后根据实际位置和新路况再算。重新规划能纠正部分预测误差，但如果地图系统性错误，反复算错也不会自动变正确。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-模型偏差会在多步 rollout 累积。
+计划目标可累加预测奖励并加末端价值，还需满足动作和状态约束。有限时域太短会看不到先付成本后获收益的机会，末端价值可缓解短视，但自身也有估计误差。
 
-短 horizon 减少误差但可能短视。
+模型在真实数据分布上准确，不保证在优化器搜索的所有动作序列上准确；规划可能主动利用模型漏洞。限制预测长度、惩罚模型不确定性或使用模型集合都需要独立验证。
+
+每步重规划增加计算成本，真实执行还受延迟和状态估计质量影响。不能把模拟 rollout 数量当作真实环境样本效率，也不能仅以模型单步均方误差代替闭环控制评价。
 :::
 
 
@@ -115,17 +109,17 @@ World Model 预测未来；MPC 每步规划有限 horizon、执行首个动作�
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### 有限时域模型规划
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+a_{t:t+H-1}^*=\arg\max\sum_{k=0}^{H-1}\gamma^k\hat r(\hat s_{t+k},a_{t+k})
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+预测状态由世界模型递推，MPC 通常只执行求得序列的首个动作。
 :::
 
 ::::
@@ -136,9 +130,8 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| H | 规划时域 |
+| ŝ、r̂ | 模型预测状态与奖励 |
 :::
 
 ::::
@@ -146,30 +139,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### World Model、Planning 与 MPC的最小计算
+### 两步规划为何先执行看似不最优的动作
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 确定模型 x′=x+a，x0=0，目标位置 2，动作只能取 0 或 1。
+- 两步成本为每步后位置误差平方之和。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 序列 [0,1] 的代价为 (0−2)²+(1−2)²=5。
+2. 序列 [1,1] 的代价为 (1−2)²+(2−2)²=1，是最小值。
+3. MPC 只执行第一个 1，收到真实新状态后再规划。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+最优两步计划为 [1,1]，但本轮实际只执行首动作 1。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 计划长度与一次实际执行的动作数不同。
+- 示例模型恰好正确，真实任务还需考虑模型误差和观测噪声。
 :::
 
 
@@ -188,7 +178,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### World Model、Planning 与 MPC的本地数值骨架
+### 两步规划为何先执行看似不最优的动作
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -196,28 +186,34 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+最优两步计划为 [1,1]，但本轮实际只执行首动作 1。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+from itertools import product
+costs = {}
+for actions in product([0, 1], repeat=2):
+    x, cost = 0, 0
+    for action in actions:
+        x += action
+        cost += (x - 2) ** 2
+    costs[actions] = cost
+best = min(costs, key=costs.get)
+print(f"plan={best}, cost={costs[best]}, execute_first={best[0]}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 序列 [0,1] 的代价为 (0−2)²+(1−2)²=5。
+- 序列 [1,1] 的代价为 (1−2)²+(2−2)²=1，是最小值。
+- MPC 只执行第一个 1，收到真实新状态后再规划。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+plan=(1, 1), cost=1, execute_first=1
+```
 :::
 
 ::::
@@ -233,9 +229,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 执行整串预测动作却仍称每步重规划。
+- 短 horizon 没有末端价值，漏掉延迟收益。
+- 规划器反复搜索数据外区域，利用模型错误。
 :::
 
 
@@ -246,7 +242,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Chua 等：Deep Reinforcement Learning in a Handful of Trials using Probabilistic Dynamics Models](https://arxiv.org/abs/1805.12114)。
 :::
 
 
@@ -257,9 +253,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 执行整串预测动作却仍称每步重规划。
+- 短 horizon 没有末端价值，漏掉延迟收益。
+- 规划器反复搜索数据外区域，利用模型错误。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -276,11 +272,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### World Model、Planning 与 MPC是 on-policy 还是 off-policy？
+### 每步重规划能消除模型误差吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+能利用新观察纠正部分偏离，但系统性模型错误、隐藏状态和控制延迟仍会影响闭环结果，需要按真实任务验证。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -290,4 +286,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

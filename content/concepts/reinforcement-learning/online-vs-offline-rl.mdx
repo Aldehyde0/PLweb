@@ -66,18 +66,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Online Learning 与 Offline RL并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 先确认是否允许新交互，再选择探索或数据覆盖的处理方式。
+- 独立复核“相同离线记录可以对应不同未见动作收益”的输入、计算和解释。
+- 数据量增加不能自动填补完全缺失的动作支持。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Online Learning 与 Offline RL位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+先确认是否允许新交互，再选择探索或数据覆盖的处理方式。
 :::
 
 
@@ -88,40 +86,32 @@ Online Learning 与 Offline RL位于“状态—行动—反馈—更新”学�
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+医院历史治疗记录很多，却不能为了试探一个新策略就随意给病人不同治疗。此时数据只能来自既定记录，学习器无法用新试验纠正错误；这与游戏里随时再玩一局的在线训练有根本差别。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Offline RL 从静态 transition 数据学习策略，训练阶段不能通过新试验纠正数据盲区。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+在线强化学习在训练期间收集新交互，策略变化可以带来新的状态和动作数据。离线强化学习只使用固定数据集进行训练；策略评估与选择也需要避免偷偷利用测试环境反复试验。离线不等于行为克隆，仍可能利用奖励进行策略改进。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-在线像边开车边练，离线像只看旧行车记录：记录之外的动作后果不能靠试一次来确认。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+在线学习像允许实地试路，离线学习像只能查看过去的行车记录。地图空白处看起来可能近，但没有记录就不能凭价值网络的高分认为这条路安全可通。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-固定数据把探索问题改造成覆盖与外推问题。
+冻结 DQN 或 SAC 的 replay 并不自动得到可靠离线算法。其最大值或 actor 会主动寻找 critic 最高估的动作；在线时可能收集新反馈纠正，离线时却可能不断自我放大。
 
-分布外动作价值可能被严重高估。
+数据质量包括状态覆盖、动作支持、奖励与终止标记是否可靠，以及行为策略的多样性。高质量但窄范围专家数据适合模仿，却不意味着能识别大量从未执行动作的回报。
 
-行为数据覆盖决定可学策略范围。
-
-DQN/SAC 虽是 off-policy，但其常规训练仍用环境交互刷新 replay；直接冻结 replay 并不自动成为可靠的 Offline RL。
+离线方法可约束策略接近行为、惩罚无支持动作的乐观 Q，或通过数据动作做隐式改进。它们在保守与提高收益之间做取舍，不能突破数据与结构假设决定的可辨识边界。
 :::
 
 
@@ -129,17 +119,17 @@ DQN/SAC 虽是 off-policy，但其常规训练仍用环境交互刷新 replay；
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### 在线数据增长与离线固定数据
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+\mathcal D_{t+1}^{online}=\mathcal D_t\cup\{(s_t,a_t,r_{t+1},s_{t+1},d_t)\},\qquad\mathcal D_t^{offline}=\mathcal D_0
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+本式示意数据边界；在线缓冲也可有容量上限，离线训练不因策略变化自动获得新转移。
 :::
 
 ::::
@@ -150,9 +140,9 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| D_t | 第 t 次交互时可用数据 |
+| d_t | 该转移的真正终止标记 |
+| D_0 | 固定离线数据集 |
 :::
 
 ::::
@@ -160,30 +150,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Online Learning 与 Offline RL的最小计算
+### 相同离线记录可以对应不同未见动作收益
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 数据只包含动作 stay，奖励一直为 1。
+- 两个候选环境都与数据一致，但动作 jump 的奖励分别为 +10 与 −10。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 只看 stay 数据，两种环境无法区分。
+2. 价值网络若预测 jump=10，只在环境 A 中正确。
+3. 没有额外试验或结构假设，不能保证选 jump 能改进。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+观测数据相同，未见动作的真实奖励可以相反；离线策略改进必须承认该不确定性。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 数据量增加不能自动填补完全缺失的动作支持。
+- 允许在线试验后可补充证据，但实验已进入在线或微调阶段。
 :::
 
 
@@ -203,7 +190,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Online Learning 与 Offline RL的本地数值骨架
+### 相同离线记录可以对应不同未见动作收益
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -211,28 +198,28 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+观测数据相同，未见动作的真实奖励可以相反；离线策略改进必须承认该不确定性。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+worlds = [{"stay": 1, "jump": 10}, {"stay": 1, "jump": -10}]
+for index, world in enumerate(worlds, start=1):
+    print(f"world={index} observed_stay={world['stay']} unseen_jump={world['jump']}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 只看 stay 数据，两种环境无法区分。
+- 价值网络若预测 jump=10，只在环境 A 中正确。
+- 没有额外试验或结构假设，不能保证选 jump 能改进。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+world=1 observed_stay=1 unseen_jump=10
+world=2 observed_stay=1 unseen_jump=-10
+```
 :::
 
 ::::
@@ -248,9 +235,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 冻结普通 off-policy 算法的数据后就声称风险已解决。
+- 用在线测试回报反复调参后仍称纯离线评估。
+- 只统计数据量，不检查状态动作覆盖与记录质量。
 :::
 
 
@@ -261,7 +248,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-页面中的驾驶类比、六步学习流程、DQN/SAC 对照和部署边界是本站扩展解释；固定数据定义与分布偏移判断依据所列论文。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Levine 等：Offline Reinforcement Learning: Tutorial, Review, and Perspectives](https://arxiv.org/abs/2005.01643)。
 :::
 
 
@@ -289,9 +276,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 冻结普通 off-policy 算法的数据后就声称风险已解决。
+- 用在线测试回报反复调参后仍称纯离线评估。
+- 只统计数据量，不检查状态动作覆盖与记录质量。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -308,11 +295,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Online Learning 与 Offline RL是 on-policy 还是 off-policy？
+### 离线 RL 训练好了可以在线微调吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+可以，但应将数据来源、交互预算、策略选择和评测阶段分开报告；微调性能不能作为纯离线训练性能。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -322,4 +309,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

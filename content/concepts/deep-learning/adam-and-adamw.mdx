@@ -36,18 +36,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释 m/v
-- 区分 L2 与 AdamW
-- 设置参数组
+- 零数据梯度时隔离 AdamW 衰减
+- Adam 的二阶矩就是梯度方差吗？
+- 说明：自适应步长不等于无需调学习率；grad=None 与零梯度的更新行为也可能不同。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-现代训练常用
-
-正确理解 weight\_decay
+Adam 维护梯度一阶矩 m 与平方梯度二阶矩 v，进行偏差修正后更新；AdamW 在该更新之外直接按比例缩小权重，避免衰减项混入自适应矩估计。
 :::
 
 
@@ -58,30 +56,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-自适应优化常快速得到可用结果，但不保证总优于 SGD。
+不同参数的梯度尺度可能相差很大，普通固定步长更新需要细致调节。Adam 利用历史梯度估计为各参数调整更新尺度，而 AdamW 进一步区分数据梯度与权重衰减。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Adam 为每个参数坐标维护 m/v 并做偏差修正；AdamW 另外收缩参数。
+Adam 维护梯度一阶矩 m 与平方梯度二阶矩 v，进行偏差修正后更新；AdamW 在该更新之外直接按比例缩小权重，避免衰减项混入自适应矩估计。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-根据历史平均方向和波动，为每个参数分配不同有效步长。
+Adam 按每个参数过去的梯度量级调整步幅；AdamW 另外施加一个持续把参数拉向零的动作。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-AdamW 的衰减不进入自适应梯度矩估计。
+一阶矩是梯度的指数移动平均，二阶矩是梯度平方的指数移动平均。初始矩为零会偏小，因此用与步数相关的因子修正。分母使用二阶矩的平方根和 epsilon，不能把 v 理解成严格的梯度方差。
 
-bias 和归一化参数是否衰减取决于架构配方。
+经典耦合 L2 会先把衰减项加到梯度，再参与 m、v 的更新；AdamW 的衰减直接作用于参数，因此相同 weight_decay 数字不保证与 Adam 的 L2 相同效果。学习率仍然影响衰减幅度。
+
+参数组可以为骨干、任务头、偏置和归一化设置不同规则，但应遵循验证过的训练配方。优化器状态包含矩和步数，恢复训练只加载模型参数会改变后续轨迹。
 :::
 
 
@@ -99,7 +99,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-前项是解耦衰减，后项是 Adam 更新。
+Adam 维护梯度一阶矩 m 与平方梯度二阶矩 v，进行偏差修正后更新；AdamW 在该更新之外直接按比例缩小权重，避免衰减项混入自适应矩估计。
 :::
 
 ::::
@@ -119,34 +119,40 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 解耦衰减
+### 零数据梯度时隔离 AdamW 衰减
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- θ=2,η=.1,λ=.01
+- 参数初值为 2，数据梯度显式设为 0
+- 学习率 0.1，weight_decay=0.2
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 衰减前项 (1-.001)×2
+1. 数据梯度没有贡献。
+2. 执行解耦缩放 2×(1−0.1×0.2)。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-1.998 后再加梯度更新
+一次更新后参数为 1.96。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 自适应步长不等于无需调学习率；grad=None 与零梯度的更新行为也可能不同。
 :::
+
+### 零数据梯度时隔离 AdamW 衰减
+
+这个例子显式设置零梯度，而不是让 grad=None。PyTorch 优化器可能跳过没有梯度的参数，所以这两种状态不能混为一谈。
+
+非零历史矩还会继续产生自适应更新，本例使用新优化器以隔离衰减。真实训练不能只根据参数变小就认定某次更新只有正则项。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 初始化矩
-2. 更新 m/v
-3. 偏差修正
-4. 自适应更新
-5. 解耦衰减
+1. 数据梯度没有贡献。
+2. 执行解耦缩放 2×(1−0.1×0.2)。
 :::
 
 
@@ -154,31 +160,37 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Adam 与 AdamW · PyTorch 示例
+### 零数据梯度时隔离 AdamW 衰减的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证Adam 与 AdamW的输入、计算和输出。
+使用完整构造输入核对零数据梯度时隔离 AdamW 衰减，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-optimizer=torch.optim.AdamW(model.parameters(),lr=3e-4,betas=(.9,.999),weight_decay=1e-2)
+```python
+import torch
+p = torch.nn.Parameter(torch.tensor(2.))
+optimizer = torch.optim.AdamW([p], lr=0.1, weight_decay=0.2)
+p.grad = torch.zeros_like(p)
+optimizer.step()
+print(f"parameter={p.item():.4f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- betas 控制矩衰减
-- eps 数值稳定
-- weight\_decay 不等于 Dropout
+- 新建优化器，没有历史矩干扰。
+- 显式零梯度保留权重衰减更新。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-优化器创建并在 step 时维护每参数状态。
+```text
+parameter=1.9600
+```
 :::
 
 ::::
@@ -186,8 +198,8 @@ optimizer=torch.optim.AdamW(model.parameters(),lr=3e-4,betas=(.9,.999),weight_de
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- Transformer
-- 迁移学习
+- 训练稀疏或尺度差异较大的参数
+- 用参数组设置解耦衰减
 :::
 
 
@@ -207,18 +219,17 @@ optimizer=torch.optim.AdamW(model.parameters(),lr=3e-4,betas=(.9,.999),weight_de
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### AdamW 一定比 Adam 好吗？
+### Adam 的二阶矩就是梯度方差吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-不一定，需验证。
+不是，它估计梯度平方的移动平均，未减去均值平方；将其当成严格方差会误解分母的作用。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### weight decay 是 Dropout 吗？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-不是。
+自适应步长不等于无需调学习率；grad=None 与零梯度的更新行为也可能不同。
 :::
-

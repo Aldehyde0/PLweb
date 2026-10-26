@@ -36,7 +36,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-尝试很多参数后报告同一 CV 的最佳分数会有选择偏差；重要小数据任务可用嵌套 CV。
+在多个候选中选择最高验证分数，会同时选择到一部分偶然波动。把获胜候选的同一验证均值当作最终性能，往往会乐观，尤其在搜索空间大或数据小时。
+
+嵌套交叉验证把“选方案”与“评方案”分到两层，让外层评价整套搜索流程在未参与选择的数据上的表现。
 :::
 
 
@@ -57,7 +59,13 @@ anchorAliases:
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-计算成本是外折×内折×候选数；外层验证不能用于内层早停或选择。
+外层先留出一折，其余数据交给内层搜索。内层只能在外层训练部分做预处理、调参、阈值选择或其他开发；选出方案后在该外层训练部分 refit，再评价外层留出折。
+
+不同外层折可能选出不同超参数，这并非错误，而是训练样本变化影响选择的证据。汇总的外层分数估计的是这个选择流程，而不是某个固定参数在全部数据训练后的直接测试分数。
+
+外层验证不能用来扩大搜索空间、挑选报告指标或指导早停，否则外层也参与开发。群组与时间约束还要在内外两层保持，不能外层分组、内层又把同一患者随机拆开。
+
+计算量包含每个候选的内层拟合与每个外层的最终 refit。完成评价后，实际部署通常还要在完整开发数据上按既定搜索流程选参并拟合；嵌套评估不会自动产生唯一最终模型。
 :::
 
 
@@ -80,6 +88,12 @@ $$
 
 ::::
 
+### 案例：3 外折、3 内折与 2 个候选
+
+每个外折训练部分内做 2 × 3 = 6 次候选拟合，再将最佳流程 refit 1 次，三个外折共 21 次拟合。外层留出样本只用于评分，不参与这 7 次训练中的任何一步。
+
+下方在 Iris 上运行这个小搜索，并保留每个外层的最佳估计器。输出仅演示嵌套流程；如果读完外层结果又修改 C 的范围，就应承认这批外层结果已经参与开发，而不能继续作为最终独立证据。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
@@ -96,33 +110,52 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 嵌套交叉验证 示例
+### 把 GridSearchCV 作为外层被评估流程
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+固定小型嵌套搜索，外层结果与内层候选统计分别输出，不冒充真实业务测试。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-inner=StratifiedKFold(4,shuffle=True,random_state=42)
-outer=StratifiedKFold(5,shuffle=True,random_state=100)
-search=GridSearchCV(pipeline,param_grid,cv=inner,scoring="roc_auc")
-r=cross_validate(search,X,y,cv=outer,scoring="roc_auc")
+```Python
+from sklearn.datasets import load_iris
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, cross_validate
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+X, y = load_iris(return_X_y=True)
+pipeline = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000))
+inner = StratifiedKFold(3, shuffle=True, random_state=42)
+outer = StratifiedKFold(3, shuffle=True, random_state=100)
+search = GridSearchCV(pipeline, {"logisticregression__C": [0.1, 1.0]},
+    cv=inner, scoring="accuracy", refit=True)
+result = cross_validate(search, X, y, cv=outer, scoring="accuracy", return_estimator=True)
+assert len(result["estimator"]) == 3
+print("outer_accuracy:", result["test_score"].round(3).tolist())
+print("inner_candidates:", [len(model.cv_results_["params"]) for model in result["estimator"]])
+print("total_fits:", 3 * (3 * 2 + 1))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 传给 cross_validate 的是完整 search，内层只收到外层训练部分。
+- 21 次包含每个外层的 refit；示例尚未另训最终部署模型。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-5 个外层 ROC-AUC，代表模型选择流程。
+本地 scikit-learn 1.8.0 的核对输出：
+
+```text
+outer_accuracy: [0.96, 0.92, 0.98]
+inner_candidates: [2, 2, 2]
+total_fits: 21
+```
 :::
 
 ::::
@@ -138,9 +171,9 @@ r=cross_validate(search,X,y,cv=outer,scoring="roc_auc")
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 计算次数低估
-- 外层折参与调参
-- 直接拿最终模型
+- 把内层 best_score_ 当成外层结果，或让外层样本参与预处理与早停。
+- 外层遵守群组或时间边界，内层却改用不匹配的随机划分。
+- 报告只计算候选次数，漏掉每个外层 refit，并误认为嵌套运行自动得到最终部署模型。
 :::
 
 

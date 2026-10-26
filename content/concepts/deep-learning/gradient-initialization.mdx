@@ -37,18 +37,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 识别消失/爆炸
-- 计算 fan\_in
-- 匹配激活初始化
+- 比较 4 个与 100 个输入连接的初始化尺度
+- 为什么不能把所有隐藏层权重都设为零？
+- 说明：初始化只能改善起点；错误学习率、饱和激活或坏数据仍会破坏梯度传播。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-避免训练初期失效
-
-解释 Xavier/Kaiming
+参数初始化为训练前的权重和偏置选择初值。Xavier、Kaiming 等规则按输入输出连接数和激活特性设定权重方差，以控制前向或反向的量级。
 :::
 
 
@@ -59,30 +57,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-网络更深不代表更容易优化。
+反向梯度需要穿过许多层。如果每层都把信号放大或缩小一点，深层网络就可能很快出现梯度爆炸或消失。初始化关注的是训练起点的信号尺度。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-深层雅可比连乘可使梯度消失或爆炸；初始化控制训练起点的方差。
+参数初始化为训练前的权重和偏置选择初值。Xavier、Kaiming 等规则按输入输出连接数和激活特性设定权重方差，以控制前向或反向的量级。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-每层都稍缩小或放大，经过很多层会指数变化。
+深层网络像许多级放大器串联。每级增益都偏大时会溢出，偏小时信号消失；初始化希望整体先处在可学习的范围。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-tanh/sigmoid 常用 Xavier，ReLU/LeakyReLU 常用 Kaiming；输出层单独处理。
+若输入各维近似独立、均值为零且方差相近，线性加权和的方差约为 fan_in×Var(w)×Var(x)。因此连接数越多，单个权重通常应越小；固定所有层都用同一个标准差并不稳妥。
 
-PyTorch 默认初始化通常合理，无证据时不盲目覆盖。
+ReLU 会截掉部分信号，Kaiming 的常见 fan_in 规则取权重方差约 2/fan_in。Xavier 同时考虑 fan_in 与 fan_out，常用于近似对称的非线性。它们依赖近似假设，残差、归一化和特殊输出层可能需要不同配方。
+
+若同一层所有隐藏单元权重完全相同，梯度也可能保持对称，多个单元无法分工。随机初始化负责打破这种对称；偏置置零通常没有相同问题。设置种子有利于复核，但不代表跨设备完全一致。
 :::
 
 
@@ -100,7 +100,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-ReLU 的 Kaiming 起点。
+参数初始化为训练前的权重和偏置选择初值。Xavier、Kaiming 等规则按输入输出连接数和激活特性设定权重方差，以控制前向或反向的量级。
 :::
 
 ::::
@@ -119,34 +119,40 @@ ReLU 的 Kaiming 起点。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### fan\_in=256
+### 比较 4 个与 100 个输入连接的初始化尺度
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- ReLU
+- 使用 ReLU 的 fan_in 方差规则
+- 两层 fan_in 分别为 4 和 100
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. sqrt(2/256)
+1. 计算权重方差 2/fan_in。
+2. 标准差分别为 sqrt(0.5) 与 sqrt(0.02)。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-std≈0.0884
+理论标准差分别约为 0.707107 与 0.141421；输入连接更多时单个权重更小。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 初始化只能改善起点；错误学习率、饱和激活或坏数据仍会破坏梯度传播。
 :::
+
+### 案例推演与判断
+
+对 fan_in=100 的层，如果仍使用 0.707 的标准差，线性加权和的方差估计会比目标大很多。这个问题在多层相乘后更明显，不能仅靠训练更久解决。
+
+有限个随机权重的样本标准差不会恰好等于理论值，代码因此打印理论尺度与张量形状，而不把一次随机采样误差当成规则失效。实际排查还应记录激活和梯度的统计量。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 检查激活
-2. 计算 fan
-3. 初始化隐藏层
-4. 初始化输出层
-5. 监控激活/梯度
+1. 计算权重方差 2/fan_in。
+2. 标准差分别为 sqrt(0.5) 与 sqrt(0.02)。
 :::
 
 
@@ -154,33 +160,41 @@ std≈0.0884
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 梯度问题与权重初始化 · PyTorch 示例
+### 比较 4 个与 100 个输入连接的初始化尺度的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证梯度问题与权重初始化的输入、计算和输出。
+使用完整构造输入核对比较 4 个与 100 个输入连接的初始化尺度，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-layer=nn.Linear(256,64)
-nn.init.kaiming_normal_(layer.weight,mode='fan_in',nonlinearity='relu')
-nn.init.zeros_(layer.bias)
+```python
+import math
+import torch
+from torch import nn
+torch.manual_seed(7)
+for fan_in in [4, 100]:
+    layer = nn.Linear(fan_in, 8)
+    nn.init.kaiming_normal_(layer.weight, mode="fan_in", nonlinearity="relu")
+    nn.init.zeros_(layer.bias)
+    print(f"fan_in={fan_in} target_std={math.sqrt(2 / fan_in):.6f} shape={tuple(layer.weight.shape)}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 权重按 Kaiming
-- 偏置归零
-- 在优化器前初始化
+- 给定种子并显式初始化 bias。
+- target_std 是规则的理论标准差，没有冒充采样测量值。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-权重标准差接近 0.088。
+```text
+fan_in=4 target_std=0.707107 shape=(8, 4)
+fan_in=100 target_std=0.141421 shape=(8, 100)
+```
 :::
 
 ::::
@@ -188,7 +202,8 @@ nn.init.zeros_(layer.bias)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 深层 MLP/CNN
+- 深层 MLP 与 CNN 的训练起点
+- 排查层间激活方差异常
 :::
 
 
@@ -209,18 +224,17 @@ nn.init.zeros_(layer.bias)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 初始化要猜最终参数吗？
+### 为什么不能把所有隐藏层权重都设为零？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-不需要，只要保持可训练尺度。
+同层神经元会给出相同输出并接收相同梯度，无法打破对称形成不同特征；随机权重让它们从不同方向开始。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### LeakyReLU 要传什么？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-实际 negative\_slope。
+初始化只能改善起点；错误学习率、饱和激活或坏数据仍会破坏梯度传播。
 :::
-

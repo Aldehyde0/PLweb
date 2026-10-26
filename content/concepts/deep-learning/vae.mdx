@@ -34,18 +34,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释核心机制
-- 手算一个主要形状或公式
-- 运行完整示例并排查错误
+- 两维高斯后验的 KL 与重参数化
+- 为什么编码器常输出 logvar 而不是方差？
+- 说明：重参数化保证可微采样路径，不保证没有后验塌缩，也不保证所有随机样本都合理。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-掌握变分自编码器 VAE的输入输出与训练边界
-
-能够用 PyTorch 代码验证公式和形状
+变分自编码器用近似后验 q(z|x) 编码输入，常输出高斯均值 mu 和 logvar，通过重参数化采样，再优化重构项与相对先验的 KL 项。
 :::
 
 
@@ -56,30 +54,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-变分自编码器 VAE是该文档中连接数据表示、训练目标和工程实现的核心主题。
+普通自编码器的潜在空间可能零散、不适合随机采样。VAE 把编码结果变成分布，再用先验约束形成更可采样的空间，同时保留输入重构能力。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-VAE 用概率潜空间、重参数化和 KL 正则支持从先验采样。
+变分自编码器用近似后验 q(z|x) 编码输入，常输出高斯均值 mu 和 logvar，通过重参数化采样，再优化重构项与相对先验的 KL 项。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把变分自编码器 VAE理解为数据在模型中的一套明确变换，而不是只记一个类名。
+编码器给出的不是一个坐标，而是坐标附近的一团概率云；KL 约束让这些云与规定的公共坐标分布保持联系。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-编码器输出 mu/logvar，随机性移到 epsilon，使梯度可传播。
+对角高斯后验可写为 z=mu+exp(0.5×logvar)×epsilon，epsilon 来自标准正态。随机性来自与参数无关的 epsilon，因此梯度仍可通过 mu 和 logvar 传回编码器。直接从由参数定义的分布抽样后当常量使用会失去这种路径。
 
-实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+标准正态先验下，单样本 KL 为 -0.5×sum(1+logvar−mu²−exp(logvar))。应先明确按 latent 维求和、按 batch 如何归一化；重构项若按像素平均或求和，都会改变它与 KL 的相对尺度。
+
+重构概率模型取决于数据，例如连续值与二元像素需要不同观测假设。KL 太强可能让后验忽略输入，太弱则先验采样质量不佳；beta 只是权衡参数，不能在不说明归一化时跨实现照搬。
 :::
 
 
@@ -97,7 +97,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-变分自编码器 VAE的核心数学表达。
+变分自编码器用近似后验 q(z|x) 编码输入，常输出高斯均值 mu 和 logvar，通过重参数化采样，再优化重构项与相对先验的 KL 项。
 :::
 
 ::::
@@ -117,37 +117,43 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 变分自编码器 VAE数值/形状检查
+### 两维高斯后验的 KL 与重参数化
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=8
-- D=64
+- mu=(1,0)，logvar=(0,0)，先验为标准正态
+- 构造 epsilon=(0.5,-1) 以便复核
+- 重构平方误差按维求和为 2，beta=1
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 按公式或模块逐步计算
-2. 核对输出 shape
+1. 标准差为 (1,1)，采样 z=(1.5,-1)。
+2. KL=0.5×(1²+0²)=0.5。
+3. 本例总目标为 2+0.5=2.5。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出保持 batch 维并符合任务头约定
+latent 为 (1.5,-1)，KL 为 0.5，总目标为 2.5。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 重参数化保证可微采样路径，不保证没有后验塌缩，也不保证所有随机样本都合理。
 :::
+
+### 两维高斯后验的 KL 与重参数化
+
+固定 epsilon 只是把随机抽样的一次条件写清楚，不代表训练时始终使用它。真正训练需要不断采样，或按明确推断策略使用后验均值。
+
+若把两维重构误差改为均值，重构项会从 2 变成 1，相同 beta 下相对 KL 权重翻倍。因此报告一个 VAE loss 前必须交代求和与平均轴。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认输入与目标
-2. 建立最小模块
-3. 随机张量前向
-4. 计算损失
-5. 反向与更新
-6. 验证与错误分析
+1. 标准差为 (1,1)，采样 z=(1.5,-1)。
+2. KL=0.5×(1²+0²)=0.5。
+3. 本例总目标为 2+0.5=2.5。
 :::
 
 
@@ -155,33 +161,42 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 变分自编码器 VAE · PyTorch 示例
+### 两维高斯后验的 KL 与重参数化的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证变分自编码器 VAE的输入、计算和输出。
+使用完整构造输入核对两维高斯后验的 KL 与重参数化，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-mu=torch.zeros(8,32);logvar=torch.zeros(8,32)
-std=torch.exp(.5*logvar);z=mu+std*torch.randn_like(std)
-print(z.shape)
+```python
+import torch
+mu = torch.tensor([[1., 0.]], requires_grad=True)
+logvar = torch.zeros_like(mu)
+epsilon = torch.tensor([[0.5, -1.]])
+z = mu + torch.exp(0.5 * logvar) * epsilon
+kl = -0.5 * (1 + logvar - mu.square() - logvar.exp()).sum(-1).mean()
+x, reconstruction = torch.tensor([[0., 2.]]), torch.tensor([[1., 1.]])
+recon = (reconstruction - x).square().sum(-1).mean()
+print("z:", z.detach().tolist())
+print(f"reconstruction={recon.item():.1f} KL={kl.item():.1f} total={(recon + kl).item():.1f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码显式标注输入和输出
-- 使用框架稳定实现
-- 结果通过 shape 或数值检查
+- epsilon 明确给定，确保数值可手算。
+- 重构与 KL 都先按特征求和，再按 batch 平均。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印与页面说明一致的张量形状或损失。
+```text
+z: [[1.5, -1.0]]
+reconstruction=2.0 KL=0.5 total=2.5
+```
 :::
 
 ::::
@@ -189,8 +204,8 @@ print(z.shape)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 变分自编码器 VAE
-- 教学与项目基线
+- 连续潜变量表示与采样
+- 分析重构和潜在先验的权衡
 :::
 
 
@@ -210,18 +225,17 @@ print(z.shape)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 变分自编码器 VAE最先检查什么？
+### 为什么编码器常输出 logvar 而不是方差？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-先检查输入输出 shape、dtype 和数据边界。
+logvar 可取任意实数，经指数得到正方差，便于网络参数化；仍需检查过大指数引起的数值溢出。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 何时使用测试集？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-全部设计锁定后最终评估。
+重参数化保证可微采样路径，不保证没有后验塌缩，也不保证所有随机样本都合理。
 :::
-

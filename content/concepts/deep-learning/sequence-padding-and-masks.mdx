@@ -38,18 +38,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 构造 lengths/mask
-- 辨认布尔方向
-- 忽略 padding loss
+- 两条序列的有效位置计数
+- 只把 padding embedding 置零够吗？
+- 说明：补齐只解决形状，mask 的方向和应用位置仍需按每个算子确认。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-避免序列评价虚高
-
-Attention/RNN 正确性
+padding 为变长样本补上占位值，mask 标注哪些位置有效。有效位置、禁止注意力位置与损失忽略位置是相关但不同的接口。
 :::
 
 
@@ -60,30 +58,32 @@ Attention/RNN 正确性
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-padding 只是组批工具，不应参与注意力、池化、损失或指标。
+同一批句子长度不同，直接堆叠会失败。padding 把形状补齐，但补出来的位置不是真实内容，必须避免它们影响表示、损失和指标。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-valid\_mask=True 常表示真实 token；某些 API 的 padding mask=True 反而表示屏蔽。
+padding 为变长样本补上占位值，mask 标注哪些位置有效。有效位置、禁止注意力位置与损失忽略位置是相关但不同的接口。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-补齐的空位只是占位，不是模型应学习的内容。
+补齐的空座位只是为了让每排长度相同，统计乘客数量时不能把空座也当人。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-动态 padding 减少浪费；mask 形状、device、dtype 和布尔方向必须匹配 API。
+右侧 padding 时，可用位置索引小于长度生成 valid mask。动态按批内最大长度补齐可减少浪费；若按固定全局最大长度，短样本会承担较多无用计算。左 padding 则可能需要重新定义位置编号。
 
-左 padding 可能需基于有效 mask 重新编号位置。
+序列求均值时用 mask 控制分子和分母，token 级损失可使用 ignore_index 或 masked reduction，评估同样只计有效 token。只在模型输入置零并不足够，因为偏置、位置编码和注意力仍能让 padding 产生非零表示。
+
+不同 API 对 bool mask 的方向约定可能相反。应明确 valid 的 True 表示有效，转换成某个模块的屏蔽 mask 时再取反，避免同一个变量在不同上下文混用。全空序列还需要单独的数据策略。
 :::
 
 
@@ -101,7 +101,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-有效位置为 1。
+padding 为变长样本补上占位值，mask 标注哪些位置有效。有效位置、禁止注意力位置与损失忽略位置是相关但不同的接口。
 :::
 
 ::::
@@ -121,35 +121,40 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 两条序列
+### 两条序列的有效位置计数
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- lengths=\[3,2\]
-- Lmax=3
+- 长度分别为 3 和 1
+- 补齐到长度 3，数值为 (1,2,3)、(4,0,0)
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. positions\<\[3,2\]
+1. valid mask 为 (真,真,真)、(真,假,假)。
+2. 按有效数计算平均，分别除以 3 和 1。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-\[\[T,T,T\],\[T,T,F\]\]
+有效均值为 2 和 4；不加 mask 的第二条均值仅为 1.3333。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 补齐只解决形状，mask 的方向和应用位置仍需按每个算子确认。
 :::
+
+### 两条序列的有效位置计数
+
+即使 padding 恰好是零，错误也已存在于分母。若后续加了位置向量，分子同样会被污染，所以应贯穿模型、池化、损失和评估检查 mask。
+
+本例没有全空样本。代码分母使用 clamp_min 避免数值除零，但不会因此把空序列变成有意义的数据；真实输入应事先决定是否拒绝或映射为空标记。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 收集长度
-2. pad\_sequence
-3. 生成 valid mask
-4. 转换 API mask
-5. 损失/指标过滤
+1. valid mask 为 (真,真,真)、(真,假,假)。
+2. 按有效数计算平均，分别除以 3 和 1。
 :::
 
 
@@ -157,34 +162,41 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 序列 Padding 与 Mask · PyTorch 示例
+### 两条序列的有效位置计数的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证序列 Padding 与 Mask的输入、计算和输出。
+使用完整构造输入核对两条序列的有效位置计数，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-lengths=torch.tensor([3,2])
-pos=torch.arange(3)[None,:]
-valid=pos<lengths[:,None]
-print(valid)
+```python
+import torch
+lengths = torch.tensor([3, 1])
+x = torch.tensor([[1., 2., 3.], [4., 0., 0.]])
+valid = torch.arange(3)[None, :] < lengths[:, None]
+means = (x * valid).sum(1) / valid.sum(1).clamp_min(1)
+print(valid.tolist())
+print("valid counts:", valid.sum(1).tolist())
+print("masked means:", means.tolist())
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 广播得到 \[N,L\]
-- True 是有效
-- 传 key padding 时常取反
+- 明确 True 表示有效位置。
+- 分子和分母都使用同一有效 mask。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-\[\[True,True,True\],\[True,True,False\]\]。
+```text
+[[True, True, True], [True, False, False]]
+valid counts: [3, 1]
+masked means: [2.0, 4.0]
+```
 :::
 
 ::::
@@ -192,7 +204,8 @@ print(valid)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 文本/RNN/Transformer
+- 变长文本的动态组批
+- token 级损失和序列池化
 :::
 
 
@@ -213,18 +226,17 @@ print(valid)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### valid mask 和 key padding mask 相同吗？
+### 只把 padding embedding 置零够吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-常常布尔方向相反。
+不够。平均的分母、注意力归一化、后续偏置与损失都可能继续受影响，应在相应运算上显式排除。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 为何动态 padding？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-减少无效计算。
+补齐只解决形状，mask 的方向和应用位置仍需按每个算子确认。
 :::
-

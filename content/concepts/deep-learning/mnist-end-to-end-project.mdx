@@ -38,18 +38,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释核心机制
-- 手算一个主要形状或公式
-- 运行完整示例并排查错误
+- 合成灰度批次检查完整训练路径
+- 为什么不能用测试准确率选择最佳 epoch？
+- 说明：合成批次只验证训练流程，不是 MNIST 性能实验，也不能代替数据集评估。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-掌握端到端 MNIST CNN 项目的输入输出与训练边界
-
-能够用 PyTorch 代码验证公式和形状
+端到端手写数字项目把灰度图像转为张量，构建十分类网络，在训练集更新、验证集选模型，并在方案锁定后评估独立测试集。
 :::
 
 
@@ -60,30 +58,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-端到端 MNIST CNN 项目是该文档中连接数据表示、训练目标和工程实现的核心主题。
+MNIST 适合练习从原始图像到可恢复模型的完整流程。项目目标不仅是跑出一个准确率，还要让数据划分、形状、训练验证和保存恢复彼此一致。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-MNIST 项目连接数据、CNN、训练、验证最佳检查点、测试、错误样本和单样本推理。
+端到端手写数字项目把灰度图像转为张量，构建十分类网络，在训练集更新、验证集选模型，并在方案锁定后评估独立测试集。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把端到端 MNIST CNN 项目理解为数据在模型中的一套明确变换，而不是只记一个类名。
+把每篇单独学过的组件接成一条完整链，任何一处契约错误都可能传到最终预测。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-输入 \[N,1,28,28\]，输出 10 logits；验证选择最佳，测试最终一次。
+常见输入为 $[N,1,28,28]$，标签为 $[N]$ 的 long 索引，模型输出 $[N,10]$ 原始 logits。归一化统计仅从训练部分估计，随机增强只在语义允许时使用，验证保持确定性。
 
-实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+每个训练批执行清梯度、前向、交叉熵、反向和更新；验证使用 eval 与关闭梯度，按样本汇总损失和正确数。最佳权重按验证规则保存，不能拿测试集挑 epoch。
+
+正式项目还应检查混淆数字和错误样本，保存类别表、配置及预处理，加载后复核固定输入。下面代码仅做无需下载的数据与训练路径烟雾检查，真实 MNIST 评估需另行准备官方数据与独立划分。
 :::
 
 
@@ -101,7 +101,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-端到端 MNIST CNN 项目的核心数学表达。
+端到端手写数字项目把灰度图像转为张量，构建十分类网络，在训练集更新、验证集选模型，并在方案锁定后评估独立测试集。
 :::
 
 ::::
@@ -121,37 +121,42 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 端到端 MNIST CNN 项目数值/形状检查
+### 合成灰度批次检查完整训练路径
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=8
-- D=64
+- 四张全零 28×28 灰度图，构造标签为 0、1、2、3
+- 网络为卷积、池化、展平与十分类线性头
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 按公式或模块逐步计算
-2. 核对输出 shape
+1. 确认输出为 (4,10)，标签为 long。
+2. 计算交叉熵并完成一次反向更新。
+3. 检查损失有限且模型参数收到梯度。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出保持 batch 维并符合任务头约定
+输出 shape 与任务契约匹配，损失有限，所有训练参数都有梯度。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 合成批次只验证训练流程，不是 MNIST 性能实验，也不能代替数据集评估。
 :::
+
+### 合成灰度批次检查完整训练路径
+
+全零图像与编号标签并不构成真实识别任务，因此代码不报告所谓 MNIST 准确率。它的用途是验证所有组件可以连通，并防止不完整的 MNISTCNN、loader 或 evaluate 名称让示例无法独立运行。
+
+正式替换为真实数据后，先保留同样的 shape 与 dtype 检查，再加入独立验证、最佳检查点和最终测试。这样才能把结构正确与任务效果分开核对。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认输入与目标
-2. 建立最小模块
-3. 随机张量前向
-4. 计算损失
-5. 反向与更新
-6. 验证与错误分析
+1. 确认输出为 (4,10)，标签为 long。
+2. 计算交叉熵并完成一次反向更新。
+3. 检查损失有限且模型参数收到梯度。
 :::
 
 
@@ -159,34 +164,49 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 端到端 MNIST CNN 项目 · PyTorch 示例
+### 合成灰度批次检查完整训练路径的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证端到端 MNIST CNN 项目的输入、计算和输出。
+使用完整构造输入核对合成灰度批次检查完整训练路径，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-model=MNISTCNN().to(device)
-train_metrics=train_one_epoch(model,train_loader,criterion,optimizer,device)
-val_metrics=evaluate(model,val_loader,criterion,device)
-if val_metrics['loss']<best:torch.save(model.state_dict(),'best.pt')
+```python
+import torch
+from torch import nn
+torch.manual_seed(7)
+model = nn.Sequential(nn.Conv2d(1, 4, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2), nn.Flatten(), nn.Linear(4 * 14 * 14, 10))
+x = torch.zeros(4, 1, 28, 28)
+target = torch.tensor([0, 1, 2, 3])
+optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+model.train()
+optimizer.zero_grad(set_to_none=True)
+logits = model(x)
+loss = nn.CrossEntropyLoss()(logits, target)
+loss.backward()
+optimizer.step()
+print("logits:", tuple(logits.shape), "target dtype:", target.dtype)
+print("finite loss:", bool(torch.isfinite(loss)))
+print("all gradients present:", all(p.grad is not None for p in model.parameters()))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码显式标注输入和输出
-- 使用框架稳定实现
-- 结果通过 shape 或数值检查
+- 无外部数据下载或隐藏辅助函数。
+- 明确标注合成数据，只报告结构与数值检查。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印与页面说明一致的张量形状或损失。
+```text
+logits: (4, 10) target dtype: torch.int64
+finite loss: True
+all gradients present: True
+```
 :::
 
 ::::
@@ -194,8 +214,8 @@ if val_metrics['loss']<best:torch.save(model.state_dict(),'best.pt')
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 端到端 MNIST CNN 项目
-- 教学与项目基线
+- 练习完整监督学习项目结构
+- 真实 MNIST 训练前的流程检查
 :::
 
 
@@ -216,18 +236,17 @@ if val_metrics['loss']<best:torch.save(model.state_dict(),'best.pt')
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 端到端 MNIST CNN 项目最先检查什么？
+### 为什么不能用测试准确率选择最佳 epoch？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-先检查输入输出 shape、dtype 和数据边界。
+那会让测试集参与模型选择，最终分数不再是独立检验。应使用验证集选轮次，锁定方案后才评估测试集。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 何时使用测试集？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-全部设计锁定后最终评估。
+合成批次只验证训练流程，不是 MNIST 性能实验，也不能代替数据集评估。
 :::
-

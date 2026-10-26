@@ -37,18 +37,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 写 Dataset
-- 配置 DataLoader
-- 理解 collate
+- 五条样本如何组为三批
+- 变长序列为什么默认 collate 会失败？
+- 说明：DataLoader 只组织数据，不会自动保证分割独立、标签正确或预处理无泄漏。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-训练输入入口
-
-支持大数据流式读取
+Dataset 定义可索引样本的读取契约；DataLoader 根据采样器、批大小和 collate_fn 将多个样本组织成批，并可通过工作进程并行读取。
 :::
 
 
@@ -59,30 +57,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-正确数据管道与模型结构同等重要。
+模型期望一批规整张量，而原始数据可能分散在文件或记录中。Dataset 负责单样本读取，DataLoader 负责采样和组批，分清两者有助于定位数据错误与性能瓶颈。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-\_\_getitem\_\_ 返回单样本；batch 维由 DataLoader 的 collate 过程添加。
+Dataset 定义可索引样本的读取契约；DataLoader 根据采样器、批大小和 collate_fn 将多个样本组织成批，并可通过工作进程并行读取。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-Dataset 回答第 i 条是什么，DataLoader 回答如何凑一批。
+Dataset 像按编号取货的仓库，DataLoader 像决定取哪些货、每箱装多少以及怎样打包的装箱员。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-训练通常 shuffle，验证不 shuffle；预处理统计只来自训练集。
+常见 map-style Dataset 实现 __len__ 和 __getitem__，每次返回特征与目标。默认 collate 会把同形状 Tensor 堆叠并添加 batch 维，因此单样本输出 shape 决定批量接口。
 
-变长数据需 collate\_fn、padding 与 mask；Windows workers 需 main 保护。
+shuffle 改变采样顺序，不应改变标签对应关系。训练常打乱，验证通常固定顺序；变长序列需要自定义 collate_fn 做 padding 并返回长度或 mask，而不是期待默认堆叠自动处理。
+
+num_workers 决定数据读取进程数，不直接控制模型计算并行。Windows 多进程脚本需要 main 保护，初步调试可先用 0，让读取异常在主进程清楚暴露。读取加速也不能掩盖训练验证泄漏。
 :::
 
 
@@ -100,7 +100,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-drop\_last=False 时保留尾批。
+Dataset 定义可索引样本的读取契约；DataLoader 根据采样器、批大小和 collate_fn 将多个样本组织成批，并可通过工作进程并行读取。
 :::
 
 ::::
@@ -120,36 +120,40 @@ drop\_last=False 时保留尾批。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 103 条数据
+### 五条样本如何组为三批
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=103,B=16
+- 每条样本有两个特征和一个类别索引
+- 数据共 5 条，batch_size=2，不丢尾批
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. ceil=7
-2. 尾批 7
+1. 默认 collate 把前两条堆成 (2,2) 与 (2,)。
+2. 第二批同样大小，尾批为 (1,2) 与 (1,)。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-7 个 batch
+三批样本数为 2、2、1，尾批仍保留 batch 轴。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- DataLoader 只组织数据，不会自动保证分割独立、标签正确或预处理无泄漏。
 :::
+
+### 五条样本如何组为三批
+
+即使最后只有一条，特征 shape 仍是 (1,2)，不是 (2,)。这使模型能用相同批量接口处理尾批，也说明无参数 squeeze 可能破坏契约。
+
+示例使用顺序采样以便核对，不代表训练必须禁用 shuffle。真实项目还应检查样本 ID，确保增强、读取和标签始终配对。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 实现 Dataset
-2. 划分索引
-3. 定义 transform
-4. 配置 loader
-5. 检查首批
-6. 逐批搬设备
+1. 默认 collate 把前两条堆成 (2,2) 与 (2,)。
+2. 第二批同样大小，尾批为 (1,2) 与 (1,)。
 :::
 
 
@@ -157,32 +161,40 @@ drop\_last=False 时保留尾批。
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Dataset 与 DataLoader · PyTorch 示例
+### 五条样本如何组为三批的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证Dataset 与 DataLoader的输入、计算和输出。
+使用完整构造输入核对五条样本如何组为三批，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-loader=DataLoader(dataset,batch_size=16,shuffle=True,num_workers=0)
-x,y=next(iter(loader));print(x.shape,y.shape)
+```python
+import torch
+from torch.utils.data import TensorDataset, DataLoader
+x = torch.arange(10, dtype=torch.float32).reshape(5, 2)
+y = torch.tensor([0, 1, 0, 1, 0])
+loader = DataLoader(TensorDataset(x, y), batch_size=2, shuffle=False, num_workers=0)
+for i, (xb, yb) in enumerate(loader, 1):
+    print(f"batch={i} x={tuple(xb.shape)} y={tuple(yb.shape)} labels={yb.tolist()}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 先 num\_workers=0 调试
-- 训练 shuffle
-- 首维是 batch
+- 数据、Dataset 与 DataLoader 完整定义。
+- num_workers=0 可跨平台直接运行。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-首维最多 16。
+```text
+batch=1 x=(2, 2) y=(2,) labels=[0, 1]
+batch=2 x=(2, 2) y=(2,) labels=[0, 1]
+batch=3 x=(1, 2) y=(1,) labels=[0]
+```
 :::
 
 ::::
@@ -190,7 +202,8 @@ x,y=next(iter(loader));print(x.shape,y.shape)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 图像/文本/表格训练
+- 图像和表格的批量读取
+- 自定义序列 padding 与采样
 :::
 
 
@@ -211,18 +224,17 @@ x,y=next(iter(loader));print(x.shape,y.shape)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Dataset 返回 batch 吗？
+### 变长序列为什么默认 collate 会失败？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-通常返回单样本。
+默认堆叠要求同一批对应张量形状一致。应通过 collate_fn 补齐长度并返回 mask，或采用其他明确的变长处理。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 验证为何不随机增强？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-保证评价确定且含义稳定。
+DataLoader 只组织数据，不会自动保证分割独立、标签正确或预处理无泄漏。
 :::
-

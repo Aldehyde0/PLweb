@@ -35,18 +35,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 比较统计范围
-- 区分运行状态
-- 按架构选择
+- 同一 2×2 表按列或按行标准化
+- 归一化层可以替代输入预处理吗？
+- 说明：相同输出 shape 不能证明两种归一化语义相同；应检查统计轴。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-避免错误互换 BN/LN
-
-理解模型模式
+归一化层选定统计轴，计算均值和方差后标准化，再以可学习缩放与偏移恢复适合任务的表示。BatchNorm、LayerNorm、GroupNorm 的统计范围不同。
 :::
 
 
@@ -57,30 +55,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-输入标准化与网络内部归一化不是一回事。
+中间激活的尺度变化会影响训练，但“归一化”不是一个唯一操作。不同方法沿不同轴统计，选错轴会把样本、时间和特征的语义混在一起。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-归一化层控制中间特征尺度并通过 γ/β恢复表达能力。
+归一化层选定统计轴，计算均值和方差后标准化，再以可学习缩放与偏移恢复适合任务的表示。BatchNorm、LayerNorm、GroupNorm 的统计范围不同。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-关键不是名字，而是“哪些元素一起算均值方差”。
+同样是一张成绩表，可以按每科在全班中的分布标准化，也可以按每个学生自身的各科分布标准化；两种比较基准不会等价。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-BN 跨 batch/空间按通道；LN 在单样本尾部维。
+BatchNorm 对每个通道聚合批内样本及适用的空间/序列位置，训练通常使用当前批统计并维护运行统计。LayerNorm 按每个样本的指定尾部维度统计，不依赖同批其他样本。GroupNorm 则在单样本内按通道分组并包含空间维。
 
-选择由形状、batch 大小和架构假设决定。
+对序列 $[N,L,D]$，LayerNorm(D) 独立标准化每个 token 的 D 个特征。BatchNorm1d(D) 常要先转成 $[N,D,L]$，再跨 N 和 L 统计；这会把不同位置放进同一个统计池，不是纯粹的轴语法变化。
+
+归一化不等同于原始数据标准化，也不保证泛化或消除全部分布变化。小批量、在线推理、变长 padding 和跨域数据都可能改变方法是否合适，应按实际统计含义选择。
 :::
 
 
@@ -98,7 +98,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-集合 S 的选择决定方法。
+归一化层选定统计轴，计算均值和方差后标准化，再以可学习缩放与偏移恢复适合任务的表示。BatchNorm、LayerNorm、GroupNorm 的统计范围不同。
 :::
 
 ::::
@@ -117,35 +117,40 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### BN vs LN
+### 同一 2×2 表按列或按行标准化
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- x \[8,20,64\]
+- 两条样本分别为 (1,3) 和 (5,7)
+- 忽略极小 epsilon 的影响，均不使用 affine 参数
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. BN1d 需换轴
-2. LN(64) 直接尾维
+1. BN 按列统计，列均值为 3 和 5，标准差均为 2。
+2. LN 按行统计，行均值为 2 和 6，标准差均为 1。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-两者输出形状相同但统计不同
+BN 近似得到 (-1,-1)、(1,1)；LN 近似得到 (-1,1)、(-1,1)。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 相同输出 shape 不能证明两种归一化语义相同；应检查统计轴。
 :::
+
+### 同一 2×2 表按列或按行标准化
+
+第一种结果表达“这个样本在两个特征上都低于批内均值”，第二种表达“每条样本的第一个特征都低于自身均值”。它们保存和抹去的信息不同，不能仅按有没有 train/eval 差异互换。
+
+代码保留默认 epsilon 并只格式化到三位小数，便于对照手算；实际实现不应为了精确得到 ±1 而把 epsilon 删除。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 识别 shape
-2. 确定统计轴
-3. 选择层
-4. 检查 train/eval
-5. 小 batch 验证
+1. BN 按列统计，列均值为 3 和 5，标准差均为 2。
+2. LN 按行统计，行均值为 2 和 6，标准差均为 1。
 :::
 
 
@@ -153,35 +158,39 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### BatchNorm 与 LayerNorm 总览 · PyTorch 示例
+### 同一 2×2 表按列或按行标准化的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证BatchNorm 与 LayerNorm 总览的输入、计算和输出。
+使用完整构造输入核对同一 2×2 表按列或按行标准化，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-x=torch.randn(8,20,64)
-ln=nn.LayerNorm(64)
-bn=nn.BatchNorm1d(64)
-y_ln=ln(x)
-y_bn=bn(x.transpose(1,2)).transpose(1,2)
+```python
+import torch
+from torch import nn
+x = torch.tensor([[1., 3.], [5., 7.]])
+bn = nn.BatchNorm1d(2, affine=False, track_running_stats=False)
+ln = nn.LayerNorm(2, elementwise_affine=False)
+for name, y in [("BN", bn(x)), ("LN", ln(x))]:
+    print(name, [[round(v, 3) for v in row] for row in y.tolist()])
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- LN 直接尾维
-- BN 把第1维当通道
-- 结果不可因形状相同就等价
+- 同样的二维输入比较两套统计轴。
+- 显式关闭 affine，避免学习参数遮蔽标准化本身。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-两者均 \[8,20,64\]。
+```text
+BN [[-1.0, -1.0], [1.0, 1.0]]
+LN [[-1.0, 1.0], [-1.0, 1.0]]
+```
 :::
 
 ::::
@@ -189,7 +198,8 @@ y_bn=bn(x.transpose(1,2)).transpose(1,2)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- CNN/Transformer
+- 比较序列模型和视觉模型的归一化
+- 小批量训练时选择统计方式
 :::
 
 
@@ -209,18 +219,17 @@ y_bn=bn(x.transpose(1,2)).transpose(1,2)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 哪种总更先进？
+### 归一化层可以替代输入预处理吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-没有，取决于架构和统计假设。
+不能。原始特征尺度、图像数值范围和预训练输入约定仍要处理；中间层归一化只作用于其接收的表示。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 使用归一化可省输入预处理吗？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-不能。
+相同输出 shape 不能证明两种归一化语义相同；应检查统计轴。
 :::
-

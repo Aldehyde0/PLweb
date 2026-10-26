@@ -44,9 +44,9 @@ anchorAliases:
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-建立深度学习整体结构
+神经网络把很多简单计算单元组合成一个可学习函数。理解各层的输入输出、参数数量和非线性位置，比只记“网络有多少层”更能帮助你读懂模型结构。
 
-理解层、参数和表示
+本页同时用一个可手算的小网络核对数值，用一个稍大的批量网络核对形状。两个例子目的不同：前者解释计算，后者训练阅读实际代码所需的维度意识。
 :::
 
 
@@ -57,30 +57,40 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-单个神经元能力有限，多层结构通过表示学习处理图像、文本和复杂非线性。
+单个线性变换只能表达有限的关系。面对弯曲边界、图像结构或复杂文本模式时，需要把输入经过多步变换，形成对任务有用的中间表示。
+
+这些中间表示不是人提前写好的所有规则，而是与输出任务一起通过训练调整。网络结构只提供一类可能的函数；是否学到有用规律，还要依赖数据、损失和优化过程。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-神经网络把输入依次送过隐藏层和输出层，前层形成基础表示，后层组合成任务特征。
+前馈神经网络通常由输入、若干隐藏层和输出层组成。每层接收上一层的表示，先进行参数化变换，再根据结构应用激活或其他运算。
+
+隐藏层的“隐藏”表示它通常不是直接提供给模型的目标标签，而是计算得到的中间表示。输出层则必须匹配任务：回归可以输出实数，多分类常输出每个类别的 logit，而不是默认给所有任务都套同一种激活。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-每一层把上一层的表示重新编码，逐步从原始数值形成更抽象特征。
+每一层都在重新组合已有特征。早期表示可以较接近输入，后面的表示可以组合前面的结果；这种描述是理解结构的起点，不保证每个神经元都对应一个能用自然语言命名的概念。
+
+可以先把模型看成一条有明确接口的计算流水线：上一层输出最后一维的长度，要与下一层要求的输入特征数对上。样本所在的 batch 维通常不会被 Linear 自动变成类别维。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-Linear 与非线性必须交替；连续线性层仍等价于一个线性变换。
+非线性让组合后的函数突破单一线性映射。若只有连续的仿射层，第二层可以与第一层的权重和偏置合并，整体仍等价于一个仿射变换；增加层数本身没有产生所需的非线性。
 
-网络容量取决于深度、宽度和结构，但容量更大不保证更容易训练或更能泛化。
+层的形状和参数数量可以在训练前计算。Linear(10, 32) 有 10×32 个权重和 32 个偏置；随后 Linear(32, 4) 有 32×4 个权重和 4 个偏置，总计 484 个可训练参数。
+
+前向传播计算当前输出，损失比较输出与目标，反向传播计算各参数的梯度，优化器再执行更新。把四者分开，能避免“调用了模型就已经训练”这类误解。
+
+更多参数并不自动带来更好结果。容量过大可能加重过拟合，结构过深也可能增加优化难度；需要在验证协议下比较，并检查数据与实现是否正确。
 :::
 
 
@@ -118,27 +128,29 @@ l 是层编号，h 是该层表示。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 两层形状
+### 一个 2→2→1 网络的完整前向计算
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 输入 \[8,10\]
-- 隐藏宽度 32
-- 类别数 4
+- 输入 x = [1, 2]。
+- 第一层权重的两行为 [1, -1]、[0.5, 0.5]，偏置为 [0, 1]。
+- 隐藏层使用 ReLU；输出层权重为 [2, -1]，偏置为 0.5，作为实数回归输出。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. Linear(10,32)→\[8,32\]
-2. ReLU→\[8,32\]
-3. Linear(32,4)→\[8,4\]
+1. 第一层第一个分数：1×1 − 1×2 + 0 = -1。
+2. 第一层第二个分数：0.5×1 + 0.5×2 + 1 = 2.5。
+3. ReLU 后隐藏表示为 [0, 2.5]，负分数被截成 0。
+4. 输出为 2×0 − 1×2.5 + 0.5 = -2。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出 4 类 logits
+这个小网络的输出是 -2；它是回归头的实数值，不是概率。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 如果移除 ReLU，隐藏表示为 [-1, 2.5]，同样输出权重会得到 -4；非线性改变了函数。
+- 下面第一段 PyTorch 代码使用 10→32→4 的另一个结构，只用于核对批量形状和参数量；第二段代码复现本手算例。
 :::
 
 
@@ -156,8 +168,9 @@ l 是层编号，h 是该层表示。
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 神经网络 · PyTorch 示例
+### 核对 10→32→4 网络的 batch 形状和参数量
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -165,25 +178,72 @@ PyTorch
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证神经网络的输入、计算和输出。
+检查批量输入的维度流向，并把参数数量与手算对照。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```PyTorch
+import torch
 from torch import nn
-model=nn.Sequential(nn.Linear(10,32),nn.ReLU(),nn.Linear(32,4))
-print(model(torch.randn(8,10)).shape)
+
+model = nn.Sequential(nn.Linear(10, 32), nn.ReLU(), nn.Linear(32, 4))
+x = torch.zeros(8, 10)
+output = model(x)
+print("shape:", tuple(output.shape))
+print("params:", sum(parameter.numel() for parameter in model.parameters()))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 第一层改变最后一维
-- ReLU 引入非线性
-- 末层输出每类 logit
+- 8 是样本数，10 是每条样本的输入特征数；隐藏层后形状为 [8, 32]，最终为 [8, 4]。
+- 参数数量是 (10×32+32)+(32×4+4)=484，ReLU 自身没有这些可训练权重。
+- 代码只检查结构，随机初始化下的具体 logit 未打印，也没有声称完成了分类训练。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-torch.Size(\[8,4\])。
+shape: (8, 4)
+params: 484
+:::
+
+::::
+
+::::code-example{index="1"}
+
+:::field{path="codeExamples.1.title" type="text"}
+### 用纯 Python 核对小网络的每一步
+:::
+
+:::field{path="codeExamples.1.language" type="text"}
+Python
+:::
+
+:::field{path="codeExamples.1.purpose" type="text"}
+复现上面的 2→2→1 固定参数例子，不依赖训练或随机初始化。
+:::
+
+:::field{path="codeExamples.1.source" type="code" trailing="0"}
+```Python
+x = [1.0, 2.0]
+w1 = [[1.0, -1.0], [0.5, 0.5]]
+b1 = [0.0, 1.0]
+z1 = [sum(w * value for w, value in zip(row, x)) + bias
+      for row, bias in zip(w1, b1)]
+h = [max(0.0, value) for value in z1]
+y = 2.0 * h[0] - h[1] + 0.5
+print("hidden:", h)
+print(f"output={y:.4f}")
+```
+:::
+
+:::field{path="codeExamples.1.explanation" type="list"}
+- 第一层逐行做加权和，再分别加上对应偏置。
+- ReLU 逐元素作用于隐藏分数；输出层没有再加 ReLU，因此允许得到负的回归输出。
+- 这个数值例与前面的形状检查例结构不同，不应把两个例子的参数数量混在一起。
+:::
+
+:::field{path="codeExamples.1.expectedOutput" type="text"}
+hidden: [0.0, 2.5]
+output=-2.0000
 :::
 
 ::::
@@ -200,9 +260,10 @@ torch.Size(\[8,4\])。
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 层多即效果好
-- 输出层激活错误
-- 不检查形状
+- 认为层数越多必然更好，或把神经元数直接等同于已学会的概念数。
+- 把 batch 维当成特征维，或者让相邻 Linear 层的特征长度对不上。
+- 把 logit 当成已经归一化的概率，或在损失函数前重复应用不合适的激活。
+- 只检查输出形状，却没有用小数据核对实际数值与训练步骤。
 :::
 
 
@@ -227,4 +288,3 @@ torch.Size(\[8,4\])。
 :::field{path="commonQuestions.1.answer" type="text"}
 不一定，还受优化、数据和泛化限制。
 :::
-

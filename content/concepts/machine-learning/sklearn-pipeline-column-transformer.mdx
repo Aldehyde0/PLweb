@@ -42,28 +42,44 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-真实表格同时含数值、类别与缺失。若训练和预测靠手工脚本分别处理，很容易出现顺序、列空间和统计参数不一致。
+真实表格常混合数值与类别列，既需要不同的预处理，也需要让这些处理在每个训练折中正确拟合。只把几行变换代码按顺序写好，不一定能保证验证边界。
+
+Pipeline 与 ColumnTransformer 分别解决顺序组合和按列分流，使输入契约、已学状态和模型选择更容易保持一致。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Pipeline 把一系列 transform 和最终 estimator 组合成一个可 fit/predict 的对象；ColumnTransformer 按列选择不同变换后拼接结果。
+Pipeline 将多步变换与最终估计器串联；ColumnTransformer 将不同列交给不同变换器，再按约定合并输出。前者主要组织步骤依赖，后者主要组织列类型与分支。
+
+它们不仅是代码简写，也让 fit、transform、参数搜索与持久化可以围绕完整流程工作。但错误的特征定义或时间泄漏，不会因为套了管线就自动消失。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-ColumnTransformer 像分流器，数值走填补+缩放，类别走填补+One-Hot；Pipeline 再把汇合后的特征送入模型。
+把原始表分到数值与类别两条加工线，再把统一表示送入分类器。每条加工线保留自己的训练状态，未来表格走同样的路径，而不是临时重新发明编码规则。
 :::
+
+### 两列数值、一列类别会变成几列
+
+假设训练表有 age、income 两列数值和 city 一列类别，城市只见过 A、B。两列缩放值加两列 One-Hot，总共形成四个模型输入，而不是仍然三列。
+
+未来城市 C 使用忽略未知值规则时，城市的两列均为 0，但数值分支仍按训练统计量处理。必须检查这是否符合业务，而不能因为输出维度没有变就断言新城市已经被充分验证。
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-所有有状态步骤都随 Pipeline 在训练折内 fit；保存完整 Pipeline 可同时保存预处理器和分类器。参数搜索用“步骤名\_\_参数名”访问内部配置。
+数值分支可先填补再缩放，类别分支可先处理缺失再编码。步骤顺序有含义，例如先缩放含缺失数据与先填补后缩放可能不是同一过程。
+
+在交叉验证和参数搜索中传入完整管线，才能让每折独立拟合需要学习的步骤。内部参数通常用步骤名与双下划线定位，搜索空间也应对应这些实际对象。
+
+列名、顺序、未知类别与输出稀疏性属于接口。最好保留原始列名与 get_feature_names_out 等核对信息，防止拼接后的特征与解释脱节。
+
+保存完整管线有助于复用预处理与模型，但还应记录依赖版本和输入契约。对象保存成功，不代表从不可信文件加载是安全的，也不代表不同版本必然兼容。
 :::
 
 
@@ -83,52 +99,54 @@ ColumnTransformer 像分流器，数值走填补+缩放，类别走填补+One-Ho
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 混合列完整 Pipeline
+### 混合列从原始表到预测的完整小例子
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-实现文档中的数值和类别双分支。
+用已定义的列名和输入核对四维编码与未知类别。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
+```Python
+import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
-
-numeric_pipeline = Pipeline([
-    ("imputer", SimpleImputer(strategy="median")),
-    ("scaler", StandardScaler()),
-])
-categorical_pipeline = Pipeline([
-    ("imputer", SimpleImputer(strategy="most_frequent")),
-    ("one_hot", OneHotEncoder(handle_unknown="ignore")),
-])
-preprocessor = ColumnTransformer([
-    ("numeric", numeric_pipeline, numeric_columns),
-    ("categorical", categorical_pipeline, categorical_columns),
-])
-model = Pipeline([
-    ("preprocessor", preprocessor),
-    ("classifier", LogisticRegression(max_iter=2000)),
-])
+train = pd.DataFrame({"age": [20., 30., 40., 50.],
+                      "income": [1., 2., 3., 4.], "city": ["A", "B", "A", "B"]})
+future = pd.DataFrame({"age": [60.], "income": [5.], "city": ["C"]})
+numeric = Pipeline([("imputer", SimpleImputer(strategy="median")),
+                    ("scaler", StandardScaler())])
+categorical = Pipeline([("imputer", SimpleImputer(strategy="most_frequent")),
+                        ("one_hot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))])
+prep = ColumnTransformer([("numeric", numeric, ["age", "income"]),
+                          ("categorical", categorical, ["city"])])
+model = Pipeline([("preprocessor", prep), ("classifier", LogisticRegression())])
+model.fit(train, [0, 0, 1, 1])
+encoded = model.named_steps["preprocessor"].transform(future)
+print("transformed_shape:", encoded.shape)
+print("unknown_city:", encoded[0, -2:].tolist())
+print("prediction:", model.predict(future).tolist())
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 两个分支分别处理列类型。
-- 总 Pipeline 保证训练、验证、测试与保存加载一致。
+- 数值两列加训练城市 A、B 的两列指示，共四列；未见城市 C 的两列均为零。
+- 所有拟合只使用 train，未来表直接经同一条管线；本例不声称对新城市泛化已被验证。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-fit 后模型可直接接收包含原始列名的 DataFrame，并输出预测。
+transformed_shape: (1, 4)
+unknown_city: [0.0, 0.0]
+prediction: [1]
 :::
 
 ::::

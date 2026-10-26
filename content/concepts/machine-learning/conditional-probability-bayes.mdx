@@ -36,28 +36,44 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-朴素贝叶斯以此为分类基础，概率推理还要求清楚分母所代表的条件总体。
+看到一个信号之后，应怎样更新对某种情况的判断？直觉常把“目标出现时信号有多常见”错当成“看到信号后目标有多可能”。条件概率和贝叶斯公式把这两个方向分开。
+
+这个区别在稀有事件告警中特别明显：即使检测灵敏，大量正常样本产生的少量误报也可能占据多数告警。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-P(A\|B) 把观察范围限制在 B 已发生的样本；贝叶斯公式把 P(x\|C)P(C) 归一化为 P(C\|x)。
+条件概率 P(A|B) 是在 B 已成立的范围内计算 A 的比例。贝叶斯公式把后验 P(A|B) 写成似然 P(B|A) 与先验 P(A) 的乘积，再除以证据概率 P(B)。
+
+先验描述看到当前信号之前的基率，似然描述不同情况下产生该信号的规律；证据项负责归一化。交换条件的顺序一般不会得到同一个数值。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-先考虑类别本来多常见，再看当前特征与该类别有多匹配。
+先把所有可能情况按原始比例放在一起，再看哪一部分会产生当前观察。收到信号后，应该在所有能产生信号的情况中重新计数，而不是只盯着真正目标那一组。
 :::
+
+### 目标很少见时，告警不等于确认
+
+构造 10,000 件产品，其中 1% 有缺陷；检测能找出 90% 的缺陷品，同时把 5% 的正常品误报。100 件缺陷品产生 90 次真告警，9,900 件正常品产生 495 次误报。
+
+因此在 585 次告警中，真正有缺陷的比例为 90/585≈15.38%，不是 90%。这是教学构造值，不是任何真实设备的测量结果；它说明后验同时受灵敏度、误报率和基率影响。
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-比较类别时证据 P(x) 相同，可比较未归一化先验×似然；实际中常在对数空间计算。
+比较同一观察下的多个类别时，证据项相同，可以先比较先验乘似然，再对所有类别的这些乘积归一化。只看似然，会忽略类别基率。
+
+非常小的概率连乘可能数值下溢，实际模型常在对数空间求和，并用稳定的归一化方法。数值稳定不改变概率定义，不能借此跳过合法概率与类别一致性检查。
+
+先验与似然来自特定数据和条件，换人群、设备或采样方式后可能不再适用。用训练分布的基率直接解释另一种筛选人群，需要审查选择过程。
+
+模型给出的概率还可能受独立性或分布假设影响。套用了贝叶斯公式，并不保证输入估计可靠或结果已经校准。
 :::
 
 
@@ -95,36 +111,38 @@ $$
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 条件概率与贝叶斯公式：最小可验证示例
+### 从先验与两类信号率计算后验
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-NumPy
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-把正文原理映射为可检查的代码行为。
+核对缺陷品告警例子的 15.38%。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```NumPy
-import numpy as np
-priors = np.array([0.4, 0.6])
-likelihoods = np.array([0.3, 0.1])
-posterior = priors * likelihoods
-posterior /= posterior.sum()
-print(posterior)
+```Python
+prior = 0.01
+sensitivity = 0.90
+false_positive_rate = 0.05
+true_alarm = prior * sensitivity
+false_alarm = (1 - prior) * false_positive_rate
+posterior = true_alarm / (true_alarm + false_alarm)
+print(f"P(defect|alarm)={posterior:.4f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 先确认输入形状和数据边界。
-- 把输出与公式或定义逐项对照。
+- 分子是目标发生并产生告警的比例；分母还包含正常品的误报。
+- 本例的所有概率均为构造条件，不能当成实际检测建议。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-\[0.667,0.333\] 左右，预测类别 0。
+P(defect|alarm)=0.1538
 :::
 
 ::::

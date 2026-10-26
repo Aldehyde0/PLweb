@@ -35,28 +35,44 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-不同模型的 fit 学习内容不同：逻辑回归学习权重，树学习结构，朴素贝叶斯学习统计量，KNN 保存样本。
+同一个模型对象可以先拟合再多次预测，但这两个阶段的权限和输入不同。训练阶段可以使用训练标签；真实预测时，待预测样本的标签通常尚未产生，不能参与计算。
+
+区分训练、预测与泛化，能帮助解释为什么某次模型输出合理，仍不足以证明它对未来样本可靠。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-训练改变模型内部参数或保存训练样本；预测通常不继续学习；泛化是新数据表现而非训练记忆。
+训练用数据确定模型参数或状态，预测用已经确定的状态对新输入计算结果。泛化描述这种已学映射在未参与相应训练的数据上的表现，而不是模型对象中的一个固定开关。
+
+某些模型支持增量学习，但只有明确执行更新接口并遵守其数据约定，才是在继续训练；不能把普通 predict 当成自动学习用户反馈。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-训练像整理笔记，预测像闭卷答题；考试成绩而不是抄笔记速度决定学习是否有效。
+模型像一把用训练数据校准的尺子。预测是拿同一把尺子测量新样本；每测一个测试样本就重新校准，会改变评价过程，无法再公平解释为固定模型对新数据的表现。
 :::
+
+### 两个测试样本必须使用同一组缩放参数
+
+训练值为 [0,2]，学到均值 1。之后先后预测 10 与 100 时，两条样本都应使用均值 1，而不是让“训练+10”或“训练+100”的均值决定各自变换。
+
+即使某次重新拟合碰巧让输出更接近已知答案，也已经使用了测试分布信息。正确流程是冻结训练得到的管线，再用独立结果判断它是否泛化。
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-预测阶段必须冻结训练状态。只有明确支持增量学习的 partial\_fit 才会更新；任何评价都需确认样本未参与相应 fit。
+预处理和模型一起构成已学状态。预测要复用训练集得到的填补值、缩放参数、类别集合和特征顺序，而不是仅保存最后的分类器。
+
+训练成绩主要反映拟合过程，验证成绩帮助选择方案，独立测试检查锁定方案的表现。某个测试分数也是在特定数据与协议下的估计，不是对所有未来输入的保证。
+
+泛化失败可能来自过拟合、输入超出训练覆盖、标签定义改变或业务环境变化，不能一律归因于“训练轮数不够”。错误分析应先定位变化发生在哪一层。
+
+反馈到来后可以设计重训或增量更新，但必须记录版本并重新验证，避免悄悄改变模型后仍把旧测试结果当成新版本证据。
 :::
 
 
@@ -94,8 +110,9 @@ $$
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 训练、预测与泛化：最小可验证示例
+### 预测前后核对真正的已学参数
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -103,25 +120,34 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-把正文原理映射为可检查的代码行为。
+检查 predict 没有重新拟合，而不是只比较超参数配置。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-model.fit(X_train, y_train)
-state_before = model.get_params()
-y_pred = model.predict(X_test)
-assert len(y_pred) == len(X_test)
+import numpy as np
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+model = make_pipeline(StandardScaler(), LogisticRegression()).fit(
+    [[0.], [1.], [2.], [3.]], [0, 0, 1, 1])
+scaler, classifier = model.steps[0][1], model.steps[1][1]
+mean_before, coef_before = scaler.mean_.copy(), classifier.coef_.copy()
+prediction = model.predict([[2.5], [4.0]])
+unchanged = np.array_equal(mean_before, scaler.mean_) and np.array_equal(coef_before, classifier.coef_)
+print("prediction:", prediction.tolist())
+print("parameters_unchanged:", unchanged)
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 先确认输入形状和数据边界。
-- 把输出与公式或定义逐项对照。
+- get_params 返回构造配置，不能代替对 coef_、mean_ 等已学状态的检查。
+- 本例核对的是预测阶段的状态不变，不是充分的真实泛化评估。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-产生与测试样本数一致的预测；predict 不重新拟合模型。
+prediction: [1, 1]
+parameters_unchanged: True
 :::
 
 ::::

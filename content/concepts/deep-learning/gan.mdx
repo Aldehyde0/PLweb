@@ -34,18 +34,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释核心机制
-- 手算一个主要形状或公式
-- 运行完整示例并排查错误
+- detach 区分两次反向的责任
+- 冻结 D 参数为什么仍能训练 G？
+- 说明：对抗损失和一次梯度方向不能证明生成质量；训练可能震荡或模式塌缩。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-掌握生成对抗网络 GAN的输入输出与训练边界
-
-能够用 PyTorch 代码验证公式和形状
+生成对抗网络由生成器 G 和判别器 D 组成。D 学习区分真实与生成样本，G 学习让生成样本被判为真实，二者目标与更新路径不同。
 :::
 
 
@@ -56,30 +54,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-生成对抗网络 GAN是该文档中连接数据表示、训练目标和工程实现的核心主题。
+若很难为高维图像直接指定精确概率密度，可以让另一个网络评价样本是否像真实数据。GAN 通过生成器与判别器的交替训练形成这种反馈。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-GAN 由生成器与判别器交替对抗，采样快但训练可能不稳定。
+生成对抗网络由生成器 G 和判别器 D 组成。D 学习区分真实与生成样本，G 学习让生成样本被判为真实，二者目标与更新路径不同。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把生成对抗网络 GAN理解为数据在模型中的一套明确变换，而不是只记一个类名。
+生成器不断交作品，判别器不断学会挑问题；两者同时变化，训练不像最小化一个固定评分表那样简单。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-判别器更新隔离生成器梯度；生成器更新必须通过判别器反传。
+判别器常输出一个原始 logit，用 BCEWithLogitsLoss 分别匹配真实标签 1 与生成标签 0。更新 D 时，应对生成样本 detach，避免把这一目标反传到 G。
 
-实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+更新 G 时需要重新让未 detach 的生成样本通过 D，并把目标设为真实；常用非饱和损失 -log D(G(z))，与页面经典 minimax 式中的生成器形式有所不同。可以暂时冻结 D 参数，但不能用 no_grad 包住其前向，否则连到 G 的路径也会断。
+
+D 与 G 的损失会随对手变化，不能要求都单调下降。模式塌缩可能使样本看似清晰却缺少多样性；应固定采样噪声并结合更广泛评价，不能只看判别正确率或精选图片。
 :::
 
 
@@ -97,7 +97,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-生成对抗网络 GAN的核心数学表达。
+生成对抗网络由生成器 G 和判别器 D 组成。D 学习区分真实与生成样本，G 学习让生成样本被判为真实，二者目标与更新路径不同。
 :::
 
 ::::
@@ -117,37 +117,42 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 生成对抗网络 GAN数值/形状检查
+### detach 区分两次反向的责任
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=8
-- D=64
+- 标量 G(z)=w_g z，D(x)=w_d x，两个权重均为 1
+- 噪声 z=1，真实值为 2
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 按公式或模块逐步计算
-2. 核对输出 shape
+1. D 使用 fake.detach，反向后 G 没有梯度。
+2. 清理 D 梯度并冻结其参数。
+3. G 使用未 detach 的 fake，按真实目标反向得到梯度。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出保持 batch 维并符合任务头约定
+D 阶段生成器梯度为空；G 阶段生成器梯度约为 -0.268941。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 对抗损失和一次梯度方向不能证明生成质量；训练可能震荡或模式塌缩。
 :::
+
+### detach 区分两次反向的责任
+
+负梯度意味着 SGD 会增大生成器权重，使当前生成样本的判别 logit 更大。这只是一个固定判别器下的局部方向，不表示真实数据分布已经学会。
+
+示例没有实际交替训练，只验证最容易接错的图路径。真实训练还需要独立优化器、清理梯度、合理更新频率和数据范围一致性。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认输入与目标
-2. 建立最小模块
-3. 随机张量前向
-4. 计算损失
-5. 反向与更新
-6. 验证与错误分析
+1. D 使用 fake.detach，反向后 G 没有梯度。
+2. 清理 D 梯度并冻结其参数。
+3. G 使用未 detach 的 fake，按真实目标反向得到梯度。
 :::
 
 
@@ -155,35 +160,50 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 生成对抗网络 GAN · PyTorch 示例
+### detach 区分两次反向的责任的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证生成对抗网络 GAN的输入、计算和输出。
+使用完整构造输入核对detach 区分两次反向的责任，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-z=torch.randn(16,64)
-fake=generator(z)
-real_logits=discriminator(real)
-fake_logits=discriminator(fake.detach())
-loss_d=bce(real_logits,torch.ones_like(real_logits))+bce(fake_logits,torch.zeros_like(fake_logits))
+```python
+import torch
+from torch import nn
+g, d = nn.Linear(1, 1, bias=False), nn.Linear(1, 1, bias=False)
+with torch.no_grad():
+    g.weight.fill_(1.)
+    d.weight.fill_(1.)
+z, real = torch.tensor([[1.]]), torch.tensor([[2.]])
+bce = nn.BCEWithLogitsLoss()
+fake = g(z)
+loss_d = bce(d(real), torch.ones(1, 1)) + bce(d(fake.detach()), torch.zeros(1, 1))
+loss_d.backward()
+print("G gradient absent in D phase:", g.weight.grad is None)
+d.zero_grad(set_to_none=True)
+for p in d.parameters():
+    p.requires_grad_(False)
+loss_g = bce(d(g(z)), torch.ones(1, 1))
+loss_g.backward()
+print(f"D_loss={loss_d.item():.6f} G_loss={loss_g.item():.6f} G_grad={g.weight.grad.item():.6f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码显式标注输入和输出
-- 使用框架稳定实现
-- 结果通过 shape 或数值检查
+- D 阶段 detach，G 阶段保留通过 D 的计算图。
+- 生成器代码采用非饱和 BCE 目标，明确区别于经典 minimax 形式。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印与页面说明一致的张量形状或损失。
+```text
+G gradient absent in D phase: True
+D_loss=1.440190 G_loss=0.313262 G_grad=-0.268941
+```
 :::
 
 ::::
@@ -191,8 +211,8 @@ loss_d=bce(real_logits,torch.ones_like(real_logits))+bce(fake_logits,torch.zeros
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 生成对抗网络 GAN
-- 教学与项目基线
+- 无显式密度的样本生成
+- 检查交替训练中的梯度隔离
 :::
 
 
@@ -213,18 +233,17 @@ loss_d=bce(real_logits,torch.ones_like(real_logits))+bce(fake_logits,torch.zeros
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 生成对抗网络 GAN最先检查什么？
+### 冻结 D 参数为什么仍能训练 G？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-先检查输入输出 shape、dtype 和数据边界。
+D 的运算仍可对输入求导，只是不为 D 的参数累积梯度；若把整个 D 前向放进 no_grad 才会切断到 G 的路径。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 何时使用测试集？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-全部设计锁定后最终评估。
+对抗损失和一次梯度方向不能证明生成质量；训练可能震荡或模式塌缩。
 :::
-

@@ -36,28 +36,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-简单弱模型组合后可形成复杂边界，但错误标签和异常点也会被持续放大。
+均匀训练的浅树桩可能总是忽略少数难分样本。AdaBoost 在每轮之后改变样本权重，使下一轮更重视当前错误，并按弱学习器表现加权组合。困难样本如果是错标或异常，也可能被反复放大。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-AdaBoost 常使用浅树桩；每轮集中关注前面难以分类的样本。
+AdaBoost 是顺序构建加权弱学习器的集成。标准二分类推导用 ±1 标签和指数损失，弱学习器按当前样本分布训练，误差决定模型权重，错分样本相对权重提高。多分类 SAMME 等变体的系数与更新约定不同。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-错题在下一轮获得更高复习优先级。
+每轮复习后，把没做对的题在下一轮抽题中提高比重。但一直答不对的题也可能是答案本身错误；关注难题有收益，也会增加对噪声的敏感性。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-后续学习器依赖当前样本权重，训练难以完全并行；学习率和学习器数量控制累积。
+加权错误率是错分样本权重之和，不能用未加权的错误比例代替。标准二分类系数为半个 log((1−ε)/ε)，要求弱学习器优于随机猜测；ε=0 或不优于随机时必须按实现做停止或特殊处理。
+
+样本乘 exp(−α y h) 后重新归一化。正确项乘 exp(−α)，错误项乘 exp(α)；因此说“只提高错误权重”是相对意义，不是保持所有正确项数值不变。
+
+迭代数、学习率和基学习器复杂度共同决定拟合过程。弱学习器间存在顺序依赖，不能像 bagging 那样完全独立训练；验证要关注错标和少数异常是否占据了大量权重。
 :::
 
 
@@ -65,30 +69,35 @@ AdaBoost 常使用浅树桩；每轮集中关注前面难以分类的样本。
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 核心表达
+### 标准二分类 AdaBoost 系数与权重
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-F(x)=Σₜαₜhₜ(x)
+\alpha_m=\frac12\log\frac{1-\epsilon_m}{\epsilon_m},\qquad w_i\leftarrow\frac{w_i e^{-\alpha_m y_i h_m(x_i)}}{Z_m}
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-后续学习器依赖当前样本权重，训练难以完全并行；学习率和学习器数量控制累积。
+标签与弱分类输出为 ±1；Z 是归一化常数，本式不是所有多分类变体的通用实现。
 :::
 
 ::::
 
+## 手算与场景核对 {#worked-example}
+
+四条样本初始权重均为 0.25，弱分类器只错一条，所以加权错误率 ε=0.25，模型系数为 0.5×ln(3)≈0.549306。
+
+归一化后，唯一错分样本权重为 0.5，每条正确样本约为 0.166667。下一轮会更关注该错误，但如果它是错标，提升也会持续追逐错误标签。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 初始化等权
-2. 训练弱学习器
-3. 计算错误率
-4. 提高错分权重
-5. 计算模型权重
-6. 加权投票
+1. 在训练数据上初始化归一化样本权重。
+2. 用当前权重拟合弱分类器，并计算加权错误率。
+3. 检查是否满足继续提升的条件，计算该分类器系数。
+4. 按正确或错误预测更新每条样本权重，再归一化。
+5. 累加加权决策分数，并在独立验证中选择迭代预算。
 :::
 
 
@@ -96,32 +105,43 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### AdaBoost 实现
+### 一次二分类 AdaBoost 权重更新
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的训练与预测逻辑。
+用完整权重与错分标记核对二分类推导，不冒充多分类接口内部实现。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-from sklearn.ensemble import AdaBoostClassifier
-from sklearn.tree import DecisionTreeClassifier
-model=AdaBoostClassifier(estimator=DecisionTreeClassifier(max_depth=1),n_estimators=100,learning_rate=0.05,random_state=42)
+```Python
+import math
+weights = [0.25] * 4
+incorrect = [False, False, False, True]
+error = sum(w for w, wrong in zip(weights, incorrect) if wrong)
+alpha = 0.5 * math.log((1-error)/error)
+updated = [w * math.exp(alpha if wrong else -alpha) for w, wrong in zip(weights, incorrect)]
+normalizer = sum(updated)
+updated = [w/normalizer for w in updated]
+print(f"weighted_error={error:.3f}, alpha={alpha:.6f}")
+print("weights=" + ",".join(f"{w:.6f}" for w in updated))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码先建立符合输入要求的估计器。
-- 参数应在交叉验证中选择，测试集不参与。
+- 错误率按当前权重求和。
+- 正确与错分样本都经过乘法更新，再统一归一化。
+- 结果是单轮构造算术，没有验证真实任务性能。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-得到由 100 个树桩顺序组合的分类器。
+```text
+weighted_error=0.250, alpha=0.549306
+weights=0.166667,0.166667,0.166667,0.500000
+```
 :::
 
 ::::
@@ -129,19 +149,25 @@ model=AdaBoostClassifier(estimator=DecisionTreeClassifier(max_depth=1),n_estimat
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 结构化分类
-- 弱学习器集成
+- 以浅树桩为基学习器，逐轮组合较简单的分类边界。
+- 分析哪些训练样本在迭代中持续被赋予高权重。
 :::
 
 
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 噪声标签被反复关注
-- 只增加轮数不验证
+- 用普通错误率替代当前加权错误率。
+- 忽略归一化，导致样本权重不再表示分布。
+- 将二分类半 log 系数直接当作所有 SAMME 接口的系数。
 :::
 
 
 ## 与其他概念的关系 {#related}
 
 <ConceptRelated />
+
+
+## 资料与假设 {#source-notes}
+
+参见 [scikit-learn：AdaBoost](https://scikit-learn.org/stable/modules/ensemble.html#adaboost)。 本页数值均为构造例；涉及模型分数时仅说明给定数据与协议下的计算。

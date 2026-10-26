@@ -37,18 +37,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 区分 optimizer/scheduler
-- 正确 step 顺序
-- 配置参数组
+- 把 SGD 更新与 StepLR 顺序对齐
+- 解冻骨干后为什么可能仍不更新？
+- 说明：调度频率由计划定义；不能把所有 scheduler 都放在每个 batch 后调用。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-训练配置核心
-
-恢复训练需保存状态
+优化器保存参数引用及更新状态；学习率调度器修改优化器参数组中的学习率。调度轴可以是 epoch、参数更新数或验证指标，必须按具体调度器约定使用。
 :::
 
 
@@ -59,30 +57,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-同一梯度可由不同历史规则转为不同更新。
+优化器决定怎样把梯度转为参数变化，调度器决定学习率怎样随训练推进。二者职责不同，更新频率不一致会使实际训练配方偏离记录。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-SGD、Momentum、Adam/AdamW 的状态不同；scheduler 不更新参数。
+优化器保存参数引用及更新状态；学习率调度器修改优化器参数组中的学习率。调度轴可以是 epoch、参数更新数或验证指标，必须按具体调度器约定使用。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-梯度给方向，优化器决定如何结合历史走，调度器决定步长随时间如何变。
+优化器决定怎么迈步，调度器决定今天迈多大步；数了多少批数据并不总等于迈了多少次步。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-常规顺序 optimizer.step 后 scheduler.step；调用频率由调度器定义。
+SGD 使用当前梯度或带动量的历史方向，AdamW 使用每参数矩估计并可施加解耦衰减。建立优化器后新增或解冻参数，不会凭空让它们进入旧参数组，必须检查实际优化参数集合。
 
-解冻参数需进入优化器；不同参数组可使用分层学习率和衰减。
+调度器通常在 optimizer.step 后推进；StepLR 常按 epoch，OneCycleLR 常按更新，ReduceLROnPlateau 接收验证指标。调用次数是数学计划的一部分，不是随意放在哪里都一样。
+
+多个参数组可以有不同初始学习率，但恢复训练时需要同时恢复优化器和调度器状态。若重新创建调度器却从旧 epoch 接着记日志，打印的轮次并不能保证学习率轨迹接上。
 :::
 
 
@@ -100,7 +100,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-SGD 基本更新。
+优化器保存参数引用及更新状态；学习率调度器修改优化器参数组中的学习率。调度轴可以是 epoch、参数更新数或验证指标，必须按具体调度器约定使用。
 :::
 
 ::::
@@ -120,34 +120,42 @@ SGD 基本更新。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### SGD 更新
+### 把 SGD 更新与 StepLR 顺序对齐
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- θ=2,g=-0.4,η=.1
+- 参数初值 1，每次梯度为 1
+- 初始学习率 0.1，每步后乘 0.5
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 2-.1×(-.4)
+1. 第一步用 0.1 更新到 0.9，再衰减。
+2. 第二步用 0.05 更新到 0.85，再衰减。
+3. 第三步用 0.025 更新到 0.825。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-2.04
+实际使用的学习率依次为 0.1、0.05、0.025。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 调度频率由计划定义；不能把所有 scheduler 都放在每个 batch 后调用。
 :::
+
+### 把 SGD 更新与 StepLR 顺序对齐
+
+代码在更新前读取 used_lr，更新后才调用 scheduler.step，因而日志明确区分“这一步用的学习率”与“下一步的学习率”。
+
+若在每个微批都推进，而两微批才优化一次，计划就被加速两倍。遇到 AMP 因非有限梯度跳过更新时，同样要考虑是否推进按更新计数的计划。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. backward
-2. optimizer.step
-3. 按类型 scheduler.step
-4. 记录各组 lr
-5. 保存状态
+1. 第一步用 0.1 更新到 0.9，再衰减。
+2. 第二步用 0.05 更新到 0.85，再衰减。
+3. 第三步用 0.025 更新到 0.825。
 :::
 
 
@@ -155,32 +163,44 @@ SGD 基本更新。
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 优化器与学习率调度 · PyTorch 示例
+### 把 SGD 更新与 StepLR 顺序对齐的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证优化器与学习率调度的输入、计算和输出。
+使用完整构造输入核对把 SGD 更新与 StepLR 顺序对齐，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-optimizer=torch.optim.AdamW(model.parameters(),lr=3e-4,weight_decay=1e-2)
-loss.backward();optimizer.step()
+```python
+import torch
+p = torch.nn.Parameter(torch.tensor(1.))
+opt = torch.optim.SGD([p], lr=0.1)
+sched = torch.optim.lr_scheduler.StepLR(opt, step_size=1, gamma=0.5)
+for step in range(1, 4):
+    opt.zero_grad(set_to_none=True)
+    p.grad = torch.ones_like(p)
+    used = opt.param_groups[0]["lr"]
+    opt.step()
+    sched.step()
+    print(f"step={step} used_lr={used:.3f} parameter={p.item():.3f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- AdamW 保存矩状态
-- 权重衰减解耦
-- step 更新参数
+- 显式构造常量梯度以隔离调度效果。
+- 每行记录的是本次更新使用的学习率。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-参数依据 AdamW 规则改变。
+```text
+step=1 used_lr=0.100 parameter=0.900
+step=2 used_lr=0.050 parameter=0.850
+step=3 used_lr=0.025 parameter=0.825
+```
 :::
 
 ::::
@@ -188,7 +208,8 @@ loss.backward();optimizer.step()
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- CNN/Transformer/微调
+- 对齐优化预算和学习率曲线
+- 微调不同模块时使用参数组
 :::
 
 
@@ -209,18 +230,17 @@ loss.backward();optimizer.step()
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### scheduler 会更新参数吗？
+### 解冻骨干后为什么可能仍不更新？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-不会，只修改 optimizer 学习率。
+requires_grad=True 只允许求导，优化器还必须持有这些参数；若创建时只传任务头，需要新增参数组或按配方重建。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 解冻后为何重建优化器？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-确保新参数进入参数组。
+调度频率由计划定义；不能把所有 scheduler 都放在每个 batch 后调用。
 :::
-

@@ -37,18 +37,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 区分 reshape/permute
-- 正确 NCHW
-- 匹配标签 dtype
+- 广播把两条误差变成四条
+- reshape 能代替 NHWC 到 NCHW 的转换吗？
+- 说明：广播在某些运算中是设计行为；需要按任务语义判断，不能一概禁止。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-数据契约基础
-
-减少静默错误
+shape 描述各轴长度，dtype 描述元素类型，device 描述存储与运算设备。它们共同构成张量接口，语义轴顺序必须由数据与模型明确约定。
 :::
 
 
@@ -59,30 +57,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-很多模型错误来自 shape/dtype/device，而不是网络结构。
+许多训练错误没有复杂算法原因：通道轴放错、类别标签是浮点型，或广播把一维目标扩成二维，都会使训练失败甚至悄悄优化错误目标。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-reshape 改形状，permute 换轴，to 改 device/dtype，cat 拼已有轴，stack 新建轴。
+shape 描述各轴长度，dtype 描述元素类型，device 描述存储与运算设备。它们共同构成张量接口，语义轴顺序必须由数据与模型明确约定。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-形状说明每个轴是谁，设备说明张量在哪，dtype 说明它能表达什么。
+reshape 像重新分格，permute 像重新排列坐标轴。格子总数相同不代表图片通道与空间顺序就正确。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-参与同一运算的张量需兼容设备与类型；广播前检查预期形状。
+reshape 保持元素的逻辑遍历顺序并重新解释形状，必要时会复制；view 对内存布局有额外要求。permute 改变轴次序，通常生成非连续视图。NHWC 图像转成 NCHW 必须换轴，不能只改成同样元素数的 shape。
 
-无参数 squeeze 可能在 batch=1 时删除 batch 维。
+广播从尾部比较维度，维度相同或其中之一为 1 才兼容。例如预测为 $[N,1]$、标签为 $[N]$，相减可能得到 $[N,N]$，并非逐样本误差。无参数 squeeze 在 N=1 时还会删掉 batch 轴。
+
+同一算子一般要求张量设备兼容，整数索引和浮点特征也有不同 dtype 约定。tensor.to 返回转换结果，应赋回变量；把标签随意转 float 可能破坏交叉熵的类别索引接口。
 :::
 
 
@@ -100,7 +100,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-reshape 必须保持元素总数。
+shape 描述各轴长度，dtype 描述元素类型，device 描述存储与运算设备。它们共同构成张量接口，语义轴顺序必须由数据与模型明确约定。
 :::
 
 ::::
@@ -120,34 +120,40 @@ reshape 必须保持元素总数。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### NHWC 转 NCHW
+### 广播把两条误差变成四条
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- \[8,32,32,3\]
+- 预测为形状 (2,1) 的 1、2
+- 目标为形状 (2,) 的 1、2
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. permute(0,3,1,2)
+1. 先直接相减，观察结果变为 (2,2)。
+2. 把目标 reshape 为 (2,1) 后再相减。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-\[8,3,32,32\]
+错误广播的均方误差为 0.5；对齐形状后误差为 0。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 广播在某些运算中是设计行为；需要按任务语义判断，不能一概禁止。
 :::
+
+### 案例推演与判断
+
+原本两条预测都完全正确，但广播把每条预测分别与两个目标比较，构造出额外的交叉样本误差。程序能够求梯度，损失也会变化，因此这种错误比直接报错更难发现。
+
+图像通道换轴同理：打印一个 shape 只能验证长度，不能验证元素是否仍对应原坐标。排错时应使用带编号的小张量，并检查少数元素位置。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 打印 shape/dtype/device
-2. 换轴
-3. reshape
-4. 移动设备
-5. 断言
+1. 先直接相减，观察结果变为 (2,2)。
+2. 把目标 reshape 为 (2,1) 后再相减。
 :::
 
 
@@ -155,33 +161,39 @@ reshape 必须保持元素总数。
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Tensor 的形状、dtype 与 device · PyTorch 示例
+### 广播把两条误差变成四条的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证Tensor 的形状、dtype 与 device的输入、计算和输出。
+使用完整构造输入核对广播把两条误差变成四条，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-x=torch.randn(8,32,32,3)
-y=x.permute(0,3,1,2).to(dtype=torch.float32)
-print(y.shape,y.dtype)
+```python
+import torch
+pred = torch.tensor([[1.], [2.]])
+target = torch.tensor([1., 2.])
+wrong = pred - target
+right = pred - target.reshape(-1, 1)
+print(tuple(wrong.shape), f"mse={wrong.square().mean().item():.1f}")
+print(tuple(right.shape), f"mse={right.square().mean().item():.1f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- permute 改轴顺序
-- to 返回新引用
-- dtype 显式
+- 显式构造完全正确的预测，暴露错误广播。
+- reshape 只对目标补上有语义的末维。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-\[8,3,32,32\] float32。
+```text
+(2, 2) mse=0.5
+(2, 1) mse=0.0
+```
 :::
 
 ::::
@@ -189,8 +201,8 @@ print(y.shape,y.dtype)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- CNN 输入
-- 序列 batch
+- 排查损失输入形状
+- 图像与序列数据的轴变换
 :::
 
 
@@ -211,18 +223,17 @@ print(y.shape,y.dtype)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### view 为何会失败？
+### reshape 能代替 NHWC 到 NCHW 的转换吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-非连续内存需 contiguous 或 reshape。
+不能。它只改变分格，不按通道轴重排元素；应使用 permute(0,3,1,2)，再按需要处理连续性。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### to 是否原地？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-通常返回张量，应重新赋值。
+广播在某些运算中是设计行为；需要按任务语义判断，不能一概禁止。
 :::
-

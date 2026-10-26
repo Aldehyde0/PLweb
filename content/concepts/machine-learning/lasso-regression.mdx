@@ -38,28 +38,44 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-路径能揭示特征进入/退出模型，但高度相关特征可能不稳定地互换。
+普通最小二乘可能在很多列上分配权重，相关特征还会让估计不稳定。Lasso 将平方损失与 L1 结合，在回归任务中同时约束拟合与产生稀疏系数。
+
+它不是独立于模型评价的“自动找真特征”工具。筛选结果依赖数据、尺度、强度与相关结构，应和最终预测一起验证。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-sklearn Lasso 的 alpha 越大正则越强；正则化路径展示权重随 alpha 变化到零。
+scikit-learn Lasso 的常用目标是平方残差和除以 2n，再加 alpha 乘权重绝对值和。alpha 越大通常收缩越强，但它的数值不能与采用其他损失归一化的库直接等同。
+
+截距与特征缩放需要单独理解。若比较系数或正则路径，应说明是否中心化、是否标准化及哪些参数受惩罚。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-从几乎不惩罚逐步加大费用，观察哪些特征最晚被压为零。
+随着强度增加，一些系数逐渐缩小并进入零区间。观察整条正则路径，比只看某个强度下的一张稀疏清单更能揭示取舍和不稳定性。
 :::
+
+### 同一条直线怎样被收缩到 1.5 与 0
+
+构造 X=[-1,1]、y=[-2,2]，不拟合截距。无惩罚最优斜率为 2；采用本页 Lasso 的 1/(2n) 约定，目标可化为 0.5×(w−2)²+alpha×|w|。
+
+alpha=0.5 的解是 1.5；alpha=3 的解是 0。该例只有两条确定性记录，用于核对目标系数与收缩，不支持选择真实任务的最优 alpha。
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-alpha 候选按对数尺度；LassoCV 只在训练数据内部选择。最终评价和因果解释分开。
+选择 alpha 应在训练内部交叉验证，必要的缩放也要折内拟合。把测试误差最小的强度称为“自动选择”，仍然是在使用测试集调参。
+
+对相关特征，Lasso 可能选其中某一列并忽略另一列，轻微数据变化又可能交换选择。系数为零不是该因素没有现实作用的证明。
+
+强惩罚减少自由度，也可能提高训练误差并造成欠拟合。预测误差、非零系数数目和跨折稳定性应共同检查，不应单纯追求最稀疏模型。
+
+坐标下降等求解器还需要数值收敛。警告、迭代预算、容差与尺度值得记录，不能把尚未稳定的权重变化都解释成数据规律。
 :::
 
 
@@ -97,33 +113,37 @@ alpha 候选按对数尺度；LassoCV 只在训练数据内部选择。最终评
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### Lasso 回归与正则化路径 示例
+### 用可解析数据检查 Lasso 的强度方向
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+将库的损失约定与手算解对照。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-alphas=np.logspace(-4,1,100)
-model=make_pipeline(StandardScaler(),LassoCV(alphas=alphas,cv=5,max_iter=20000))
-model.fit(X_train,y_train)
+```Python
+from sklearn.linear_model import Lasso
+for alpha in [0.5, 3.0]:
+    model = Lasso(alpha=alpha, fit_intercept=False, tol=1e-10, max_iter=10000)
+    model.fit([[-1.0], [1.0]], [-2.0, 2.0])
+    print(f"alpha={alpha:.1f} coefficient={model.coef_[0]:.4f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 不拟合截距，让一维解析目标与实现完全对应。
+- alpha=3 产生零系数不代表真实任务应当使用这一强度。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-named\_steps\["lassocv"\].alpha\_ 给出训练内部选择的强度。
+alpha=0.5 coefficient=1.5000
+alpha=3.0 coefficient=0.0000
 :::
 
 ::::

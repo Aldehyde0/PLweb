@@ -37,28 +37,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强特征若总被首先选择，所有树会相似；随机特征迫使树产生不同视角。
+Bagging 已让各棵树看到不同记录，但如果一个强特征总能压倒其他特征，许多树仍会在高层使用同样划分，错误依旧相关。随机森林在节点候选特征上再增加随机性，试图减少树之间同步犯错。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-每棵树使用 bootstrap 样本，节点分裂时从 max\_features 指定的随机子集中寻找最佳划分。
+随机森林在 bootstrap 数据上训练多棵树，并在各分裂节点从随机特征子集中寻找划分。回归平均树的预测；scikit-learn 分类器通常平均各树的类别概率再取最大类，因此不必等同于硬标签多数票。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-不仅给每位评审不同样本，也限制他们看到的特征清单。
+让评审不仅看到不同样本，还被要求从不同角度分析。每个评审可能稍弱，但如果错误相关性明显下降，集体判断反而更稳定；随机性过强也会丢掉有用信息。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-n\_estimators 增加主要提升平均稳定性；单树深度、min\_samples\_leaf、max\_features 控制偏差方差。OOB 提供近似验证。
+max_features 控制单节点可选特征数，减少它通常加强去相关，也可能增大单树偏差。它不是每棵树训练前固定删掉一批列；候选集合可在不同节点重新采样。
+
+n_estimators 增加主要减少有限棵树的蒙特卡洛波动，无法无限消除共同误差。树深、叶子最小样本数和特征子集需要联合调节；更多树并不替代对数据泄漏和标签噪声的诊断。
+
+OOB 每条记录汇总未见它的树；小森林时某些记录可用树很少，估计不稳定。时间序列与分组任务应使用相应拆分，不能因为内置 OOB 方便就忽略相关样本之间的信息流动。
 :::
 
 
@@ -66,29 +70,35 @@ n\_estimators 增加主要提升平均稳定性；单树深度、min\_samples\_l
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 核心表达
+### 相关估计平均的简化方差
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-forest(x)=vote(treeᵦ(x))
+\operatorname{Var}(\bar h)=\sigma^2\left(\rho+\frac{1-\rho}{B}\right)
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-n\_estimators 增加主要提升平均稳定性；单树深度、min\_samples\_leaf、max\_features 控制偏差方差。OOB 提供近似验证。
+假设各树预测误差方差同为 σ²、两两相关系数同为 ρ；真实树并不严格满足这些简化条件。
 :::
 
 ::::
 
+## 手算与场景核对 {#worked-example}
+
+假设各树误差方差为 1，树数 B=100。若相关系数为 0.8，平均误差方差为 $0.8+0.2/100=0.802$；若通过特征随机化降到 0.2，则变为 $0.2+0.8/100=0.208$。
+
+这是条件公式的比较，强调去相关的潜在价值，不是实测随机森林指标。降低相关也可能让单树方差或偏差变化，不能只改 ρ 就断言实际结果。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. bootstrap 抽样
-2. 节点随机选特征
-3. 深树训练
-4. 多数投票
-5. 检查 OOB/CV
+1. 固定训练与评测边界，再做训练内抽样。
+2. 每棵树建立自己的 bootstrap 记录。
+3. 每个节点抽候选特征，按划分准则选分裂。
+4. 按叶子约束长树，收集概率或回归输出。
+5. 汇总预测，检查验证表现、OOB 可用性和资源成本。
 :::
 
 
@@ -96,31 +106,37 @@ n\_estimators 增加主要提升平均稳定性；单树深度、min\_samples\_l
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 随机森林 实现
+### 相同树数下检查相关性下限
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的训练与预测逻辑。
+在等方差、等相关的简化条件下比较平均方差。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-from sklearn.ensemble import RandomForestClassifier
-model=RandomForestClassifier(n_estimators=300,min_samples_leaf=2,max_features="sqrt",oob_score=True,n_jobs=-1,random_state=42)
+```Python
+tree_count, variance = 100, 1.0
+for correlation in [0.8, 0.2]:
+    ensemble_variance = variance * (correlation + (1-correlation)/tree_count)
+    print(f"rho={correlation:.1f}, ensemble_variance={ensemble_variance:.3f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码先建立符合输入要求的估计器。
-- 参数应在交叉验证中选择，测试集不参与。
+- 树数固定为 100，比较仅改变相关系数的理论情形。
+- 当树数趋大时，方差仍保留 ρσ²。
+- 真实森林还需同时衡量单树质量与验证误差。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-训练后可查看 oob\_score\_ 和测试预测。
+```text
+rho=0.8, ensemble_variance=0.802
+rho=0.2, ensemble_variance=0.208
+```
 :::
 
 ::::
@@ -128,20 +144,25 @@ model=RandomForestClassifier(n_estimators=300,min_samples_leaf=2,max_features="s
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 表格分类回归
-- 稳定非线性基线
+- 作为表格分类回归的非线性基线，捕捉部分交互。
+- 在不过度依赖外推的场景，利用树集合改善单树稳定性。
 :::
 
 
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 重要性当因果
-- 树越多越能解决偏差
-- 忽略推理成本
+- 把 max_features 误解成每棵树永久只用固定列。
+- 认为更多树必然消除噪声和系统偏差。
+- 分类时忽略概率平均与硬投票可能有差异。
 :::
 
 
 ## 与其他概念的关系 {#related}
 
 <ConceptRelated />
+
+
+## 资料与假设 {#source-notes}
+
+参见 [scikit-learn：Forests of randomized trees](https://scikit-learn.org/stable/modules/ensemble.html#forest)。 本页数值均为构造例；涉及模型分数时仅说明给定数据与协议下的计算。

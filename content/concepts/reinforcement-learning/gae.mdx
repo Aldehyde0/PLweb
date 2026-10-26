@@ -55,18 +55,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Generalized Advantage Estimation（GAE）并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 将多步 TD 残差按衰减权重组合，并正确处理终止与片段边界。
+- 独立复核“两步轨迹的 GAE 倒序计算”的输入、计算和解释。
+- λ 改变估计器使用未来残差的长度。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Generalized Advantage Estimation（GAE）位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+将多步 TD 残差按衰减权重组合，并正确处理终止与片段边界。
 :::
 
 
@@ -77,38 +75,32 @@ Generalized Advantage Estimation（GAE）位于“状态—行动—反馈—更
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+一步优势估计依赖 critic 精度，完整回报又可能方差很大。GAE 用 λ 控制未来 TD 残差的贡献，形成从短期 bootstrap 到较长真实轨迹之间的连续折中，在 PPO 等算法中很常见。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-GAE 是折扣 TD error 的指数加权和。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+广义优势估计 GAE 是折扣 TD error 的加权和，常通过从后向前递推计算。γ 定义回报折扣，λ 控制残差传播长度；二者都让远处残差衰减，但不能在任务语义上互相替代。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-综合一步到多步的评价，而不是只信一个时间尺度。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+一次评价不只听“这一步比预期好多少”，还部分听后面几步不断修正后的评价。λ 越大，越愿意让较远的实际结果影响当前动作，但也会接收更多随机波动。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-λ=0 接近一步 TD。
+先用同一组固定价值估计计算 δ，再倒序递推 $A_t=\delta_t+\gamma\lambda A_{t+1}$。若本步真正终止，后续递推为零；纯采样截断仍可用最后观察价值构造本步 δ，但不能把下一局优势接过来。
 
-λ→1 接近长回报。
+λ=0 只保留当前一步 TD error；在完整终止轨迹上 λ=1 会望远镜式化为采样折扣回报减当前价值。有限 rollout 或不准确末端 bootstrap 仍可能带来误差，不能将 λ=1 简写成任何条件下无偏。
 
-终止 mask 必须正确。
+优势通常在 actor 损失里停止梯度，有些实现还做批内标准化。critic 的回归目标可用优势加旧价值构造，但这个 target 应固定，不能随着同一轮在线价值变化而任意重算。
 :::
 
 
@@ -147,30 +139,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Generalized Advantage Estimation（GAE）的最小计算
+### 两步轨迹的 GAE 倒序计算
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 奖励为 0、1，价值为 0.5、0.6、0；最后一步真正终止。
+- γ=0.9，λ=0.8。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 两个 TD error 为 0+0.9×0.6−0.5=0.04，以及 1−0.6=0.4。
+2. 末步优势为 0.4。
+3. 首步优势为 0.04+0.9×0.8×0.4=0.328。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+GAE 优势为 0.328、0.400；若 λ=0，首步只剩 0.040。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- λ 改变估计器使用未来残差的长度。
+- 真正终止末端值为零，时间截断末端值需要另行处理。
 :::
 
 
@@ -188,7 +177,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Generalized Advantage Estimation（GAE）的本地数值骨架
+### 两步轨迹的 GAE 倒序计算
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -196,28 +185,33 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+GAE 优势为 0.328、0.400；若 λ=0，首步只剩 0.040。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+rewards, values = [0.0, 1.0], [0.5, 0.6, 0.0]
+gamma, lam = 0.9, 0.8
+advantages = [0.0] * len(rewards)
+carry = 0.0
+for t in reversed(range(len(rewards))):
+    delta = rewards[t] + gamma * values[t + 1] - values[t]
+    carry = delta + gamma * lam * carry
+    advantages[t] = carry
+print("advantages=" + ",".join(f"x={x:.3f}" for x in advantages))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 两个 TD error 为 0+0.9×0.6−0.5=0.04，以及 1−0.6=0.4。
+- 末步优势为 0.4。
+- 首步优势为 0.04+0.9×0.8×0.4=0.328。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+advantages=x=0.328,x=0.400
+```
 :::
 
 ::::
@@ -233,9 +227,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 正序递推时错误使用尚未计算的未来优势。
+- 跨 episode 传播优势，把新一局奖励接到上一局。
+- 将 λ 与 γ 当成可以随意交换的同义参数。
 :::
 
 
@@ -246,7 +240,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Schulman 等：High-Dimensional Continuous Control Using Generalized Advantage Estimation](https://arxiv.org/abs/1506.02438)。
 :::
 
 
@@ -257,9 +251,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 正序递推时错误使用尚未计算的未来优势。
+- 跨 episode 传播优势，把新一局奖励接到上一局。
+- 将 λ 与 γ 当成可以随意交换的同义参数。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -276,11 +270,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Generalized Advantage Estimation（GAE）是 on-policy 还是 off-policy？
+### λ 越大是否一定更好？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+不一定。较大 λ 更多依赖长轨迹实际结果，通常降低部分 bootstrap 偏差但提高方差；合适取值与 critic 质量、任务长度和数据预算有关。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -290,4 +284,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

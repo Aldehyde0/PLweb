@@ -38,28 +38,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-对尺度、初始化、异常值和非球形簇敏感；编号不带业务语义。
+客户数据没有类别标签时，可以先按特征相似性寻找分组。但“相似”由特征、尺度和距离定义；算法给出的簇不天然等于真实客户类型。K-Means 与轮廓系数提供一种特定几何结构的拟合和诊断。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-K-Means 需要预先给 K，学习 K 个中心；轮廓系数比较本簇紧密度与最近其他簇距离。
+K-Means 在预先指定 K 后最小化样本到所属中心的平方欧氏距离和。算法交替分配最近中心和更新簇均值。轮廓系数用样本的簇内平均距离 a 与最近其他簇平均距离 b 比较，取 (b−a)/max(a,b)，并不是到中心距离的比值。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-不断重复“按最近中心分组”和“把中心移到组均值”。
+把点分给最近服务站，再把站点搬到所服务点的平均位置，反复直到变化较小。轮廓系数则问：这个点和自己组成员是否真的比和邻组成员更接近。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-使用多次初始化并标准化。K 增大会单调降低簇内误差，肘部和轮廓只是参考，还需稳定性与业务解释。
+最近分配和均值更新使当前目标不增，但结果可能停在局部解，初始化与随机种子会影响答案。K-Means++ 和多次初始化改善起点选择，却不保证找到了所有数据的全局最优。
+
+最优簇内平方和随 K 增加不会升高，不能只用训练 inertia 选 K。轮廓偏好紧凑分离的簇，也可能低估非球形结构；其有效输入通常要求至少两个簇且簇数小于样本数，单点簇的约定需看实现。
+
+不同单位会扭曲欧氏距离，应依据任务决定缩放与特征权重，而不是机械地把所有变量视为等价。异常点、密度差异和弯曲簇可能使 K-Means 不合适，需结合稳定性和实际解释比较其他方法。
 :::
 
 
@@ -67,30 +71,35 @@ K-Means 需要预先给 K，学习 K 个中心；轮廓系数比较本簇紧密�
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 核心表达
+### K-Means 与轮廓的不同目标
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-min Σᵢ||xᵢ-μcᵢ||²；s=(b-a)/max(a,b)
+J=\sum_i\lVert x_i-\mu_{c_i}\rVert^2,\qquad s_i=\frac{b_i-a_i}{\max(a_i,b_i)}
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-使用多次初始化并标准化。K 增大会单调降低簇内误差，肘部和轮廓只是参考，还需稳定性与业务解释。
+μ 是簇中心；a 为本簇其他点平均距离，b 为最近其他簇的平均距离。
 :::
 
 ::::
 
+## 手算与场景核对 {#worked-example}
+
+一维点为 0、1、9、10，K=2 时可分成 [0,1] 与 [9,10]，中心为 0.5 与 9.5。四个点到中心的平方距离各为 0.25，所以 inertia=1。
+
+点 0 的簇内平均距离 a=1，另一簇平均距离 b=(9+10)/2=9.5，轮廓约 0.894737。点 1 的 b=8.5，轮廓约 0.882353；对称四点的平均轮廓约 0.888545。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 标准化
-2. 选择 K 和多次初始化
-3. 分配最近中心
-4. 更新中心
-5. 收敛
-6. 比较轮廓和稳定性
+1. 确定哪些特征和距离具有任务意义，必要时缩放。
+2. 选择候选 K，并为每个 K 做多次初始化。
+3. 交替分配最近中心和计算簇均值。
+4. 记录 inertia、簇大小、轮廓与跨次稳定性。
+5. 检查代表样本、异常点和业务含义，避免把最大内部指标当真值。
 :::
 
 
@@ -98,33 +107,44 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### K-Means 与轮廓系数 实现
+### 四个点同时核对中心、inertia 与轮廓
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的训练与预测逻辑。
+在可手算构造数据上拟合 K-Means，簇编号不作为语义标签。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
+```Python
+import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
-labels=KMeans(n_clusters=3,n_init=20,random_state=42).fit_predict(X_scaled)
-print(silhouette_score(X_scaled,labels))
+
+X = np.array([[0.0], [1.0], [9.0], [10.0]])
+model = KMeans(n_clusters=2, n_init=10, random_state=42).fit(X)
+centers = sorted(model.cluster_centers_.ravel())
+print("centers=" + ",".join(f"{x:.3f}" for x in centers))
+print(f"inertia={model.inertia_:.3f}")
+print(f"silhouette={silhouette_score(X, model.labels_):.6f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码先建立符合输入要求的估计器。
-- 参数应在交叉验证中选择，测试集不参与。
+- 一维单位已固定，本例无需额外标准化。
+- 排序中心只是方便显示，不更改模型分配。
+- 手算轮廓依赖点间距离，与 inertia 是两套量。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-输出 -1 到 1 之间的轮廓系数。
+```text
+centers=0.500,9.500
+inertia=1.000
+silhouette=0.888545
+```
 :::
 
 ::::
@@ -132,20 +152,25 @@ print(silhouette_score(X_scaled,labels))
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 用户分群
-- 探索结构
+- 对近似紧凑欧氏结构做探索分组或向量量化。
+- 在固定特征表示下比较多个 K 的几何质量。
 :::
 
 
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 簇号当真实标签
-- 只看肘部
-- 未标准化
+- 用离中心距离替代轮廓所需的样本平均距离。
+- 只看 inertia 越小越好，最终选到接近样本数的 K。
+- 把簇编号或高轮廓直接解释成客观真实类别。
 :::
 
 
 ## 与其他概念的关系 {#related}
 
 <ConceptRelated />
+
+
+## 资料与假设 {#source-notes}
+
+参见 [scikit-learn：K-Means 与聚类评估](https://scikit-learn.org/stable/modules/clustering.html#k-means)。 本页数值均为构造例；涉及模型分数时仅说明给定数据与协议下的计算。

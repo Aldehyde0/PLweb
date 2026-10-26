@@ -35,18 +35,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释 p
-- 区分训练与推理
-- 放置 Dropout
+- p=0.5 的两种可能值与期望
+- Dropout 会永久删除神经元吗？
+- 说明：保持单元素期望不等于保持整网输出或保证验证效果提高。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-常用神经网络正则化
-
-要求正确 train/eval 模式
+Dropout 在训练模式以概率 p 将输入元素置零，并把保留值除以 1-p；评估模式则直接返回输入。这种反向缩放保持单个元素输出的期望不变。
 :::
 
 
@@ -57,30 +55,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-容量较大的网络在小数据上容易共同适应训练细节。
+网络可能过度依赖少数隐藏特征的固定组合。Dropout 在训练中随机移除部分响应，让模型在不完整的特征组合下也必须产生预测。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Dropout 以概率 p 屏蔽输出并对保留值缩放，评估时关闭随机屏蔽。
+Dropout 在训练模式以概率 p 将输入元素置零，并把保留值除以 1-p；评估模式则直接返回输入。这种反向缩放保持单个元素输出的期望不变。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-每次训练随机让部分成员缺席，迫使网络学会更分散的表示。
+每次训练临时遮住不同线索，避免模型只记住一种固定搭配；推理时让所有线索一起工作。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-Dropout 只在训练模式随机；p 太大会欠拟合。
+对固定输入 h，掩码以概率 1-p 保留元素，输出为 mask×h/(1-p)。例如 p=0.5，保留的 1 变成 2，删除的变成 0，期望仍为 1；并非每一次有限样本输出均值都恰好为 1。
 
-它不替代数据划分、权重衰减或增加数据。
+Dropout 的随机性由训练模式决定，no_grad 不会自动关闭它。纯推理既要 model.eval，也要关闭梯度跟踪。若手动调用函数式 dropout，应正确传入 training 标志，否则可能在评估中持续随机。
+
+p 较大时噪声更强，可能使模型欠拟合或梯度波动。它与权重衰减、数据增强作用不同，不能代替代表性数据或正确验证。卷积和序列中还存在按通道或结构化屏蔽的变体。
 :::
 
 
@@ -98,7 +98,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-m 是随机 mask，p 是丢弃概率。
+Dropout 在训练模式以概率 p 将输入元素置零，并把保留值除以 1-p；评估模式则直接返回输入。这种反向缩放保持单个元素输出的期望不变。
 :::
 
 ::::
@@ -118,36 +118,42 @@ m 是随机 mask，p 是丢弃概率。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### p=0.5
+### p=0.5 的两种可能值与期望
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 4 个激活
-- 期望保留 2 个
+- 输入元素恒为 1
+- 丢弃概率为 0.5
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 训练随机屏蔽
-2. 保留值按 1/(1-p) 缩放
+1. 保留时输出 1/(1−0.5)=2。
+2. 丢弃时输出 0。
+3. 期望为 0.5×2+0.5×0=1。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-期望输出尺度不变
+训练输出只可能为 0 或 2；评估输出全部为 1。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 保持单元素期望不等于保持整网输出或保证验证效果提高。
 :::
+
+### p=0.5 的两种可能值与期望
+
+代码不把一次随机掩码写成永远固定的预期，而检查所有训练输出是否属于允许集合、评估是否恢复原值。这验证的是运算契约。
+
+期望保持并不意味着有 Dropout 的非线性网络与没有 Dropout 的网络具有相同预测。后续非线性、损失及不同掩码组合都会改变整体行为。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 选择位置
-2. 设置 p
-3. train 启用
-4. eval 关闭
-5. 比较验证曲线
+1. 保留时输出 1/(1−0.5)=2。
+2. 丢弃时输出 0。
+3. 期望为 0.5×2+0.5×0=1。
 :::
 
 
@@ -155,34 +161,42 @@ m 是随机 mask，p 是丢弃概率。
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Dropout · PyTorch 示例
+### p=0.5 的两种可能值与期望的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证Dropout的输入、计算和输出。
+使用完整构造输入核对p=0.5 的两种可能值与期望，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-drop=nn.Dropout(p=0.5)
-x=torch.ones(8)
-drop.train();print(drop(x))
-drop.eval();print(drop(x))
+```python
+import torch
+from torch import nn
+torch.manual_seed(7)
+drop = nn.Dropout(0.5)
+x = torch.ones(16)
+drop.train()
+train_y = drop(x)
+print("train values valid:", bool(((train_y == 0) | (train_y == 2)).all()))
+drop.eval()
+print("eval:", drop(x).tolist())
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- train 输出随机零
-- eval 原样通过
-- 同一输入训练输出可不同
+- 固定种子且只报告稳定的运算性质。
+- 明确切换 eval，未用 no_grad 代替模式切换。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-训练输出含零且非零值缩放；评估输出全 1。
+```text
+train values valid: True
+eval: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+```
 :::
 
 ::::
@@ -190,9 +204,8 @@ drop.eval();print(drop(x))
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- MLP
-- CNN 分类头
-- Transformer FFN
+- 全连接隐藏层正则化
+- 按验证表现调节训练噪声
 :::
 
 
@@ -212,18 +225,17 @@ drop.eval();print(drop(x))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 推理时还随机吗？
+### Dropout 会永久删除神经元吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-不会，eval 模式关闭 Dropout。
+不会。标准 Dropout 每次前向重新采样掩码，参数仍在；它区别于永久剪枝。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### Dropout 是否改变输出期望？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-PyTorch 训练时缩放保留值以保持期望。
+保持单元素期望不等于保持整网输出或保证验证效果提高。
 :::
-

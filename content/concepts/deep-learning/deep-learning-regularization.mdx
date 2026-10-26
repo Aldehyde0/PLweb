@@ -36,29 +36,46 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-正则化不能替代正确划分和验证；增强必须保持标签语义，推理需关闭 Dropout。
+深网能拟合复杂训练关系，也可能把噪声和偶然模式记住。正则化通过参数偏好、数据变化或训练时间约束降低这种风险，但需要首先确认验证协议可信。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-深度网络参数多、训练久而数据少时容易过拟合，不同方法从参数、结构、数据和训练轮数限制自由度。
+深度学习正则化是一组限制或引导学习过程的方法，包括权重衰减、Dropout、数据增强、容量控制和早停。它们的机制不同，应按问题选择并做受控比较。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-限制记忆能力、制造合理变化，并在验证性能最佳时保存，而不是训练越久越好。
+与其要求模型把每个训练细节都记到极致，更希望它学到对合理扰动和独立样本稳定的规则。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-先小模型基线；weight\_decay、dropout、augmentation 和 patience 在验证数据上选择，测试只最后使用。
+L2 惩罚在损失中加入参数平方和，梯度会多出与权重成比例的项；AdamW 的解耦权重衰减则直接按比例缩小参数，不把衰减项混进自适应梯度矩估计。二者在自适应优化器中不能直接视为同一实现。
+
+数据增强把任务允许的不变性写进训练数据，例如图像水平翻转必须不改变标签含义。若数字、医学方向或时序因果关系不允许某种变换，该增强就会制造标签错误。Dropout 则随机扰动隐藏表示，并在评估关闭。
+
+早停利用验证趋势限制训练时间；它仍是一种模型选择。若反复用测试集选择强度，测试集也会被间接拟合。多种正则同时增强可能导致欠拟合，应该保留简单基线并逐项比较。
 :::
+
+### 单参数区分数据损失与 L2 惩罚
+
+- 参数 w=2，数据目标为 w=3
+- 数据损失为 (w−3)²
+- L2 系数为 0.1，惩罚定义为 0.1w²
+
+正则把梯度从 -2 改为 -1.6，减弱向较大权重移动的幅度。
+
+本例最小化 $(w-3)^2+0.1w^2$，解析最优值为 3/1.1，约 2.727，而不是 3。这说明正则主动引入偏好，允许训练拟合变差以换取潜在泛化收益。
+
+该收益必须在独立数据上验证；若真实任务就需要大权重，过强惩罚会带来偏差。这里没有真实数据，不能从手算目标宣称准确率提高。
+
 
 
 ## 数学表达 {#formulas}
@@ -70,12 +87,12 @@ anchorAliases:
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-Jtotal=Jdata+λ||w||²；Dropout: h′=mask⊙h
+L_{total}=L_{data}+\lambda\sum_i w_i^2,\qquad \widetilde h=m\odot h/(1-p)
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-先小模型基线；weight\_decay、dropout、augmentation 和 patience 在验证数据上选择，测试只最后使用。
+第一项公式采用未除以 2 的 L2 定义；第二项是训练期反向缩放 Dropout，m 为保留概率 1-p 的二元掩码。
 :::
 
 ::::
@@ -83,12 +100,8 @@ $$
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 建立小模型
-2. 检查数据划分
-3. 尝试权重衰减
-4. 合理增强
-5. 验证早停
-6. 保存最佳权重
+1. 数据损失为 1，惩罚为 0.4。
+2. 总损失为 1.4，梯度为 -2+0.4=-1.6。
 :::
 
 
@@ -96,31 +109,40 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 深度学习正则化 示例
+### 单参数区分数据损失与 L2 惩罚的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+使用完整构造输入核对单参数区分数据损失与 L2 惩罚，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-optimizer=torch.optim.AdamW(model.parameters(),lr=3e-4,weight_decay=1e-2)
-dropout=torch.nn.Dropout(0.2)
+```python
+import torch
+w = torch.tensor(2., requires_grad=True)
+data = (w - 3).square()
+penalty = 0.1 * w.square()
+total = data + penalty
+total.backward()
+print(f"data={data.item():.1f} penalty={penalty.item():.1f} total={total.item():.1f} grad={w.grad.item():.1f}")
+print(f"optimum={3 / 1.1:.6f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 明确 L2 系数和是否包含 1/2。
+- 这里只演示损失惩罚，不将其冒充 AdamW 更新。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-训练时应用权重衰减和随机 Dropout；eval 模式关闭 Dropout。
+```text
+data=1.0 penalty=0.4 total=1.4 grad=-1.6
+optimum=2.727273
+```
 :::
 
 ::::
@@ -128,8 +150,8 @@ dropout=torch.nn.Dropout(0.2)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 图像/文本网络
-- 小数据微调
+- 降低训练集记忆风险
+- 用验证集选择衰减、增强和早停强度
 :::
 
 

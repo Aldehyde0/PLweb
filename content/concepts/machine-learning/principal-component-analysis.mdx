@@ -36,29 +36,45 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-高维可视化、压缩与去冗余常用，但方差大不保证对预测有用，主成分解释可能困难。
+多个测量维度可能沿同一潜在变化方向一起移动。PCA 用少量互相正交的方向表示这些变化，有助于压缩和观察，但其目标没有利用标签。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-PCA 学习训练均值、主成分方向和解释方差；transform 把样本投影到这些方向。
+主成分分析对中心化数据寻找依次最大化投影方差的正交方向。transform 将减去训练均值的数据投影，inverse_transform 从保留坐标近似重建。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-旋转坐标轴，让第一根轴沿数据云最伸展的方向。
+把坐标轴旋转到点云延展最明显的方向，先保留最长的方向，再按需要保留次长方向。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-特征尺度不同通常先标准化；PCA 必须位于 CV Pipeline 内。降维维数通过解释方差和下游验证选择。
+中心化后的协方差特征向量或 SVD 右奇异向量给出主方向，特征值反映投影方差。保留前 k 维在平方重构误差意义下有最优线性性质，但不保证这些方向最利于分类或聚类。
+
+scikit-learn PCA 会中心化，不会自动对各特征缩放。不同单位下是否标准化要依据任务：不处理时大方差单位可能主导，处理后则改变了你要保留的方差信号。whiten 还会重新缩放主成分，不应与普通投影混同。
+
+方向正负不唯一，重复拟合可能出现整体符号翻转而表示同一轴。主成分与均值必须只在训练部分拟合，下游交叉验证应把 PCA 放进 Pipeline；解释方差高不代表保留了标签信息。
 :::
+
+### 完全共线点云的一维无损压缩
+
+- 四点为 (-2,-2)、(-1,-1)、(1,1)、(2,2)
+- 数据均值为 (0,0)，只保留 1 个主成分
+
+解释方差比例为 1，方向分量绝对值约 0.707107，重构最大误差约为 0。
+
+这里两列完全冗余，因此丢弃正交方向不损失数据。加入垂直方向噪声后，一维重构就不再精确；保留维数需要结合用途和误差。
+
+代码对方向取绝对值只是为了比较同一条轴，原投影仍使用实际方向。不能对每个成分随意取绝对值后再做变换，那会改变一般的数据表示。
+
 
 
 ## 数学表达 {#formulas}
@@ -70,12 +86,12 @@ PCA 学习训练均值、主成分方向和解释方差；transform 把样本投
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-v₁=argmax||v||=1 Var(Xv)
+v_1=\arg\max_{\lVert v\rVert=1}\operatorname{Var}(X_cv),\quad Z=X_cV_k
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-特征尺度不同通常先标准化；PCA 必须位于 CV Pipeline 内。降维维数通过解释方差和下游验证选择。
+X_c 为按训练均值中心化后的矩阵，V_k 按列放置主方向；sklearn components_ 的行方向约定需转置对应。
 :::
 
 ::::
@@ -83,12 +99,9 @@ $$
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 只在训练数据拟合缩放
-2. 中心化/标准化
-3. 求主方向
-4. 选择成分数
-5. 投影验证测试
-6. 评估信息与下游表现
+1. 在训练部分决定是否按单位和目标标准化。
+2. 拟合均值与主方向，核对解释方差和重构。
+3. 在 Pipeline 内验证保留维数对下游任务的影响。
 :::
 
 
@@ -96,34 +109,42 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### PCA 主成分分析 实现
+### 完全共线点云的一维无损压缩的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的训练与预测逻辑。
+使用完整构造输入核对完全共线点云的一维无损压缩，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
+```python
+import numpy as np
 from sklearn.decomposition import PCA
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
-model=make_pipeline(StandardScaler(),PCA(n_components=2))
-X2=model.fit_transform(X)
+x = np.array([[-2., -2.], [-1., -1.], [1., 1.], [2., 2.]])
+pca = PCA(n_components=1, svd_solver="full")
+z = pca.fit_transform(x)
+reconstructed = pca.inverse_transform(z)
+print("direction absolute:", np.round(np.abs(pca.components_[0]), 6).tolist())
+print(f"variance_ratio={pca.explained_variance_ratio_[0]:.6f}")
+print(f"max_reconstruction_error={np.max(np.abs(x - reconstructed)):.6f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码先建立符合输入要求的估计器。
-- 参数应在交叉验证中选择，测试集不参与。
+- 中心化均值可手算，避免符号任意性造成误读。
+- 没有标签，因此不报告分类信息保留率。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-X2 形状为 (样本数,2)。
+```text
+direction absolute: [0.707107, 0.707107]
+variance_ratio=1.000000
+max_reconstruction_error=0.000000
+```
 :::
 
 ::::
@@ -131,8 +152,8 @@ X2 形状为 (样本数,2)。
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 二维可视化
-- 压缩与去相关
+- 相关连续特征的线性压缩
+- 高维点云可视化与去冗余
 :::
 
 

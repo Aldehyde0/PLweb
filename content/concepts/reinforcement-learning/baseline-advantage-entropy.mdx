@@ -56,18 +56,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Baseline、Advantage 与 Entropy并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 把降低方差、比较相对动作价值与鼓励探索三种作用分开。
+- 独立复核“优势的策略平均为零，熵则描述分散程度”的输入、计算和解释。
+- 优势描述相对价值，熵只描述概率分布。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Baseline、Advantage 与 Entropy位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+把降低方差、比较相对动作价值与鼓励探索三种作用分开。
 :::
 
 
@@ -78,36 +76,32 @@ Baseline、Advantage 与 Entropy位于“状态—行动—反馈—更新”学
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+一个任务里所有轨迹奖励都很大，但动作之间只差一点。直接乘原始回报会使梯度波动很强；同时策略过早只选一个动作可能失去探索。baseline、advantage 与 entropy 针对的是不同现象。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-A(s,a)=Q(s,a)−V(s)；熵奖励鼓励更分散动作概率。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+基线是从回报信号中减去的参考量，典型选择是状态价值；优势 Aπ(s,a)=Qπ(s,a)−Vπ(s) 表示动作相对当前策略平均的好坏。熵衡量动作分布的分散程度，作为奖励或正则鼓励保持多样性。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-不问绝对得分，而问“比这个局面的正常水平好多少”。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+考试总分由题目难度共同影响，比较“比该题平均水平高多少”比只比较原始分数更有针对性。熵则像避免班级所有人过早只押一种答题方式，与扣除平均分是两回事。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-baseline 不应引入动作依赖偏差。
+理想条件下，减去不依赖当前动作的基线不改变 score-function 梯度期望，但可以改变方差。学习出来的基线不一定降低每一批方差；若错误地加入动作依赖或让 actor 路径穿过目标，需重新分析。
 
-entropy 系数过大妨碍收敛。
+优势不是概率，也不要求每个采样批次均值恰好为零。理论上的策略加权优势期望为零；经验标准化是数值处理，会改变有限批次尺度，不等于真实优势被准确估计。
+
+离散分布均匀时熵最大，确定策略熵为零。较大的熵系数会鼓励分散，也可能让策略持续执行低收益动作；熵更高不能直接解读为探索到了有价值的新区域。
 :::
 
 
@@ -146,30 +140,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Baseline、Advantage 与 Entropy的最小计算
+### 优势的策略平均为零，熵则描述分散程度
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 动作概率为 0.25、0.75，Q 为 2、6。
+- 状态价值按该策略计算为 5，使用自然对数。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 优势为 −3 与 1。
+2. 策略加权均值为 0.25×(−3)+0.75×1=0。
+3. 熵为 −0.25 ln0.25−0.75 ln0.75≈0.562335。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+优势为 −3、1，加权平均为零；该分布熵为 0.562335 nats。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 优势描述相对价值，熵只描述概率分布。
+- 非均匀策略下，优势的简单算术均值未必为零。
 :::
 
 
@@ -187,7 +178,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Baseline、Advantage 与 Entropy的本地数值骨架
+### 优势的策略平均为零，熵则描述分散程度
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -195,28 +186,33 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+优势为 −3、1，加权平均为零；该分布熵为 0.562335 nats。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+import math
+probabilities, q = [0.25, 0.75], [2.0, 6.0]
+value = sum(p * x for p, x in zip(probabilities, q))
+advantage = [x - value for x in q]
+weighted = sum(p * a for p, a in zip(probabilities, advantage))
+entropy = -sum(p * math.log(p) for p in probabilities)
+print(f"advantages={advantage}, weighted_mean={weighted:.6f}")
+print(f"entropy={entropy:.6f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 优势为 −3 与 1。
+- 策略加权均值为 0.25×(−3)+0.75×1=0。
+- 熵为 −0.25 ln0.25−0.75 ln0.75≈0.562335。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+advantages=[-3.0, 1.0], weighted_mean=0.000000
+entropy=0.562335
+```
 :::
 
 ::::
@@ -232,9 +228,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 使用动作依赖基线却不考虑梯度偏差。
+- 把标准化后的零均值当作 critic 已经准确。
+- 把熵系数增大视为无条件的性能改进。
 :::
 
 
@@ -245,7 +241,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Sutton 与 Barto《Reinforcement Learning: An Introduction》](http://incompleteideas.net/book/the-book-2nd.html)（第 13 章）。
 :::
 
 
@@ -256,9 +252,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 使用动作依赖基线却不考虑梯度偏差。
+- 把标准化后的零均值当作 critic 已经准确。
+- 把熵系数增大视为无条件的性能改进。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -275,11 +271,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Baseline、Advantage 与 Entropy是 on-policy 还是 off-policy？
+### 熵奖励和奖励塑形一样吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+两者都可能改变优化目标，但熵依赖策略分布，主要调节随机性；势函数塑形依赖状态势差，并在特定条件下保持原任务最优策略。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -289,4 +285,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

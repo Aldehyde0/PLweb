@@ -54,18 +54,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Monte Carlo Method并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 从完整采样回报估计策略价值，辨别首次访问和每次访问的计数规则。
+- 独立复核“同一 episode 重访状态时的两种统计”的输入、计算和解释。
+- 首次访问是每个 episode 内的规则。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Monte Carlo Method位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+从完整采样回报估计策略价值，辨别首次访问和每次访问的计数规则。
 :::
 
 
@@ -76,38 +74,32 @@ Monte Carlo Method位于“状态—行动—反馈—更新”学习链中的�
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+打完一局牌后，可以回看每个决策点到结束实际拿到了多少分，不需要知道所有转移概率。不同对局结果很随机，因此不能把一次好结果直接当成这个状态的价值。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-MC 不 bootstrap，直接用采样到的 Gt 作为目标。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+Monte Carlo 策略评价用实际采样到的完整回报作为目标，不用价值估计补足未来。首次访问方法在每个 episode 仅使用某状态首次出现的回报；每次访问方法使用该状态各次出现的回报。两者计数不同，有限样本估计也可能不同。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-整局结束后复盘每个状态最终得到多少回报。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+用多次完整旅程的实际总费用评价一个出发点，而不是走一步就借助另一个估计猜剩余费用。旅程越长、路况越随机，总费用样本的波动可能越大。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-无 bootstrap 偏差较小但方差高。
+对固定策略，可累加回报再除以访问次数，也可用增量平均更新。固定步长会更重视近来的样本，适应变化较快，但不等价于所有历史回报的算术平均。
 
-需要 episode 终止。
+完整回报避免了 bootstrap 引入的估计误差，却仍受奖励噪声、轨迹方差和策略分布影响。off-policy MC 还需满足支持条件并处理重要性采样的高方差，不能仅说“不自举所以无任何偏差”。
 
-可用 first-visit 或 every-visit。
+标准 episodic MC 需要获得终止回报。把未完成的片段剩余回报直接设零，会低估持续任务价值；使用后继估计补足后，目标已变为 n-step 或其他 bootstrap 方法。
 :::
 
 
@@ -146,30 +138,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Monte Carlo Method的最小计算
+### 同一 episode 重访状态时的两种统计
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 一局中状态 s 出现在时刻 0 与 2，对应完整回报为 4 与 2。
+- 另一局只出现一次，对应回报为 6。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 首次访问仅收集第一局的 4 和第二局的 6，均值为 5。
+2. 每次访问收集 4、2、6，均值为 4。
+3. 这只是两局的有限样本差异，不说明哪种估计总是更好。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+首次访问估计为 5.000，每次访问估计为 4.000。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 首次访问是每个 episode 内的规则。
+- 回报目标直接来自完整轨迹，不是 TD 后继估计。
 :::
 
 
@@ -186,7 +175,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Monte Carlo Method的本地数值骨架
+### 同一 episode 重访状态时的两种统计
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -194,28 +183,30 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+首次访问估计为 5.000，每次访问估计为 4.000。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+episode_returns = [[4.0, 2.0], [6.0]]
+first_visit = [values[0] for values in episode_returns]
+every_visit = [value for values in episode_returns for value in values]
+print(f"first_visit={sum(first_visit)/len(first_visit):.3f}")
+print(f"every_visit={sum(every_visit)/len(every_visit):.3f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 首次访问仅收集第一局的 4 和第二局的 6，均值为 5。
+- 每次访问收集 4、2、6，均值为 4。
+- 这只是两局的有限样本差异，不说明哪种估计总是更好。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+first_visit=5.000
+every_visit=4.000
+```
 :::
 
 ::::
@@ -231,9 +222,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 把首次访问解释成整个训练过程只更新一次。
+- 时间截断后把未见未来全部当作真实零回报。
+- 把固定步长更新称为精确历史平均。
 :::
 
 
@@ -244,7 +235,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Sutton 与 Barto《Reinforcement Learning: An Introduction》](http://incompleteideas.net/book/the-book-2nd.html)（第 5 章）。
 :::
 
 
@@ -255,9 +246,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 把首次访问解释成整个训练过程只更新一次。
+- 时间截断后把未见未来全部当作真实零回报。
+- 把固定步长更新称为精确历史平均。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -274,11 +265,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Monte Carlo Method是 on-policy 还是 off-policy？
+### MC 的目标无 bootstrap，估计就一定无偏吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+完整同策略回报有对应的期望解释，但有限样本、访问选择、重要性比率归一化与函数逼近仍需要分别分析，不能笼统保证所有实现无偏。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -288,4 +279,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

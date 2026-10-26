@@ -40,18 +40,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释局部连接/共享
-- 追踪 NCHW
-- 构建简单 CNN
+- 追踪灰度分类器的完整形状链
+- 更深层为什么经常用更多通道、更小空间？
+- 说明：随机张量前向只验证结构契约；分类准确率必须由真实且独立的数据评估。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-视觉模型基础
-
-理解卷积、池化和形状
+卷积神经网络是以卷积特征提取为核心的网络，通常结合非线性、归一化与下采样，再用任务头进行分类、检测或分割。
 :::
 
 
@@ -62,30 +60,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-展平大图接全连接层参数巨大且忽略空间邻近结构。
+图像分类既需要识别局部边缘，也需要把局部证据组合成整体语义。CNN 通过多层局部运算，让特征的感受范围逐步扩大，而不是一开始就给每个像素独立全连接权重。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-CNN 用可学习卷积核生成特征图，逐层组合边缘、纹理、部件和语义。
+卷积神经网络是以卷积特征提取为核心的网络，通常结合非线性、归一化与下采样，再用任务头进行分类、检测或分割。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-同一小型检测器在整张图上滑动，寻找相同局部模式。
+第一层寻找小图案，后续层把多个小图案组合。空间网格逐渐变粗，通道则可以存放更多不同类型的特征。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-卷积参数量与输入高宽无关；浅层高分辨率、深层高语义。
+卷积负责局部混合与共享，激活提供非线性；只叠线性卷积仍然缺少必要的非线性表达。下采样可以由池化或带步长卷积完成，它降低计算量，也丢失位置细节。
 
-典型模块 Conv→Norm→Activation，下采样由池化或 stride 卷积完成。
+深层单元的理论感受野随核和步长扩大，但实际对各位置的影响并不均匀。分类头可使用全局平均池化后接线性层，减少对固定输入分辨率的依赖；展平后全连接则把参数量绑定到特征图尺寸。
+
+输入通道、数值范围和预处理必须与模型一致。灰度网络不能直接接三通道图像，预训练权重也通常要求配套归一化。CNN 的局部先验很有用，但长距离关系、旋转或域变化不会自动得到解决。
 :::
 
 
@@ -103,7 +103,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-启用 bias 时每个输出通道多一个偏置。
+卷积神经网络是以卷积特征提取为核心的网络，通常结合非线性、归一化与下采样，再用任务头进行分类、检测或分割。
 :::
 
 ::::
@@ -124,37 +124,43 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 3→64 的 3×3 卷积
+### 追踪灰度分类器的完整形状链
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- Cin=3
-- Cout=64
-- bias=True
+- 输入为 8 张 28×28 灰度图
+- 卷积输出 16 通道，3×3 核、padding=1；随后 2×2 池化
+- 最终输出 10 类 logits
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 64×(3×3×3+1)
+1. 卷积得到 (8,16,28,28)。
+2. 池化得到 (8,16,14,14)，展平后每张有 3136 维。
+3. 线性层把 3136 维映射为 10 个分数。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-1792 参数
+最终输出形状为 (8,10)；卷积有 160 个参数，线性层有 31370 个参数。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 随机张量前向只验证结构契约；分类准确率必须由真实且独立的数据评估。
 :::
+
+### 追踪灰度分类器的完整形状链
+
+卷积参数为 16×(1×3×3+1)=160，而线性层为 10×(3136+1)=31370。这个小网络中，分类头反而占了大部分参数，不能只看到卷积层就认定参数一定少。
+
+如果把输入改成 32×32，池化后为 16×16，原线性层就不再匹配。可以固定输入尺寸，也可以明确改为自适应池化；不能靠随意 reshape 抹平尺寸错误。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 输入 NCHW
-2. 卷积提特征
-3. 激活
-4. 下采样
-5. 深层组合
-6. 分类头
+1. 卷积得到 (8,16,28,28)。
+2. 池化得到 (8,16,14,14)，展平后每张有 3136 维。
+3. 线性层把 3136 维映射为 10 个分数。
 :::
 
 
@@ -162,33 +168,40 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 卷积神经网络 · PyTorch 示例
+### 追踪灰度分类器的完整形状链的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证卷积神经网络的输入、计算和输出。
+使用完整构造输入核对追踪灰度分类器的完整形状链，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-model=nn.Sequential(nn.Conv2d(1,16,3,padding=1),nn.ReLU(),nn.MaxPool2d(2),nn.Flatten(),nn.Linear(16*14*14,10))
-print(model(torch.randn(8,1,28,28)).shape)
+```python
+import torch
+from torch import nn
+model = nn.Sequential(nn.Conv2d(1, 16, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2), nn.Flatten(), nn.Linear(16 * 14 * 14, 10))
+out = model(torch.zeros(8, 1, 28, 28))
+print(tuple(out.shape))
+print("conv params:", sum(p.numel() for p in model[0].parameters()))
+print("head params:", sum(p.numel() for p in model[-1].parameters()))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- padding 保持卷积尺寸
-- 池化减半
-- Flatten 保留 batch
-- 输出 10 logits
+- 完整定义模型与输入。
+- 只打印结构和参数数，不把随机输出当模型效果。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-torch.Size(\[8,10\])。
+```text
+(8, 10)
+conv params: 160
+head params: 31370
+```
 :::
 
 ::::
@@ -196,8 +209,8 @@ torch.Size(\[8,10\])。
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 图像分类
-- 频谱/网格数据
+- 图像分类特征提取
+- 检测与分割的视觉骨干网络
 :::
 
 
@@ -218,18 +231,17 @@ torch.Size(\[8,10\])。
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### CNN 参数为何少？
+### 更深层为什么经常用更多通道、更小空间？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-局部连接与跨位置权重共享。
+下采样控制空间计算成本，更多通道提供更多特征类型；这是常见设计权衡，不是每种任务都必须遵循的定律。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### CNN 是否平移不变？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-卷积近似等变，池化/汇总提供有限稳健性。
+随机张量前向只验证结构契约；分类准确率必须由真实且独立的数据评估。
 :::
-

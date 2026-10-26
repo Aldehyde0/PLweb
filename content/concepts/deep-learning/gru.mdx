@@ -35,18 +35,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释核心机制
-- 手算一个主要形状或公式
-- 运行完整示例并排查错误
+- 更新门如何控制旧状态保留
+- GRU 是否完全没有记忆状态？
+- 说明：更新门的方向依赖公式约定；GRU 更简洁不等于对所有数据更优。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-掌握GRU的输入输出与训练边界
-
-能够用 PyTorch 代码验证公式和形状
+GRU 以重置门影响候选状态，以更新门混合旧状态与新候选。这里采用 PyTorch 约定：h=(1-z)×n+z×h_prev，因此 z 越大越保留旧状态。
 :::
 
 
@@ -57,30 +55,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-GRU是该文档中连接数据表示、训练目标和工程实现的核心主题。
+LSTM 的多组门和两种状态增加了复杂度。GRU 将记忆控制压缩到单一隐藏状态，并用更新门与重置门调节历史和候选内容的结合。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-GRU 用重置门和更新门在旧状态与新候选之间平滑选择。
+GRU 以重置门影响候选状态，以更新门混合旧状态与新候选。这里采用 PyTorch 约定：h=(1-z)×n+z×h_prev，因此 z 越大越保留旧状态。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把GRU理解为数据在模型中的一套明确变换，而不是只记一个类名。
+更新门像混合旋钮，在旧笔记和新建议之间分配比例；重置门决定构造新建议时要参考多少旧笔记。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-GRU 状态更简洁，参数与计算通常少于 LSTM，但优劣需验证。
+重置门 r 与更新门 z 都依赖输入及前一状态。候选 n 使用 tanh，随后做逐元素混合。不同教材可能把更新门 z 的命名互补，比较公式时必须看它乘的是旧状态还是候选状态。
 
-实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+PyTorch 在候选分支采用重置门乘在隐藏线性变换结果上的实现，和某些原始公式把 r 先乘 h 再做矩阵变换不完全相同。迁移手写权重时，不能只按三个门的名字机械复制。
+
+GRU 没有独立 c 状态，同 hidden size 下通常比 LSTM 参数少，但不保证在每种任务更快或更准确。长序列、padding、初始状态和跨样本重置仍与其他循环模型一样需要处理。
 :::
 
 
@@ -98,7 +98,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-GRU的核心数学表达。
+GRU 以重置门影响候选状态，以更新门混合旧状态与新候选。这里采用 PyTorch 约定：h=(1-z)×n+z×h_prev，因此 z 越大越保留旧状态。
 :::
 
 ::::
@@ -118,37 +118,40 @@ GRU的核心数学表达。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### GRU数值/形状检查
+### 更新门如何控制旧状态保留
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=8
-- D=64
+- h_prev=2，候选 n=0.5
+- 比较 z=0.2 和 z=0.8
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 按公式或模块逐步计算
-2. 核对输出 shape
+1. z=0.2 时输出 0.8×0.5+0.2×2=0.8。
+2. z=0.8 时输出 0.2×0.5+0.8×2=1.7。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出保持 batch 维并符合任务头约定
+较大的 z 让结果更接近旧状态 2。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 更新门的方向依赖公式约定；GRU 更简洁不等于对所有数据更优。
 :::
+
+### 更新门如何控制旧状态保留
+
+这是给定门值的代数演示，不要求完整 GRU 先计算门。它能防止一个常见误读：看到“更新门大”就断言更新更多新信息，却没有检查公式约定。
+
+z=1 时完全保留旧状态，z=0 时完全使用候选。候选本身已经通过重置门参考历史，所以“选择候选”也不等于完全忘记过去。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认输入与目标
-2. 建立最小模块
-3. 随机张量前向
-4. 计算损失
-5. 反向与更新
-6. 验证与错误分析
+1. z=0.2 时输出 0.8×0.5+0.2×2=0.8。
+2. z=0.8 时输出 0.2×0.5+0.8×2=1.7。
 :::
 
 
@@ -156,34 +159,37 @@ GRU的核心数学表达。
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### GRU · PyTorch 示例
+### 更新门如何控制旧状态保留的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证GRU的输入、计算和输出。
+使用完整构造输入核对更新门如何控制旧状态保留，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-gru=nn.GRU(64,128,batch_first=True)
-x=torch.randn(8,20,64)
-out,h=gru(x)
-print(out.shape,h.shape)
+```python
+import torch
+h_prev, candidate = torch.tensor(2.), torch.tensor(0.5)
+for z in [0.2, 0.8]:
+    h = (1 - z) * candidate + z * h_prev
+    print(f"z={z:.1f} hidden={h.item():.1f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码显式标注输入和输出
-- 使用框架稳定实现
-- 结果通过 shape 或数值检查
+- 采用页面与 PyTorch 相同的旧状态系数约定。
+- 只验证混合公式，不引入未训练的网络表现。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印与页面说明一致的张量形状或损失。
+```text
+z=0.2 hidden=0.8
+z=0.8 hidden=1.7
+```
 :::
 
 ::::
@@ -191,8 +197,8 @@ print(out.shape,h.shape)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- GRU
-- 教学与项目基线
+- 资源受限的循环序列基线
+- 比较门控模型的状态成本
 :::
 
 
@@ -212,18 +218,17 @@ print(out.shape,h.shape)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### GRU最先检查什么？
+### GRU 是否完全没有记忆状态？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-先检查输入输出 shape、dtype 和数据边界。
+不是，它用隐藏状态本身承载记忆，只是没有 LSTM 那样单独的细胞状态 c。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 何时使用测试集？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-全部设计锁定后最终评估。
+更新门的方向依赖公式约定；GRU 更简洁不等于对所有数据更优。
 :::
-

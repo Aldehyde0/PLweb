@@ -43,7 +43,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-类别数和特征数均高于 Wine，需要 macro F1、混淆矩阵和错误图，而不只是准确率。
+Digits 把手写数字转换成很小的灰度图，适合用传统模型练习图像分类的完整流程。任务输入不是任意手机照片，而是与数据集同样表示的 8×8 像素，输出数字 0 到 9。
+
+本项目限制使用传统机器学习，目的是理解像素表示、预处理、基线、验证与交付。直接换成神经网络或只追求一次最高分，会绕过本练习要掌握的实验边界。
 :::
 
 
@@ -64,7 +66,15 @@ anchorAliases:
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-固定 test\_size=0.2、random\_state=42、stratify=y；训练内部五折分层 CV，macro F1 为主指标。
+load_digits 提供 1797 行、64 个像素特征以及对应的 8×8 图像。像素值在 0 到 16，data 的每一行应与同索引 images 展平结果一致；拆分时保留原始索引，便于后续还原错误图。
+
+固定 test_size 为 0.2、random_state 为 42 并按标签分层，得到 1437 行开发数据和 360 行测试数据。测试集先封存，开发内部采用固定五折分层验证，macro F1 为主指标，同时查看准确率、每类支持和混淆。
+
+先建立 Dummy 基线检查类别与指标，再比较完整的传统模型 Pipeline。像素列有共同取值范围，但不同缩放会改变距离与正则化，不能在全数据上提前学习统计量，也不应未经比较就宣称缩放一定更好。
+
+开发错误用于提出数据或模型假设，最终配置锁定后再评价保留测试。图像观察可以提示笔画缺失或形状相近，但不能为了提高分数删除难例、改测试标签或反复改随机种子。
+
+交付还要声明输入限制。64 维模型不懂原始图片裁剪、缩放、背景或笔画位置；真实照片转换为本格式是另一项需要验证的数据处理任务。Digits 的留出分数不能自动外推到实际扫描或书写人群。
 :::
 
 
@@ -82,22 +92,27 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-固定 test\_size=0.2、random\_state=42、stratify=y；训练内部五折分层 CV，macro F1 为主指标。
+箭头仅表示本项目的工作阶段，不是数学模型。当前代码覆盖审计、固定划分与基线，候选比较和最终交付见对应文章。
 :::
 
 ::::
 
+### 案例：第一阶段只审计、留出与建立基线
+
+下方先核对 images 与 data 一一对应，打印全部 10 类数量和像素范围，再保留测试索引。Dummy 的五折分数只使用开发部分，说明即使尚未比较模型，也已经有清楚的指标与数据边界。
+
+如果把 images 单独重新排序，错误分析时就可能展示另一张图；若改用 0 到 255 的图片而不声明转换，模型输入语义也已改变。这些错误不一定让 fit 报错，因此需要显式审计和契约。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. load\_digits
-2. 核对 data/images 对应
-3. 固定分层划分
-4. 锁定测试集
-5. 建立 Dummy
-6. 比较传统模型
-7. 错误分析
-8. 模型交付
+1. 加载 Digits，核对 1797×64 矩阵、8×8 图像、像素范围和 10 类支持。
+2. 用原始行索引固定 20% 分层测试划分，保持图像与标签对应。
+3. 封存测试，开发部分建立固定五折与 macro F1 主指标。
+4. 运行 Dummy 基线，再在同一组折内比较传统模型与预处理。
+5. 使用开发预测定位错误与参数问题，保留完整记录。
+6. 锁定方案后评价保留测试，报告每类表现与适用范围。
+7. 保存模型、元数据、图表与报告，验证独立预测入口和输入边界。
 :::
 
 
@@ -105,34 +120,59 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Digits 传统机器学习项目 核心代码
+### 完整审计 Digits、保存划分索引并运行常量基线
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应项目要求中的可运行核心步骤。
+复核内置数据表示并建立仅使用开发数据的基线；本阶段不评价测试，不声称完成选型。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
+```Python
+import numpy as np
 from sklearn.datasets import load_digits
-from sklearn.model_selection import train_test_split
-X,y=load_digits(return_X_y=True)
-X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=.2,random_state=42,stratify=y)
-print(X.shape, y.shape)
+from sklearn.dummy import DummyClassifier
+from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
+
+data = load_digits()
+X, y = data.data, data.target
+same_pixels = np.array_equal(X, data.images.reshape(len(y), -1))
+assert same_pixels and X.shape == (1797, 64)
+train, test = train_test_split(np.arange(len(y)), test_size=0.2, stratify=y, random_state=42)
+assert set(train).isdisjoint(test)
+cv = StratifiedKFold(5, shuffle=True, random_state=42)
+scores = cross_val_score(DummyClassifier(strategy="most_frequent"), X[train], y[train],
+    cv=cv, scoring="f1_macro")
+print("data_images:", (X.shape, data.images.shape))
+print("pixel_range:", (float(X.min()), float(X.max())))
+print("same_pixels:", same_pixels)
+print("class_counts:", np.bincount(y, minlength=10).tolist())
+print("train_test:", (len(train), len(test)))
+print(f"development_dummy_macro_f1={scores.mean():.4f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 固定数据协议保证模型公平比较。
-- 测试集在方案锁定前保持不可见。
+- 先划分索引，再索引 data、target 与 images，保留可回查关系。
+- 像素范围 0–16 属于这个数据集，不是通用图像输入范围。
+- Dummy 分数只来自 1437 行开发数据的五折验证。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-X.shape=(1797,64)，y.shape=(1797,)。
+本地 scikit-learn 1.8.0 的核对输出；分数仅属于下方固定教学实验：
+
+```text
+data_images: ((1797, 64), (1797, 8, 8))
+pixel_range: (0.0, 16.0)
+same_pixels: True
+class_counts: [178, 182, 177, 183, 181, 182, 181, 179, 174, 180]
+train_test: (1437, 360)
+development_dummy_macro_f1=0.0183
+```
 :::
 
 ::::
@@ -148,9 +188,9 @@ X.shape=(1797,64)，y.shape=(1797,)。
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 使用 CNN 违反任务
-- 根据测试结果挑随机种子
-- 删除错误样本
+- 把 Digits 等同于任意分辨率和背景的真实照片，不记录像素尺度与展平顺序。
+- 为获得好成绩修改分层随机种子、删除难例或用测试结果选择方案。
+- 训练矩阵与原图索引分开打乱，或以神经网络替代本项目的传统模型练习。
 :::
 
 

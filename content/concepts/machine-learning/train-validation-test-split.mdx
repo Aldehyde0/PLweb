@@ -36,28 +36,40 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-反复查看测试结果并调整方案会使测试集间接参与训练，最终分数过于乐观。
+如果训练和评估使用完全相同的记录，模型可能只是记住样本，也可能从预处理或特征中提前看到了答案。此时看起来很高的分数，不一定能代表遇到新数据后的表现。
+
+三份数据承担不同职责：训练集用于拟合模型与预处理参数；验证集用于比较候选方案、选择阈值或决定早停；测试集用于在方案确定后进行独立的最终评价。它们不是三个可以随意交换的文件名。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-三个数据角色由用途而非文件名决定。任何用于选择模型、特征、阈值或停止时机的数据都属于验证过程。
+数据划分是一种模拟未来使用情形的实验设计。互不重叠通常是基本要求，但仅仅做到行号不同还不够；同一个患者、用户、设备或重复内容可能跨多行出现，仍会造成信息串通。
+
+验证集可以是一次留出的分块，也可以通过交叉验证轮流产生。无论采用哪种方式，测试集都不应参与日常选模型与调参；反复查看测试结果并据此修改方案，会逐渐把测试集当成验证集使用。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-训练集是练习，验证集是模拟考试，测试集是最终考试；不能看着最终答案不断改方案。
+可以把训练集看作练习题，验证集看作选学习方法时使用的模拟测验，测试集看作方法确定后的独立检查。做完独立检查后再按错题调整方法，本身没有错，但这份检查就不再能作为未使用过的最终证据。
+
+划分规则要回答“上线时究竟会遇到什么新东西”。预测同一设备未来的读数，主要需要防止未来信息进入过去；预测从未见过的设备，则还需要考虑设备分组隔离。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-划分应模拟真实使用：时间预测按过去/未来，重复实体按群组隔离，分类常分层。
+一般应先划分，再只在训练集上 fit 预处理器、特征选择器和模型。验证集与测试集应用训练阶段学到的参数进行 transform。交叉验证时，每一折也要遵守同样边界，通常使用 Pipeline 组织。
+
+独立同分布的分类任务常使用分层随机划分，让各分块的类别比例尽量接近。分层不能解决同一实体重复出现或时间泄漏；稀有类别样本太少时，也未必能满足所有分块都包含该类别。
+
+时间任务应考虑按时间先后划分，并检查特征在预测时是否真的可用。不能随机把未来记录放进训练集，再声称验证了预测未来的能力；需要群组隔离时，也不能只靠打乱行顺序。
+
+划分比例没有适合一切任务的固定答案。数据量、类别稀缺程度、时间跨度和群组数量都会影响评估可靠性；固定随机种子只帮助复现某次划分，并不能证明该划分合理。
 :::
 
 
@@ -80,23 +92,32 @@ $$
 
 ::::
 
+## 两个例子：比例正确不等于边界正确 {#worked-example}
+
+**例 1：100 条独立分类样本。** 希望按 60/20/20 分成训练、验证、测试。可以先留出 20% 测试集，剩下 80 条再拿出 25% 做验证，因为 80 × 25% = 20。第二次如果仍用 20%，最终将得到 64/16/20，而不是 60/20/20。
+
+**例 2：按时间预测未来。** 假设记录来自第 1～10 天，可用第 1～6 天训练，第 7～8 天验证，第 9～10 天测试。若某个“过去 7 天统计量”在计算时把未来记录也算进去，即使三份行号完全不重叠，特征仍泄漏了未来。
+
+再看一个预处理边界：训练值只有 0 和 2，训练均值为 1；测试值为 100。如果把测试值也参与求均值，会得到 34，导致变换规则提前适应了测试数据。正确规则应在训练阶段固定，再应用到 100，而不是重新学习。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 定义未来预测对象
-2. 选择时间/群组/随机策略
-3. 保留测试集
-4. 在训练部分交叉验证
-5. 锁定方案
-6. 测试一次并报告
+1. 写清未来要预测的是新时间、新实体，还是同分布的新样本。
+2. 识别重复记录、实体编号、时间戳和可能泄漏的特征，决定划分单位。
+3. 按既定规则留出测试集，再从剩余数据中划分验证集或设置交叉验证。
+4. 检查分块交集、类别比例与时间边界，记录随机种子或群组规则。
+5. 仅用训练数据拟合预处理和模型，用验证结果选择方案。
+6. 方案确定后再对测试集评价，并明确说明评价覆盖的使用场景。
 :::
 
 
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 训练集、验证集与测试集：最小可验证示例
+### 检查 60/20/20 分层划分与样本交集
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -104,25 +125,43 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-把正文原理映射为可检查的代码行为。
+用编号检查数据边界与类别比例，不把编号作为模型特征。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
 from sklearn.model_selection import train_test_split
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42, stratify=y
+
+ids = list(range(100))
+labels = [i % 2 for i in ids]
+train_val_ids, test_ids, train_val_y, test_y = train_test_split(
+    ids, labels, test_size=0.2, random_state=42, stratify=labels
 )
+train_ids, val_ids, train_y, val_y = train_test_split(
+    train_val_ids, train_val_y, test_size=0.25,
+    random_state=42, stratify=train_val_y
+)
+for name, group, y in [("train", train_ids, train_y),
+                       ("val", val_ids, val_y),
+                       ("test", test_ids, test_y)]:
+    print(f"{name}: n={len(group)}, classes={[y.count(0), y.count(1)]}")
+assert set(train_ids).isdisjoint(val_ids)
+assert set(train_ids).isdisjoint(test_ids)
+assert set(val_ids).isdisjoint(test_ids)
+assert len(set(train_ids) | set(val_ids) | set(test_ids)) == 100
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 先确认输入形状和数据边界。
-- 把输出与公式或定义逐项对照。
+- 先划出 20 条测试记录，第二次划分使用的是剩下 80 条中的 25%。
+- 构造标签恰好各 50 条，分层后得到 30/30、10/10、10/10；真实数据的取整与类别稀缺情况还需单独检查。
+- 断言检查行号不重叠且覆盖原始 100 条记录，它们不能替代对时间、实体和特征泄漏的审查。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-得到互不重叠的训练和测试分块，并保持分类比例。
+train: n=60, classes=[30, 30]
+val: n=20, classes=[10, 10]
+test: n=20, classes=[10, 10]
 :::
 
 ::::
@@ -138,9 +177,10 @@ X_train, X_test, y_train, y_test = train_test_split(
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 测试集调参
-- 随机划分时间数据
-- 同一用户跨分块
+- 先对全部数据标准化、填缺失值或选择特征，再划分训练与测试。
+- 同一患者、设备或近乎重复的记录进入不同分块，却仍认为没有泄漏。
+- 时间任务随意随机打乱，或者使用在预测时尚未出现的特征。
+- 反复根据测试集结果修改方案，却继续把该测试分数称为完全独立的最终结果。
 :::
 
 

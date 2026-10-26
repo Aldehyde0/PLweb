@@ -36,28 +36,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-无需预设簇数并能发现弯曲结构，但对尺度、eps 和密度差异敏感。
+K-Means 会把每个点分配给某个中心，孤立异常也必须入组。若希望允许噪声点、发现弯曲的高密度区域，可以改从局部邻域连接出发；DBSCAN 的难点转为距离尺度与密度阈值选择。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-eps 定义邻域半径，min\_samples 定义核心点密度；样本分核心点、边界点与噪声点。
+DBSCAN 以 eps 半径内的样本数判断核心点，scikit-learn 的 min_samples 包含样本自身。相连核心点及其邻域形成簇，靠近核心点但自身密度不足的是边界点，其余为噪声，常标为 −1。它无需预先给簇数，但并非无需参数。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-从人群足够密集的位置出发，把相连的高密度邻域扩成一组。
+人群中的密集站点能继续把相邻人群连接起来，边缘围观者可以加入，却不能仅靠一条稀疏人链无限扩张。核心点和边界点的不同作用决定了扩张边界。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-标准化后根据距离分布选择 eps；高维中距离失去区分力，统一 eps 难覆盖密度差异大的簇。
+从一个核心点扩展时，遇到其他核心点可以继续扩张；仅有边界点不能作为新的扩张源。先被标记为噪声的点若后来进入核心邻域，可以成为边界点，因此一次暂定噪声不是不可撤销的真值。
+
+eps 依赖距离单位与特征尺度，min_samples 表示局部支持需求。统一阈值难同时适应密度差异很大的簇，高维距离集中也会削弱邻域判断；缩放和度量选择需要任务解释。
+
+噪声标签不是异常真实标签，可能只是阈值下未连接的正常小群体。边界点同时邻近两个簇时，归属可能受遍历顺序影响；评测还需报告噪声比例与覆盖，不能只把噪声删掉后展示漂亮簇。
 :::
 
 
@@ -65,30 +69,35 @@ eps 定义邻域半径，min\_samples 定义核心点密度；样本分核心点
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 核心表达
+### eps 邻域与核心条件
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-core(x) ⇔ |Nε(x)|≥min_samples
+N_\varepsilon(x)=\{z:d(x,z)\le\varepsilon\},\qquad |N_\varepsilon(x)|\ge m
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-标准化后根据距离分布选择 eps；高维中距离失去区分力，统一 eps 难覆盖密度差异大的簇。
+本页沿用包含自身的样本计数，m 为 min_samples；有样本权重时实现可使用加权条件。
 :::
 
 ::::
 
+## 手算与场景核对 {#worked-example}
+
+一维点为 0、0.1、0.2、0.3、1，eps=0.11，min_samples=3。点 0.1 的邻域含 0、0.1、0.2，点 0.2 的邻域含 0.1、0.2、0.3，它们是核心点。
+
+点 0 与 0.3 自己只各有两个邻居计数，却紧邻核心点，因此是边界点；点 1 孤立，标为噪声。前四个点成一簇，只有中间两个点是核心。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 标准化
-2. 设置 eps/min\_samples
-3. 找核心点
-4. 扩展相连核心邻域
-5. 加入边界点
-6. 噪声标 -1
+1. 确定特征尺度与距离度量，检查邻域语义。
+2. 选择 eps 与 min_samples，明确是否包含自身。
+3. 识别核心点，从未访问核心点扩展密度连接区域。
+4. 加入核心邻域的边界点，不通过单独边界继续扩张。
+5. 标记剩余噪声，比较参数敏感性、覆盖率与业务解释。
 :::
 
 
@@ -96,32 +105,44 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### DBSCAN 密度聚类 实现
+### 区分核心点、边界点和噪声
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的训练与预测逻辑。
+完整指定一维数据与参数，核对 min_samples 包含自身。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
+```Python
+import numpy as np
 from sklearn.cluster import DBSCAN
-labels=DBSCAN(eps=0.8,min_samples=5).fit_predict(X_scaled)
-print(set(labels))
+
+X = np.array([[0.0], [0.1], [0.2], [0.3], [1.0]])
+model = DBSCAN(eps=0.11, min_samples=3).fit(X)
+core = set(model.core_sample_indices_.tolist())
+boundary = [i for i, label in enumerate(model.labels_) if label != -1 and i not in core]
+print("labels=" + ",".join(map(str, model.labels_)))
+print(f"core={sorted(core)}, boundary={boundary}")
+print("noise=" + str(np.flatnonzero(model.labels_ == -1).tolist()))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码先建立符合输入要求的估计器。
-- 参数应在交叉验证中选择，测试集不参与。
+- 坐标单位固定，eps 与同一欧氏距离单位对应。
+- 索引 1、2 才是核心点，索引 0、3 为边界点。
+- 簇编号任意；此处 −1 表示算法噪声，不是业务真值。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-输出簇编号集合，可能包含噪声标记 -1。
+```text
+labels=0,0,0,0,-1
+core=[1, 2], boundary=[0, 3]
+noise=[4]
+```
 :::
 
 ::::
@@ -129,20 +150,25 @@ print(set(labels))
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 空间形状聚类
-- 噪声识别
+- 寻找可能非球形的高密度区域，同时允许未分配点。
+- 作为探索性噪声筛查，但仍需要独立异常定义。
 :::
 
 
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 未缩放
-- 把 -1 当普通簇
-- 一组参数处理差异密度
+- min_samples 计数时漏掉自身，导致核心点集合错误。
+- 允许边界点无限扩张，把稀疏链连成一簇。
+- 把 −1 直接当作已证实的异常或欺诈标签。
 :::
 
 
 ## 与其他概念的关系 {#related}
 
 <ConceptRelated />
+
+
+## 资料与假设 {#source-notes}
+
+参见 [scikit-learn：DBSCAN](https://scikit-learn.org/stable/modules/clustering.html#dbscan)。 本页数值均为构造例；涉及模型分数时仅说明给定数据与协议下的计算。

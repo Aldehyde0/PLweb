@@ -54,18 +54,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Model-free 与 Model-based RL并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 依据是否显式预测环境后果区分学习路线，理解模型误差如何进入决策。
+- 独立复核“微小一步误差如何随预测长度积累”的输入、计算和解释。
+- 模型能减少真实采样，但预测误差会影响规划。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Model-free 与 Model-based RL位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+依据是否显式预测环境后果区分学习路线，理解模型误差如何进入决策。
 :::
 
 
@@ -76,36 +74,32 @@ Model-free 与 Model-based RL位于“状态—行动—反馈—更新”学习
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+机器人可以直接从试错学习哪个动作价值更高，也可以先学习“推一下会移动多远”，再在预测模型里比较动作。后者可能节省真实试验，但错误模型会把规划引向不存在的捷径。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Model-free 不显式学习 P,R；Model-based 使用已知或学习模型预测。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+model-free 方法直接学习价值、策略或其组合，不要求显式的环境转移模型。model-based 方法利用已知或学习到的动力学与奖励模型进行规划、产生模拟数据或构造训练目标。是否使用神经网络、是否有 critic，都不能单独决定归属。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-前者靠练习形成策略，后者还学习“世界如何变化”并在内部预演。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+直接学会熟练骑车是一种经验控制；在脑中预测“向左打把后车会怎么走”再选择动作类似模型规划。两种能力可以同时存在，并非互斥的身份标签。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-模型可提高样本效率但引入模型偏差。
+环境模型可以预测下一状态分布、潜在状态或奖励；价值函数预测的是未来累计收益。一个 critic 并不因此成为 world model，二者预测对象和使用方式不同。
 
-规划成本可能很高。
+规划会反复查询模型，也会搜索模型最乐观的区域。因此训练集单步预测误差小，未必保证规划后策略好；长 rollout 中误差累积，分布外查询可能尤其严重。
+
+Dyna 类方法混用真实与模型生成数据，MPC 每一步执行短期计划的首个动作再重规划。它们能提高部分任务的样本利用率，但要付出模型训练、规划计算与模型偏差的代价。
 :::
 
 
@@ -113,17 +107,17 @@ Model-free 不显式学习 P,R；Model-based 使用已知或学习模型预测�
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### 确定性动力学模型的预测示例
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+\hat s_{t+1}=f_\psi(s_t,a_t),\qquad \mathcal L_{model}=\mathbb E_{\mathcal D}\lVert f_\psi(s,a)-s\prime\rVert^2
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+这是连续状态确定性均值模型的教学目标；随机动力学可需要概率模型，价值函数不等于下一状态模型。
 :::
 
 ::::
@@ -134,9 +128,9 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| fψ | 显式状态转移预测器 |
+| s′ | 数据中的后继状态 |
+| D | 采样转移数据 |
 :::
 
 ::::
@@ -144,30 +138,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Model-free 与 Model-based RL的最小计算
+### 微小一步误差如何随预测长度积累
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 真实系统为下一位置等于当前位置加动作。
+- 模型每一步额外高估 0.1，连续施加三次动作 1。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 真实预测序列是 1、2、3。
+2. 模型预测序列是 1.1、2.2、3.3。
+3. 三步误差达到 0.3；非线性系统可能更复杂。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+构造线性例中，单步偏差 0.1 累积为三步位置误差 0.3。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 模型能减少真实采样，但预测误差会影响规划。
+- 本例是线性累加，不是所有系统误差增长率的通用公式。
 :::
 
 
@@ -184,7 +175,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Model-free 与 Model-based RL的本地数值骨架
+### 微小一步误差如何随预测长度积累
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -192,28 +183,31 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+构造线性例中，单步偏差 0.1 累积为三步位置误差 0.3。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+true_state = model_state = 0.0
+for step in range(1, 4):
+    true_state += 1.0
+    model_state += 1.1
+    print(f"step={step} true={true_state:.1f} model={model_state:.1f} error={model_state-true_state:.1f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 真实预测序列是 1、2、3。
+- 模型预测序列是 1.1、2.2、3.3。
+- 三步误差达到 0.3；非线性系统可能更复杂。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+step=1 true=1.0 model=1.1 error=0.1
+step=2 true=2.0 model=2.2 error=0.2
+step=3 true=3.0 model=3.3 error=0.3
+```
 :::
 
 ::::
@@ -229,9 +223,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 把所有神经网络控制器都称为 model-free。
+- 把价值网络误认成预测下一状态的动力学模型。
+- 只评估单步模型误差，不验证规划产生的状态分布。
 :::
 
 
@@ -242,7 +236,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Sutton 与 Barto《Reinforcement Learning: An Introduction》](http://incompleteideas.net/book/the-book-2nd.html)（第 8 章）。
 :::
 
 
@@ -253,9 +247,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 把所有神经网络控制器都称为 model-free。
+- 把价值网络误认成预测下一状态的动力学模型。
+- 只评估单步模型误差，不验证规划产生的状态分布。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -272,11 +266,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Model-free 与 Model-based RL是 on-policy 还是 off-policy？
+### 学到了世界模型就一定更省样本吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+不一定。优势取决于模型能否在策略查询区域准确预测、规划预算是否足够，以及训练模型所需的数据成本。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -286,4 +280,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

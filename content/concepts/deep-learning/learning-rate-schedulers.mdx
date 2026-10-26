@@ -37,18 +37,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 选择调用单位
-- 正确顺序
-- 实现 warmup
+- 四步余弦调度的端点与中点
+- 平台调度器应监控训练还是验证损失？
+- 说明：调度曲线不是收敛证明；总预算改变后必须重新核对进度单位。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-保证学习率曲线正确
-
-梯度累积时尤关键
+学习率调度将训练进度或验证反馈映射为学习率。固定阶梯、余弦、热身、单周期和平台衰减分别表达不同的时间或反馈假设。
 :::
 
 
@@ -59,30 +57,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-step 放错频率会把计划压缩或拉长数十倍。
+训练初期大步探索、后期小步调整是常见策略，但学习率不能只凭曲线名称设置。总更新数、热身长度和调用位置都决定真正执行的序列。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Step/Cosine 常按 epoch，OneCycle 按 update，Plateau 在验证后接收指标。
+学习率调度将训练进度或验证反馈映射为学习率。固定阶梯、余弦、热身、单周期和平台衰减分别表达不同的时间或反馈假设。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-调度步就是你调用 step 的次数，不天然等于 epoch。
+调度表像按里程安排速度。如果把每个数据批当作里程，而实际两批才更新一次，速度表会提前走完。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-常规先 optimizer.step 后 scheduler.step；Plateau 例外需要验证指标。
+余弦衰减在指定区间把学习率从最大值平滑降到最小值。公式中的 t 与 T 必须是同一单位；若 T=1000 个更新，不能把 t 当 epoch。热身常用于逐渐放大学习率，长度也要记录单位。
 
-梯度累积时按真实 optimizer update 推进。
+StepLR、CosineAnnealingLR 等通常在优化器更新后调用，是否按批或按轮取决于配置。ReduceLROnPlateau 则需要验证指标，并在持续不改善时降低学习率，不能把它按普通无参数 step 使用。
+
+断点恢复必须保留调度器计数与优化器当前学习率。改变 batch 大小、梯度累积或剩余预算后，还要决定延续原计划还是重定计划，避免日志看似连续、数值已经重启。
 :::
 
 
@@ -100,7 +100,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-余弦退火。
+学习率调度将训练进度或验证反馈映射为学习率。固定阶梯、余弦、热身、单周期和平台衰减分别表达不同的时间或反馈假设。
 :::
 
 ::::
@@ -120,36 +120,42 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 梯度累积调度
+### 四步余弦调度的端点与中点
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 100 micro-batch
-- 每4批 step
+- 初始学习率 0.1，eta_min=0，T_max=4
+- 每个参数更新后推进一次
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 100/4
+1. t=0 时使用 0.1。
+2. t=2 时余弦项为 0，学习率为 0.05。
+3. t=4 时达到 0。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-每 epoch 推进 25 次
+更新后的调度值依次约为 0.085355、0.05、0.014645、0。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 调度曲线不是收敛证明；总预算改变后必须重新核对进度单位。
 :::
+
+### 四步余弦调度的端点与中点
+
+这里 T_max 指四次调度调用。代码同时打印起点，再逐次更新并打印下一步学习率，便于对应公式端点。
+
+若训练只做两次更新，却每批调用四次，学习率会过早降到底。反之不推进则始终停留在初始值；两者都不能仅凭选择了 Cosine 名称保证正确。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确定单位
-2. 构造 scheduler
-3. 训练更新参数
-4. 推进调度
-5. 记录 lr
-6. 保存状态
+1. t=0 时使用 0.1。
+2. t=2 时余弦项为 0，学习率为 0.05。
+3. t=4 时达到 0。
 :::
 
 
@@ -157,32 +163,45 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 学习率调度器 · PyTorch 示例
+### 四步余弦调度的端点与中点的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证学习率调度器的输入、计算和输出。
+使用完整构造输入核对四步余弦调度的端点与中点，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-scheduler=torch.optim.lr_scheduler.OneCycleLR(optimizer,max_lr=1e-2,epochs=10,steps_per_epoch=len(loader))
-optimizer.step();scheduler.step()
+```python
+import torch
+p = torch.nn.Parameter(torch.tensor(0.))
+opt = torch.optim.SGD([p], lr=0.1)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=4)
+print(f"t=0 lr={opt.param_groups[0]['lr']:.6f}")
+for t in range(1, 5):
+    p.grad = torch.zeros_like(p)
+    opt.step()
+    scheduler.step()
+    print(f"t={t} lr={opt.param_groups[0]['lr']:.6f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- OneCycle 每 update 调
-- 顺序 optimizer 后
-- 总步数需匹配
+- 四次更新与四次调度严格配对。
+- 打印的是调度后供下一步使用的值。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-学习率按 OneCycle 曲线变化。
+```text
+t=0 lr=0.100000
+t=1 lr=0.085355
+t=2 lr=0.050000
+t=3 lr=0.014645
+t=4 lr=0.000000
+```
 :::
 
 ::::
@@ -190,8 +209,8 @@ optimizer.step();scheduler.step()
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 训练收敛
-- 微调 warmup
+- 训练后期逐步减小更新
+- 按验证停滞触发学习率下降
 :::
 
 
@@ -212,18 +231,17 @@ optimizer.step();scheduler.step()
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### StepLR 的 step\_size 单位？
+### 平台调度器应监控训练还是验证损失？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-scheduler.step 调用次数。
+通常根据要优化的验证指标设置方向与耐心值；训练损失下降不能代表泛化改善。指标、mode 和评估频率必须一起记录。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### Plateau 何时调用？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-验证完成后传入监控指标。
+调度曲线不是收敛证明；总预算改变后必须重新核对进度单位。
 :::
-

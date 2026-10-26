@@ -46,9 +46,9 @@ anchorAliases:
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-理解参数如何影响输出
+人工神经元把特征、权重、偏置和激活连接在同一个计算单元中。看懂这个单元，才能解释网络中的参数究竟作用在哪一步，而不是只会调用一个层的名称。
 
-连接前向、损失和梯度
+同一套参数可以同时处理一批样本，多个神经元并排组成一层。后续网络结构与训练过程，都可以从这个最小单元逐步展开。
 :::
 
 
@@ -59,30 +59,40 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-神经元是 Linear、卷积和注意力投影的共同局部基础。
+如果要根据两个特征给出一个分数，可以先让每个特征乘以一个权重，再把它们相加。问题在于，只有加权和时，无论叠多少层，整体仍可能只是一个线性关系。
+
+激活函数把线性组合转换成非线性输出，让多层组合能够表示更复杂的关系。人工神经元是数学计算单元，不是对生物神经细胞全部机制的精确模拟。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-人工神经元先计算仿射变换，再由激活函数产生输出；权重与偏置由训练学习。
+一个常见人工神经元先计算 z = w·x + b，再计算 y = f(z)。x 是本次输入，w 和 b 是可学习参数，f 是激活函数。先得到的 z 与激活后的 y 是两个不同对象。
+
+权重决定各特征怎样参与组合，偏置移动响应的位置，激活函数决定怎样转换线性分数。训练通过损失与梯度调整参数；单次前向计算只产生输出，并不自动执行学习。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-每项输入乘上重要程度后汇总，偏置移动门槛，激活决定响应方式。
+可以把两个特征想成两条证据：一个权重为正，意味着该特征增大时会推高线性分数；另一个权重为负，意味着它会拉低分数。偏置为所有样本加入相同的基准项。
+
+ReLU 把负的线性分数截成零、保留正值，因此同一个神经元在不同输入区域的响应方式不同。它不是“负特征没有用”，因为判断依据是整个加权和 z，而不是某个输入的正负。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-线性部分负责组合证据，非线性让多层网络表达弯曲关系。
+必须区分输入维度、神经元数量与样本数量。Linear(2, 1) 表示每个样本有两个输入特征、输出一个线性分数；输入两个样本时，输出形状为两行一列，不是两个输出神经元。
 
-多个神经元并排形成层，多层通过反向传播共同调整参数；激活函数不是损失函数。
+偏置能移动激活边界。对 ReLU 而言，是否输出零取决于 w·x+b 是否为正；改变 b 会改变边界的位置，但不改变输入特征的数量。
+
+激活函数与损失函数职责不同。前者作用在网络内部或输出上，后者比较预测与目标并定义训练目标；选择哪一种输出激活，需要与任务和损失的输入约定一起考虑。
+
+单个神经元的表达能力有限，增加深度也不意味着可以无视数据、优化与评估。先用可手算的小输入确认前向过程，是排查大网络错误的有效起点。
 :::
 
 
@@ -122,26 +132,28 @@ x 是输入，w 是权重，b 是偏置，f 是激活，y 是输出。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 两输入 ReLU 神经元
+### 同一个 ReLU 神经元处理两个输入
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- x=\[2,3\]
-- w=\[0.5,-1\]
-- b=1
+- 固定权重 w = [0.5, -1]，偏置 b = 1。
+- 第一条样本 x = [2, 3]；第二条样本 x = [2, 1]。
+- 使用 ReLU(z) = max(0, z)，不进行训练。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. z=0.5×2-1×3+1=-1
-2. ReLU(-1)=0
+1. 第一条样本：z = 0.5×2 − 1×3 + 1 = -1，所以 ReLU 输出 0。
+2. 第二条样本：z = 0.5×2 − 1×1 + 1 = 1，所以 ReLU 输出 1。
+3. 两条样本共用相同参数，输出变化来自输入不同，而不是模型在两次计算之间重新训练。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出 y=0
+线性分数为 [-1, 1]，经过 ReLU 后为 [0, 1]。批量输出形状为 [2, 1]。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 去掉 ReLU 时保留原始线性分数 -1 和 1；使用 ReLU 后，只有前者被截为 0。
+- 权重与偏置如果采用随机初始化，就不能期待得到这里的固定数值；下面代码显式设置参数以便核对。
 :::
 
 
@@ -159,8 +171,9 @@ x 是输入，w 是权重，b 是偏置，f 是激活，y 是输出。
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 人工神经元 · PyTorch 示例
+### 显式设置参数，复现两个 ReLU 输出
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -168,29 +181,35 @@ PyTorch
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证人工神经元的输入、计算和输出。
+把手算中的权重和偏置写进 Linear，避免随机初始化干扰数值核对。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```PyTorch
 import torch
 from torch import nn
-neuron=nn.Linear(2,1)
-x=torch.tensor([[2.,3.]])
-z=neuron(x)
-y=torch.relu(z)
-print(z.shape,y.shape)
+
+neuron = nn.Linear(2, 1)
+with torch.no_grad():
+    neuron.weight.copy_(torch.tensor([[0.5, -1.0]]))
+    neuron.bias.fill_(1.0)
+x = torch.tensor([[2.0, 3.0], [2.0, 1.0]])
+z = neuron(x)
+y = torch.relu(z)
+print("z:", z.detach().flatten().tolist())
+print("relu:", y.detach().flatten().tolist())
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- x 是一条两特征样本
-- Linear 保存 weight 与 bias
-- ReLU 只改变数值不改变形状
+- 权重形状为 [1, 2]，表示一个输出神经元接收两个输入特征。
+- 两条样本一起前向，得到 [2, 1] 输出；flatten 只用于简化打印，不改变模型的计算。
+- no_grad 用于设置演示参数；这里没有损失、反向传播或优化器更新。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-z 与 y 均为 torch.Size(\[1,1\])。
+z: [-1.0, 1.0]
+relu: [0.0, 1.0]
 :::
 
 ::::
@@ -206,9 +225,10 @@ z 与 y 均为 torch.Size(\[1,1\])。
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 激活与损失混淆
-- 权重人工固定不训练
-- 多层无非线性
+- 把 Linear 的输出 z 与经过激活的输出 y 混为一谈。
+- 把 batch 中样本数量当成神经元数量，或者忘记输入最后一维应与 in_features 一致。
+- 随机初始化参数，却拿结果与固定参数的手算例直接比较。
+- 认为加了激活就一定学到了有用规律，忽略单次前向没有更新任何参数。
 :::
 
 
@@ -233,4 +253,3 @@ z 与 y 均为 torch.Size(\[1,1\])。
 :::field{path="commonQuestions.1.answer" type="text"}
 需结合输入尺度和其他特征解释。
 :::
-

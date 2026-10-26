@@ -67,18 +67,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义强化学习算法比较与学习路线并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 按交互权限、数据类型与动作空间筛选算法，再比较学习机制与预算。
+- 独立复核“依据数据与动作空间过滤候选，而不是输出万能冠军”的输入、计算和解释。
+- 选择先看数据和允许的行动，再看更新公式。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-强化学习算法比较与学习路线位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+按交互权限、数据类型与动作空间筛选算法，再比较学习机制与预算。
 :::
 
 
@@ -89,44 +87,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+问“PPO 和 CQL 哪个更好”往往漏掉了前提：前者通常持续采样近期策略，后者针对固定 transition。若只有偏好对而没有奖励转移记录，问题又转到 DPO 一类目标；算法名称不能代替数据契约。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-比较页将 Q-Learning、SARSA、DQN、REINFORCE、Actor-Critic、A2C/A3C、DDPG、TD3、SAC、CQL、IQL、PPO、GRPO、DPO 放在同一决策框架。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+算法比较首先对齐任务和可用证据，再分析价值或策略路线、on/off-policy、模型使用、动作空间与资源成本。单一排名无法覆盖在线控制、固定日志和语言偏好优化等不同问题；候选列表只是研究起点。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-先问数据从哪来、能否继续交互、学价值还是策略、动作空间是什么，再选算法。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+选择车辆先看路面、载重和能否补能，再比较速度。同一把尺子比较不同前提下的成绩，可能把根本无法使用的工具排在最前。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-初学：GridWorld→Q-Learning→SARSA。
+小型已知模型可先用 DP 建基准；小型未知离散环境可用表格 Q-learning 或 SARSA 检查任务。高维离散动作可考虑 DQN 家族，连续在线控制可比较 PPO、SAC、TD3 等，但仍需检查约束与假设。
 
-传统 RL：Bellman→DP→MC→TD。
+固定 transition 要先处理覆盖与外推，CQL 与 IQL 是不同保守取舍；只有状态动作示范时行为克隆是直接基线。只有偏好对时，DPO 的离线偏好目标不能当作普通 MDP 算法的无缝替代。
 
-深度 RL：DQN→Actor-Critic→PPO/SAC。
-
-离线 RL：固定数据边界→分布偏移→行为约束→CQL/IQL→离线评测。
-
-大模型对齐：Reward/Preference→PPO/GRPO/DPO 区别。
-
-实践：固定协议、基线、多 seed、错误分析。
+筛选后应在相同交互量、评测协议和调参成本下比较。高最终回报、快墙钟时间、低约束违规和少环境试验可能互相冲突，结论必须绑定具体预算与失败分布。
 :::
 
 
@@ -134,17 +120,17 @@ anchorAliases:
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### 回报与资源应分开比较
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+J(\pi)=\mathbb E_\pi[G_0],\qquad\mathrm{report}=(J,N_{env},T_{wall},C_{violation})
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+回报、真实交互数、墙钟时间和约束违规属于不同指标；本式是报告清单，不是自动加权排名。
 :::
 
 ::::
@@ -155,9 +141,10 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| J | 固定评测协议下的期望回报 |
+| N_env | 真实环境交互次数 |
+| T_wall | 墙钟时间 |
+| C_violation | 按任务定义的违规成本 |
 :::
 
 ::::
@@ -165,30 +152,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 强化学习算法比较与学习路线的最小计算
+### 依据数据与动作空间过滤候选，而不是输出万能冠军
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 任务一：固定带奖励 transition。
+- 任务二：在线连续控制。任务三：只有离线偏好对。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 任务一可研究 CQL、IQL，并用合适行为基线。
+2. 任务二可比较 PPO、SAC、TD3 等，按预算与约束验证。
+3. 任务三首先匹配 DPO 类偏好优化的数据接口，不冒称已有 MDP 回报。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+不同数据契约产生不同候选集合；过滤结果不是性能排名。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 选择先看数据和允许的行动，再看更新公式。
+- 表中方法需要进一步的假设、基线和独立评测。
 :::
 
 
@@ -208,7 +192,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 强化学习算法比较与学习路线的本地数值骨架
+### 依据数据与动作空间过滤候选，而不是输出万能冠军
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -216,28 +200,35 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+不同数据契约产生不同候选集合；过滤结果不是性能排名。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+def candidates(data_contract):
+    choices = {
+        "fixed_transitions": ["CQL", "IQL"],
+        "online_continuous": ["PPO", "SAC", "TD3"],
+        "preference_pairs": ["DPO"],
+    }
+    return choices[data_contract]
+for contract in ["fixed_transitions", "online_continuous", "preference_pairs"]:
+    print(contract + ": " + ", ".join(candidates(contract)))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 任务一可研究 CQL、IQL，并用合适行为基线。
+- 任务二可比较 PPO、SAC、TD3 等，按预算与约束验证。
+- 任务三首先匹配 DPO 类偏好优化的数据接口，不冒称已有 MDP 回报。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+fixed_transitions: CQL, IQL
+online_continuous: PPO, SAC, TD3
+preference_pairs: DPO
+```
 :::
 
 ::::
@@ -253,9 +244,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 忽略数据类型与交互许可，直接按算法流行度选择。
+- 把 on/off-policy 与 online/offline 当成同一分类。
+- 用不同预算或挑选过的最好运行排算法名次。
 :::
 
 
@@ -266,7 +257,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [OpenAI Spinning Up：Kinds of RL Algorithms](https://spinningup.openai.com/en/latest/spinningup/rl_intro2.html)。
 :::
 
 
@@ -279,9 +270,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 忽略数据类型与交互许可，直接按算法流行度选择。
+- 把 on/off-policy 与 online/offline 当成同一分类。
+- 用不同预算或挑选过的最好运行排算法名次。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -298,11 +289,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 强化学习算法比较与学习路线是 on-policy 还是 off-policy？
+### 有覆盖所有场景的最好算法吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+没有脱离任务和预算的统一结论。先排除违反数据接口或交互边界的方法，再用基线和固定评测协议比较候选。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -312,4 +303,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

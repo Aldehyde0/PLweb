@@ -58,18 +58,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Deep Q-Network（DQN）并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 用神经网络共享状态间的动作价值估计，并明确 replay 与目标网络的作用。
+- 独立复核“两个样本中终止掩码怎样影响 DQN 目标”的输入、计算和解释。
+- DQN 学习离散动作 Q，不能直接枚举无限连续动作。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Deep Q-Network（DQN）位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+用神经网络共享状态间的动作价值估计，并明确 replay 与目标网络的作用。
 :::
 
 
@@ -80,40 +78,32 @@ Deep Q-Network（DQN）位于“状态—行动—反馈—更新”学习链中
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+图像输入有大量可能状态，表格不能逐个存储 Q。DQN 用一个网络从观察直接输出有限动作的价值，允许状态间共享表示；同时神经网络和不断变化的 bootstrap 目标使训练比小表格更敏感。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-DQN 输入状态，输出每个离散动作的 Q 值。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+DQN 是面向离散动作的深度 Q-learning：在线网络预测 Q(s,a)，延迟更新的目标网络提供后继最大 Q，训练从回放缓冲区抽取转移。行为通常用 ε-greedy 采样，因此学习贪心目标时是 off-policy。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-不再维护巨大 Q 表，而用网络从状态特征预测所有动作分数。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+在线网络像正在修订的评分表，目标网络像暂时冻结的参考版本。每一步都追逐同一张正在快速变化的表，容易让目标与预测互相拉动；延迟参考可缓解这种现象。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-Replay 打乱相关样本。
+一个批次先对所有状态前向，按实际动作索引抽取 Q(s,a)；损失只直接约束采样动作。下一状态的最大值应在无梯度路径中计算，不让目标分支和预测一起追逐当前残差。
 
-Target Network 延缓目标漂移。
+Replay 提高样本复用并减弱相邻样本相关性，但不创造缺失覆盖。目标网络降低变化速度，也不能保证非线性学习收敛；目标同步周期过短或过长均可能影响训练。
 
-Online Network 选择/拟合当前 Q。
-
-DQN loss 常用 MSE 或 Huber。
+普通 DQN 在目标网络上同时选最大动作和评价，因此仍有最大化偏差。Double DQN 将选择与评价分开；dueling 则改变网络结构，二者解决的问题不同。下方代码只做构造批次的一次更新，不是游戏成绩实验。
 :::
 
 
@@ -152,30 +142,27 @@ Target 参数 θ⁻ 在一段时间内固定。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Deep Q-Network（DQN）的最小计算
+### 两个样本中终止掩码怎样影响 DQN 目标
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 奖励分别为 1、2，后继最大 Q 分别为 3、100。
+- 第二样本真正终止，折扣 0.9。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 第一样本目标为 1+0.9×3=3.7。
+2. 第二样本必须屏蔽后继 100，目标仅为 2。
+3. 若漏掉终止掩码，第二目标会错误地变成 92。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+正确目标为 3.7 和 2.0；第二后继的高值与已终止任务无关。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- DQN 学习离散动作 Q，不能直接枚举无限连续动作。
+- 一次神经网络批次更新只验证张量与目标计算，不代表策略已学会环境。
 :::
 
 
@@ -254,7 +241,9 @@ print('loss:', round(loss.item(), 4))
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印一个有限的正损失值；具体数值由固定初始化与批次决定。
+```text
+loss: 0.119
+```
 :::
 
 ::::
@@ -270,9 +259,9 @@ print('loss:', round(loss.item(), 4))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- gather 的动作维度错误，让损失拟合了不对应的动作。
+- 目标分支未停止梯度，或真正终止仍使用后继值。
+- 把单次构造数据 loss 下降当成环境策略改善。
 :::
 
 
@@ -283,7 +272,7 @@ print('loss:', round(loss.item(), 4))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Mnih 等：Human-level control through deep reinforcement learning](https://www.nature.com/articles/nature14236)。
 :::
 
 
@@ -294,9 +283,9 @@ print('loss:', round(loss.item(), 4))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- gather 的动作维度错误，让损失拟合了不对应的动作。
+- 目标分支未停止梯度，或真正终止仍使用后继值。
+- 把单次构造数据 loss 下降当成环境策略改善。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -313,11 +302,11 @@ print('loss:', round(loss.item(), 4))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Deep Q-Network（DQN）是 on-policy 还是 off-policy？
+### DQN 有 replay 就能直接用于任意离线数据吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-本页算法/方法按 off-policy 组织。
+不能。固定数据下 max 可能选择没有覆盖的高估动作，需单独处理离线分布偏移，不能把在线 DQN 的常规经验直接视为可靠离线方法。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -327,4 +316,3 @@ print('loss:', round(loss.item(), 4))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

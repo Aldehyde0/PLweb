@@ -65,9 +65,9 @@ anchorAliases:
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Bellman 期望与最优方程位于“状态—行动—反馈—更新”学习链中的关键位置。
+Bellman 关系把长期价值拆成“一步奖励”和“下一状态的价值”。它让动态规划、TD 学习和许多强化学习算法可以复用已有价值估计，而不必每次都等到一整条很长轨迹结束。
 
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+但必须分清正在评估某个固定策略，还是在寻找最优策略。把策略加权平均与动作最大值混用，会直接改变计算目标。
 :::
 
 
@@ -78,38 +78,40 @@ Bellman 期望与最优方程位于“状态—行动—反馈—更新”学习
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
+一条轨迹可以直接累计奖励，但有多个分支时，不同状态会反复出现相似的后续问题。例如从同一个中转站出发，之后的收益可以被前面多个位置共同使用。
 
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+如果能把“从下一状态开始值多少”作为一个子问题，当前状态的长期价值就可以递归表达。Bellman 方程说明的正是这种一致性关系，而不是一种独立的神经网络结构。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Bellman 期望方程针对固定策略，Bellman 最优方程在动作上取最大。
+Bellman 期望方程描述固定策略下的价值：先按该策略选择动作，再按环境转移考虑下一状态，把即时奖励与折扣后的下一价值取期望。
 
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+Bellman 最优方程描述最优价值：在每个可选择动作之间比较长期收益并取最大值。这里动作可以由智能体选择，但环境的随机转移不能由智能体挑选最有利的一支。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-长期价值可以“一步奖励 + 下一局面的长期价值”递归计算。
+假设后面那个局面的价值已经知道，当前局面就可以通过“一步收益 + 折扣后的后续价值”往前回推。它像把一条长决策链拆成可复用的子问题。
 
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+如果玩家坚持采用固定随机打法，就应按这个打法平均动作结果；如果在问最好的打法能达到什么，就需要比较动作结果。计算时的平均与最大值，分别对应这两个问题。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-期望方程评估策略。
+期望方程中的策略概率和转移概率有不同含义：前者描述智能体怎样选动作，后者描述执行动作后环境怎样变化。即使使用最优方程，也仍要对随机环境的后果求期望。
 
-最优方程定义最优性。
+真实价值满足方程；用当前估计的下一价值计算一个目标，再更新当前估计，叫做一次 backup。当前下一价值不准确时，一次 backup 也不会凭空得到真实最优值。
 
-函数近似与采样会引入误差。
+动态规划通常显式使用环境模型，对可能后果求和；TD 方法可以从采样到的转移构造近似目标。它们共享一步分解思想，但使用的信息和估计误差不同。
+
+终止状态的后续回报按本回合约定为零。否则，终点之后的任意估计会被错误加回前面，甚至让没有真实后续收益的动作看起来更好。
 :::
 
 
@@ -127,7 +129,25 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-最优 Q 等于一步奖励加下一状态最优价值。
+固定状态和动作后，仍对环境的随机后果求期望；到达的下一状态可以再选择最优动作。
+:::
+
+::::
+
+::::formula{index="1"}
+
+:::field{path="formulas.1.label" type="text"}
+### 固定策略的 Bellman 期望方程
+:::
+
+:::field{path="formulas.1.expression" type="math"}
+$$
+V^\pi(s)=\sum_a\pi(a\mid s)\sum_{s'}P(s'\mid s,a)\left[R(s,a,s')+\gamma V^\pi(s')\right]
+$$
+:::
+
+:::field{path="formulas.1.description" type="text"}
+先按给定策略的动作概率加权，再按环境转移概率加权；不能把这两个平均都替换成最大值。
 :::
 
 ::::
@@ -138,9 +158,11 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| V^π(s) | 在状态 s 开始并持续使用策略 π 的期望回报。 |
+| Q^π(s,a) | 在状态 s 先执行 a，之后使用 π 的期望回报。 |
+| π(a\|s) | 固定策略在 s 选择动作 a 的概率。 |
+| P(s′\|s,a) | 环境转移概率；不能因为寻找最优策略就忽略不利分支。 |
+| γ | 对下一状态价值的折扣权重。 |
 :::
 
 ::::
@@ -148,48 +170,50 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Bellman 期望与最优方程的最小计算
+### 同一个环境，固定策略价值与最优价值为何不同
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 在 s0 可选 stop：立即得到 1 并终止；或选 continue：当前奖励 0，确定到达 s1。
+- 在 s1 只有一个动作：得到 4 并终止，因此 s1 的价值为 4。
+- gamma=0.9。固定策略在 s0 各以 0.5 概率选择两个动作。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. stop 的动作价值是 1，因为后面已经终止。
+2. continue 的动作价值是 0+0.9×4=3.6。
+3. 固定随机策略的状态价值是 0.5×1+0.5×3.6=2.3。
+4. 最优选择的状态价值是 max(1,3.6)=3.6，对应选择 continue。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+同一个 s0，在给定随机策略下价值为 2.3，在最优策略下价值为 3.6。差异来自动作选择规则。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 这里每个动作后的转移都是确定的；如果存在多个随机后果，还必须按转移概率加权。
+- stop 的即时奖励更高，但 continue 的长期价值更高；只比较当前奖励会选错本例的最优动作。
+- 把下一状态的真实价值 4 换成一个尚未学准的估计时，计算得到的只是对应估计下的一次目标。
 :::
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 写一步转移
-2. 加入 γ
-3. 对策略动作求期望或取 max
-4. 迭代求不动点
+1. 明确要计算 V 还是 Q，以及对应的是固定策略还是最优策略。
+2. 对每个合法动作写出即时奖励和可能的下一状态。
+3. 按环境转移概率计算一步奖励与下一价值的期望，终止后续价值置零。
+4. 固定策略按动作概率加权；寻找最优价值时在动作之间取最大。
+5. 对需要迭代的问题，说明初始化、更新方式和停止条件，并检查估计误差。
 :::
 
 
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### Bellman 期望与最优方程的本地数值骨架
+### 分别计算随机策略与最优选择的价值
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -197,28 +221,34 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+让动作平均与动作最大值出现在同一段可核对的代码中。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
 gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+v_s1 = 4.0
+q_s0 = {"stop": 1.0, "continue": 0.0 + gamma * v_s1}
+policy = {"stop": 0.5, "continue": 0.5}
+v_policy = sum(policy[action] * value for action, value in q_s0.items())
+v_optimal = max(q_s0.values())
+best_action = max(q_s0, key=q_s0.get)
+print(f"V_policy={v_policy:.4f}")
+print(f"V_optimal={v_optimal:.4f}")
+print(f"choose={best_action}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- s1 的价值在这个两步构造环境中可直接确定，因此可以向前回推。
+- v_policy 使用既定策略的两个动作概率；v_optimal 比较两个可选动作的价值。
+- 代码没有学习率，也没有运行梯度下降；它是在一个已知小环境中直接计算价值关系。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+V_policy=2.3000
+V_optimal=3.6000
+choose=continue
 :::
 
 ::::
@@ -234,9 +264,10 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 计算固定策略价值时随意取 max，或计算最优价值时仍使用一个任意固定策略的动作平均。
+- 只挑选随机环境最有利的下一状态，漏掉其他后果及其概率。
+- 把使用当前估计得到的一次 backup 当成已经求得真实最优解。
+- 给真正终止的状态继续加上后续价值，制造不存在的收益。
 :::
 
 
@@ -277,18 +308,17 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Bellman 期望与最优方程是 on-policy 还是 off-policy？
+### Bellman 方程和梯度下降是同一种东西吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+不是。Bellman 方程表达价值的一步递归关系；梯度下降是优化参数的方法。使用神经网络近似价值时，可以用 Bellman 目标构造损失，再用梯度下降拟合，但两者职责不同。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 网页是否会训练模型？
+### 算出一个 Bellman 目标，就已经得到最优价值了吗？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
+通常没有。目标依赖下一状态价值的当前估计与获得的数据；估计不准、覆盖不足或函数近似有误差时，一次更新仍可能偏离真实值。
 :::
-

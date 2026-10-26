@@ -58,30 +58,40 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-深层复合函数的导数需要复用各操作局部梯度。
+前向传播得到损失之后，还需要知道每个参数对损失的局部影响，才能决定怎样更新。逐个参数重新试探会非常昂贵，尤其在同一中间计算被很多后续操作复用时。
+
+反向传播利用计算图和链式法则复用这些局部导数，让一个标量损失对大量参数的梯度可以有组织地计算出来。理解它能帮助区分“前向数值错了”“梯度没流到参数”“更新步骤没有发生”等不同问题。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-反向传播是高效的向量—雅可比乘积过程，本身不更新参数。
+反向传播是沿计算图逆序应用链式法则、计算损失对各个需要求导的量的梯度的方法。图中的节点记录运算及其依赖关系，反向时把来自下游的梯度与当前运算的局部导数结合。
+
+自动微分框架可以自动组织这项计算，但反向传播本身不等于优化器更新。调用 backward 后通常得到的是参数的 grad；参数是否变化、怎样变化，仍由后续更新规则决定。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-从最终误差倒查每层责任，并把下游影响乘回上游。
+前向是在问“用这组参数会算出什么”，反向是在问“如果只轻微改变某个参数，损失大约怎样变”。中间节点把一个很长的依赖链拆成许多可以检查的小关系。
+
+如果同一个参数影响损失的多条路径，每条路径都会产生贡献，最后需要相加。不能只看距离损失最近的一条边，也不能把局部导数直接当成完整梯度。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-局部导数沿依赖路径相乘并汇总；优化器在 afterward 读取 .grad。
+对链式计算，局部导数沿路径相乘；当多条路径汇合到同一个量时，梯度贡献相加。反向顺序保证计算某个节点时，依赖它的下游贡献已经准备好。
 
-非标量输出需提供上游 gradient；高阶梯度需 create\_graph。
+默认对标量损失反向，相当于从损失对自身的导数 1 开始。非标量输出需要说明上游梯度，或先使用有明确意义的归约得到标量；不能随意改变 sum/mean 而忽略它们对梯度尺度的影响。
+
+在 PyTorch 中，叶子张量的 grad 通常是累计的。普通训练循环需要按计划清理梯度，重新前向建立当前参数对应的图，再反向和更新；意外累计旧梯度会改变实际优化过程。
+
+默认的一次 backward 通常会释放反向需要的中间缓存。应区分重新前向计算与保留同一张图，避免通过反复设置保留图来掩盖训练循环问题。参数更新也不应作为需要继续求导的普通图运算随意原地执行。
 :::
 
 
@@ -120,43 +130,52 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### z=wx+b,L=z²
+### 从 L=(wx+b)² 手算两个参数的梯度
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- x=2,w=.5,b=1
-- z=2
+- 输入 x = 2，参数 w = 0.5、b = 1。
+- 中间分数 z = wx+b，损失 L = z²，相当于目标值为 0 的一个平方误差。
+- 演示更新使用学习率 0.1，且 w、b 使用同一次前向产生的梯度。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. dL/dw=2z×x
+1. 前向：z = 0.5×2+1 = 2，损失 L = 2² = 4。
+2. 损失对 z 的导数为 2z = 4；z 对 w 的导数为 x = 2，因此 dL/dw = 4×2 = 8。
+3. z 对 b 的导数为 1，因此 dL/db = 4×1 = 4。
+4. 同步更新：w 新值为 0.5−0.1×8 = -0.3，b 新值为 1−0.1×4 = 0.6。
+5. 用新参数重新前向：z = -0.3×2+0.6 = 0，损失变为 0。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-梯度 8
+反向得到 dw=8、db=4；本例更新后的损失为 0（浮点计算显示到指定精度）。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 只执行 backward，w 仍然是 0.5，b 仍然是 1；得到梯度不等于已经更新。
+- 如果把损失定义成 z²/2，梯度会少一个因子 2；比较实现前要先核对损失定义。
+- 一步达到零损失只是这个单样本、特定学习率的构造结果，不是一般训练的保证。
 :::
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 前向
-2. 保存依赖
-3. 初始化上游梯度
-4. 逆序局部求导
-5. 累加叶子 grad
+1. 明确前向计算与标量损失的定义，检查输入和目标形状。
+2. 将需要学习的参数标记为可求导，并按训练策略清理已有梯度。
+3. 使用当前参数前向，保留计算图中的依赖关系。
+4. 对损失执行反向传播，核对 grad 是否存在、是否有限，以及数量级是否合理。
+5. 用优化器或明确的更新规则修改参数，再重新前向检查效果。
+6. 循环时正确处理梯度累计、图释放及训练/评估模式，而不是重复利用不合适的旧计算。
 :::
 
 
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 反向传播 · PyTorch 示例
+### 对照手算梯度，再明确执行一次参数更新
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -164,26 +183,38 @@ PyTorch
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证反向传播的输入、计算和输出。
+把前向、反向和参数更新分开，核对每个阶段的数值。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```PyTorch
-x=torch.tensor(2.)
-w=torch.tensor(.5,requires_grad=True)
-b=torch.tensor(1.,requires_grad=True)
-loss=(w*x+b).square();loss.backward();print(w.grad,b.grad)
+import torch
+
+x = torch.tensor(2.0, dtype=torch.float64)
+w = torch.tensor(0.5, dtype=torch.float64, requires_grad=True)
+b = torch.tensor(1.0, dtype=torch.float64, requires_grad=True)
+loss = (w * x + b).square()
+loss.backward()
+print(f"loss={loss.item():.4f}, dw={w.grad.item():.4f}, db={b.grad.item():.4f}")
+print(f"before_step: w={w.item():.4f}, b={b.item():.4f}")
+with torch.no_grad():
+    w -= 0.1 * w.grad
+    b -= 0.1 * b.grad
+new_loss = (w * x + b).square()
+print(f"after_step_loss={new_loss.item():.6f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- loss 是标量
-- 梯度按链式法则
-- backward 不 step
+- 输入 x 不需要求梯度，而 w、b 是两个可学习的叶子张量。
+- backward 按链式法则得到 8 和 4；before_step 行证明参数在反向后尚未变化。
+- 更新放在 no_grad 中，随后重新前向计算损失；这段代码只演示一次更新，真正循环还需按计划清理梯度。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-w.grad=8，b.grad=4。
+loss=4.0000, dw=8.0000, db=4.0000
+before_step: w=0.5000, b=1.0000
+after_step_loss=0.000000
 :::
 
 ::::
@@ -191,17 +222,19 @@ w.grad=8，b.grad=4。
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 所有神经网络训练
+- 训练由可微运算组成的神经网络，计算多个参数对任务损失的梯度。
+- 在小型计算图中检查手算导数，定位梯度中断、形状或损失尺度错误。
+- 按任务需要计算输入或中间表示的敏感性，但梯度本身不自动构成因果解释。
 :::
 
 
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 反向等于更新
-- 同图重复 backward
-- 意外 detach
-- 原地破坏图
+- 认为 backward 会自动执行参数更新，或者把 grad 的数值当成参数新值。
+- 忘记清理梯度，使多个本来不应累计的反向结果叠加。
+- 在需要梯度的路径上意外 detach、转成普通数值，或在 no_grad 环境中计算训练损失。
+- 不核对损失的 sum/mean、常数因子或批次大小，却认为梯度大小异常一定是优化器问题。
 :::
 
 
@@ -226,4 +259,3 @@ w.grad=8，b.grad=4。
 :::field{path="commonQuestions.1.answer" type="text"}
 可直接从上游梯度 1 反传。
 :::
-

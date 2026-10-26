@@ -38,29 +38,45 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-它训练快、参数较少、可输出概率，是高维稀疏和小数据任务的重要基线。
+二分类需要的不只是一个任意实数，还需要能把分数与事件概率联系起来。逻辑回归以少量线性参数建模 log-odds，适合作为可检查的概率基线。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-逻辑回归是分类模型而非回归模型；二分类建模 log-odds，多分类计算多个类别分数。
+二元逻辑回归先计算线性分数 z，再以 sigmoid 得到正类概率 p。它对输入特征的 log-odds 线性，而概率本身是非线性曲线；名字中有回归，常见任务却是分类。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-线性分数表示证据强弱，Sigmoid 把分数压到 0～1，再由阈值决定行动。
+线性分数把证据相加，sigmoid 把无限的证据尺度压到 0 到 1。概率描述模型估计，阈值再把估计转成行动。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-通常最小化交叉熵并加入 L1/L2。StandardScaler 让优化和正则化更稳定；C 是正则强度倒数。
+由 p/(1−p)=exp(z) 可知，一个特征增加一单位时，其他特征固定，odds 乘以 exp(w_j)。这不是“概率增加 w_j”；同一个分数变化在 p 接近 0.5 和接近 1 时，对概率的影响不同。
+
+训练通常最小化二元交叉熵并加入正则。连续特征的标准化既影响优化条件，也改变同一惩罚对各权重的相对作用；应在训练折内拟合预处理。在常见 scikit-learn 接口中 C 越小正则越强，solver 与惩罚形式也需兼容。
+
+概率输出不保证校准，类别不平衡、采样方式和分布变化都会影响解释。0.5 阈值只是一个规则，业务误报漏报代价不对称时应在验证集另选阈值；测试集不能参与这个选择。
 :::
+
+### 固定线性分数如何变成概率与决策
+
+- w=1，b=-2，输入 x 为 0、2、4
+- 比较阈值 0.5 与 0.9
+
+阈值 0.5 时预测为 0、1、1；阈值 0.9 时均为 0。
+
+参数不变时，改变阈值只改变决策，不改变模型估计的概率。中间样本 z=0 的概率恰好为 0.5，是否判正还取决于使用大于还是大于等于的约定。
+
+本例权重人为指定，未做训练或性能比较。真实应用还应检查 predict_proba 的列与 classes_ 对应，避免把负类列当成正类概率。
+
 
 
 ## 数学表达 {#formulas}
@@ -72,12 +88,12 @@ anchorAliases:
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-p=1/(1+e⁻ᶻ)，z=wᵀx+b
+z=w^Tx+b,\quad p=\frac{1}{1+e^{-z}},\quad \log\frac{p}{1-p}=z
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-通常最小化交叉熵并加入 L1/L2。StandardScaler 让优化和正则化更稳定；C 是正则强度倒数。
+p 为正类概率，z 为线性分数；线性关系发生在 log-odds 上。
 :::
 
 ::::
@@ -85,11 +101,9 @@ $$
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 标准化连续特征
-2. 拟合交叉熵目标
-3. 查看 predict\_proba
-4. 在验证集选择阈值/C
-5. 测试并检查校准
+1. 按独立性划分训练验证数据，在训练折拟合必要预处理。
+2. 用交叉熵与合适正则训练模型，核对类别顺序。
+3. 在验证集选择 C、阈值并检查校准，锁定后评估测试集。
 :::
 
 
@@ -97,35 +111,39 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 逻辑回归 实现
+### 固定线性分数如何变成概率与决策的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的训练与预测逻辑。
+使用完整构造输入核对固定线性分数如何变成概率与决策，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression
-model=make_pipeline(StandardScaler(),LogisticRegression(C=1,max_iter=2000))
-model.fit(X_train,y_train)
-print(model.predict_proba(X_test[:3]))
+```python
+import math
+x = [0., 2., 4.]
+probabilities = [1 / (1 + math.exp(-(value - 2))) for value in x]
+print("probabilities:", [round(p, 6) for p in probabilities])
+for threshold in [0.5, 0.9]:
+    print(f"threshold={threshold:.1f}", [int(p >= threshold) for p in probabilities])
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码先建立符合输入要求的估计器。
-- 参数应在交叉验证中选择，测试集不参与。
+- 输入、权重和偏置完全给定。
+- 同一概率采用不同阈值，不冒充重新训练。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-每行输出各类别概率且总和约为 1。
+```text
+probabilities: [0.119203, 0.5, 0.880797]
+threshold=0.5 [0, 1, 1]
+threshold=0.9 [0, 0, 0]
+```
 :::
 
 ::::
@@ -133,9 +151,8 @@ print(model.predict_proba(X_test[:3]))
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 二分类
-- 多分类
-- 概率基线
+- 高维稀疏文本分类基线
+- 需要概率与阈值分离的二分类决策
 :::
 
 

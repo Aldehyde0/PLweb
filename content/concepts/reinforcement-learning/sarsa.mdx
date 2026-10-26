@@ -56,18 +56,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义SARSA 与 Cliff Walking并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 让价值更新包含实际探索行为的后果，理解 on-policy 控制。
+- 独立复核“探索抽到低价值动作时的 SARSA 目标”的输入、计算和解释。
+- SARSA 目标使用实际下一动作，不用 max。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-SARSA 与 Cliff Walking位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+让价值更新包含实际探索行为的后果，理解 on-policy 控制。
 :::
 
 
@@ -78,38 +76,32 @@ SARSA 与 Cliff Walking位于“状态—行动—反馈—更新”学习链中
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+悬崖边的最短路线在完全贪心执行时很快，但带随机探索的智能体可能踩空。SARSA 评价的后续行为包含探索，因此会考虑当前行为策略在危险区域的代价；这与只评价理想贪心未来的目标不同。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-SARSA 名称来自 S,A,R,S′,A′ 五个更新元素。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+SARSA 使用当前状态、动作、奖励、下一状态和下一动作五项更新动作价值。下一动作由当前行为策略采样，并且非终止时应成为真正执行的下一动作。因此标准 SARSA 是 on-policy 控制。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-它评价“我实际会继续探索”的策略，因此会把探索跌落悬崖的风险算进去。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+不是问“接下来如果永远不犯探索错误会怎样”，而是问“照我当前会探索的行动方式继续会怎样”。这种区别只有在后续策略包含随机性时才特别明显。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-下一动作来自当前行为策略。
+先在状态 s 执行动作 a，再在 s′ 按同一行为策略选 a′，用 Q(s′,a′) 构造目标。若更新时采样一个 a′，执行时却重新抽另一个动作，代码已经偏离标准五元组更新语义。
 
-epsilon-greedy 会直接影响目标。
+ε-greedy 中 ε 改变了未来动作分布，也就改变 SARSA 评价的策略。维持固定 ε 时学习的是带探索策略；满足其他条件并逐渐变得贪心的方案才可讨论相应的最优控制收敛结论。
 
-Cliff Walking 中常比 Q-Learning 更保守。
+SARSA 的下一动作采样增加目标方差。Expected SARSA 对这些动作求策略期望，Q-learning 则换成最大值；三者只差一个目标项，但评价对象和学习行为可能不同。
 :::
 
 
@@ -148,30 +140,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### SARSA 与 Cliff Walking的最小计算
+### 探索抽到低价值动作时的 SARSA 目标
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 当前 Q=1，奖励 0，后继动作 Q 为 4 和 −2。
+- 行为策略本次抽到第二动作；折扣 0.9，学习率 0.5。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. SARSA 使用实际抽到动作的 Q=−2，目标为 −1.8。
+2. 更新为 1+0.5×(−1.8−1)=−0.4。
+3. 若改用最大值，目标是 3.6，那是 Q-learning 式备份。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+本次 SARSA 更新为 −0.400，反映实际探索选择的后果。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- SARSA 目标使用实际下一动作，不用 max。
+- 下方小链环境训练代码的最后终止状态 Q 行未用于选动作。
 :::
 
 
@@ -238,7 +227,9 @@ print(np.argmax(Q, axis=1))
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-非终止状态主要选择向右；在含悬崖风险的环境中通常学到离悬崖更远的路径。
+```text
+[1 1 1 1 1 0]
+```
 :::
 
 ::::
@@ -254,9 +245,9 @@ print(np.argmax(Q, axis=1))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 目标里用最大 Q，却仍称为 SARSA。
+- 更新使用的下一动作与随后实际执行动作不一致。
+- 把悬崖示例的保守行为推广为任何环境都更安全。
 :::
 
 
@@ -267,7 +258,7 @@ print(np.argmax(Q, axis=1))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Sutton 与 Barto《Reinforcement Learning: An Introduction》](http://incompleteideas.net/book/the-book-2nd.html)（第 6 章）。
 :::
 
 
@@ -278,9 +269,9 @@ print(np.argmax(Q, axis=1))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 目标里用最大 Q，却仍称为 SARSA。
+- 更新使用的下一动作与随后实际执行动作不一致。
+- 把悬崖示例的保守行为推广为任何环境都更安全。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -297,11 +288,11 @@ print(np.argmax(Q, axis=1))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### SARSA 与 Cliff Walking是 on-policy 还是 off-policy？
+### SARSA 总是比 Q-learning 安全吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-本页算法/方法按 on-policy 组织。
+不是。它考虑当前行为策略的探索后果，但没有硬安全保证；是否避开风险还取决于奖励、探索方式、状态表示和训练证据。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -311,4 +302,3 @@ print(np.argmax(Q, axis=1))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

@@ -55,18 +55,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义State、Action 与 Reward并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 把任务目标转成可观测状态、合法动作和时间对齐的奖励。
+- 独立复核“库存转移与奖励逐项核算”的输入、计算和解释。
+- 本例奖励是利润定义，不代表所有库存任务都应忽略缺货风险。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-State、Action 与 Reward位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+把任务目标转成可观测状态、合法动作和时间对齐的奖励。
 :::
 
 
@@ -77,38 +75,32 @@ State、Action 与 Reward位于“状态—行动—反馈—更新”学习链�
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+仓库控制器看见“库存 2”，却不知道货物明天还是下周到达，会对同一观察做出相同决策。若补货在途时间影响未来，这样的状态表示就丢了关键信息；算法再复杂也不能恢复从未提供的信息。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-State 是决策所需信息，Action 是允许选择，Reward 是转移后收到的标量反馈。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+状态是为预测未来并做决策保留的信息；动作是智能体在当前条件下允许选择的控制量；奖励是执行动作、发生转移后收到的标量。观察可能只是状态的一部分。奖励表达优化偏好，不能自动替代成本约束或真实目标。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-导航中位置是状态、转弯是动作、到达目标得到奖励。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+库存数字像照片，在途订单与交期像照片背后的日程。只给照片可能不足以决定订货量；动作还要受仓容和预算约束，不能让网络随意输出任何数字。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-状态应尽可能满足马尔可夫性。
+状态设计先检查相同表示下，后继和奖励分布是否仍因遗漏历史而不同。订单年龄、剩余预算、时间等可能需要加入；加入过多无关特征又会增加学习难度。
 
-奖励设计不等同于真实目标。
+离散动作可以枚举合法选项并计算 Q 的最大值；连续动作如转向角需要显式边界与适当策略参数化。非法动作掩码必须在训练和执行时保持一致，否则策略可能依赖部署时不可用的动作。
 
-动作空间决定算法选择。
+奖励的索引应对齐转移：状态与动作是输入，奖励和下一状态是结果。把后一轮奖励错配给前一轮的另一动作，会让 TD 目标和策略梯度都学错因果对应关系。
 :::
 
 
@@ -116,17 +108,17 @@ State 是决策所需信息，Action 是允许选择，Reward 是转移后收到
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### 本页库存利润奖励
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+r=5\,\mathrm{sold}-2\,\mathrm{order}-\mathrm{next\_stock}
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+仅定义本页库存例：即时到货、单位售价 5、进货成本 2、剩余保管成本 1；不是所有任务的通用奖励。
 :::
 
 ::::
@@ -137,9 +129,9 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| sold | 本步实际售出件数 |
+| order | 本步订货件数 |
+| next_stock | 需求发生后剩余库存 |
 :::
 
 ::::
@@ -147,30 +139,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### State、Action 与 Reward的最小计算
+### 库存转移与奖励逐项核算
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 库存 2，订货 3，收到需求 4；订货当期到达。
+- 每售出一件收入 5，进货成本每件 2，剩余库存保管成本每件 1。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 可售库存为 2+3=5，售出 min(5,4)=4。
+2. 下一库存为 5−4=1。
+3. 奖励为 5×4−2×3−1=13。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+这次转移的下一库存是 1，奖励是 13；交货延迟改变时必须修改状态和转移。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 本例奖励是利润定义，不代表所有库存任务都应忽略缺货风险。
+- 订货动作和售出数量是不同变量，后者由需求与转移共同决定。
 :::
 
 
@@ -188,7 +177,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### State、Action 与 Reward的本地数值骨架
+### 库存转移与奖励逐项核算
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -196,28 +185,29 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+这次转移的下一库存是 1，奖励是 13；交货延迟改变时必须修改状态和转移。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+stock, order, demand = 2, 3, 4
+sold = min(stock + order, demand)
+next_stock = stock + order - sold
+reward = 5 * sold - 2 * order - next_stock
+print(f"sold={sold}, next_stock={next_stock}, reward={reward}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 可售库存为 2+3=5，售出 min(5,4)=4。
+- 下一库存为 5−4=1。
+- 奖励为 5×4−2×3−1=13。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+sold=4, next_stock=1, reward=13
+```
 :::
 
 ::::
@@ -233,9 +223,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 漏掉影响交期或剩余资源的状态变量。
+- 把连续控制量简单取整，却没有重新定义环境。
+- 只惩罚不合法动作而未执行必要的动作约束。
 :::
 
 
@@ -246,7 +236,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Sutton 与 Barto《Reinforcement Learning: An Introduction》](http://incompleteideas.net/book/the-book-2nd.html)（第 3 章）。
 :::
 
 
@@ -257,9 +247,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 漏掉影响交期或剩余资源的状态变量。
+- 把连续控制量简单取整，却没有重新定义环境。
+- 只惩罚不合法动作而未执行必要的动作约束。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -276,11 +266,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### State、Action 与 Reward是 on-policy 还是 off-policy？
+### 奖励可以直接是业务 KPI 吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+可以作为起点，但应检查可观测性、延迟、噪声与可被钻空子的地方，并将必须满足的预算和安全约束单独定义。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -290,4 +280,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

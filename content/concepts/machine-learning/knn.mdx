@@ -36,29 +36,45 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-K 控制偏差方差：太小追随噪声，太大抹平局部结构；高维中距离区分能力下降。
+如果附近样本倾向有相似标签，可以不拟合显式全局边界，而在预测时查询相近的训练样本。KNN 把建模假设集中到了距离与邻域定义上。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-KNN 是基于实例的非参数方法，fit 主要保存数据，计算成本集中在 predict。
+K 近邻保存训练样本，在新样本处寻找 K 个最近邻，再按类别投票或对目标取平均。它是基于实例的非参数方法，非参数不代表没有 K 等超参数。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-新样本向最相似的已知样本询问答案。
+想判断新房屋价格，先参考若干相近房屋；什么算相近、参考多少套，往往比投票公式更关键。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-距离必须在合理尺度与特征空间中计算。K、距离权重和特征选择通过交叉验证确定。
+欧氏距离会被大尺度特征主导，连续特征通常在训练内缩放。类别编号直接相减没有合理距离语义，稀疏文本也可能更适合余弦等度量。距离选择需要反映任务，而非只满足 API。
+
+K 小时更追随局部结构和噪声，K 大时更平滑并偏向总体多数类。距离加权让更近邻居贡献更大，但遇到重复点、极小距离或标签冲突时仍需明确实现约定。
+
+fit 主要保存数据，预测成本依赖样本数、维数和搜索结构，高维时近远距离可能难区分。KNN 不会天然外推远离训练区域的新规律，应检查分布外距离，并在交叉验证中选 K、特征与权重。
 :::
+
+### 扩大邻域使少数局部类别被覆盖
+
+- 训练位置为 0、2、3、10、11
+- 标签为 0、1、1、0、0；查询点为 2.2
+
+K=1、3、5 的预测依次为 1、1、0；全邻居距离加权则可保留局部类别 1。
+
+这个例子中，查询点距位置 2 仅 0.2，距 10 和 11 很远。K=5 等权投票把所有邻居看成同等证据，失去了局部性。
+
+不能因此断言距离加权永远更好；若最近点恰是噪声，它可能加重错误。真实 K 应在独立验证协议中选择，而不是挑本例最合意结果。
+
 
 
 ## 数学表达 {#formulas}
@@ -70,12 +86,12 @@ KNN 是基于实例的非参数方法，fit 主要保存数据，计算成本集
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-ŷ=mode{yᵢ|xᵢ∈Nₖ(x)}
+\widehat y=\operatorname{mode}\{y_i:i\in\mathcal N_K(x)\}
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-距离必须在合理尺度与特征空间中计算。K、距离权重和特征选择通过交叉验证确定。
+这是等权分类投票；距离加权和回归平均需要相应修改聚合规则。
 :::
 
 ::::
@@ -83,12 +99,9 @@ $$
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 填补与标准化
-2. 选择距离
-3. 交叉验证 K
-4. 拟合保存样本
-5. 预测邻居投票
-6. 检查速度
+1. 定义合理特征和距离，在训练折拟合必要缩放。
+2. 对 K 和权重做交叉验证，评估各类错误。
+3. 同时测量预测成本与远离训练区的行为。
 :::
 
 
@@ -96,33 +109,43 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### K 近邻 实现
+### 扩大邻域使少数局部类别被覆盖的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的训练与预测逻辑。
+使用完整构造输入核对扩大邻域使少数局部类别被覆盖，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
+```python
+import numpy as np
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
-model=make_pipeline(StandardScaler(),KNeighborsClassifier(n_neighbors=5,weights="distance"))
+x = np.array([[0.], [2.], [3.], [10.], [11.]])
+y = np.array([0, 1, 1, 0, 0])
+for k in [1, 3, 5]:
+    model = KNeighborsClassifier(n_neighbors=k).fit(x, y)
+    print(f"K={k} uniform={model.predict([[2.2]])[0]}")
+weighted = KNeighborsClassifier(n_neighbors=5, weights="distance").fit(x, y)
+print("K=5 distance:", int(weighted.predict([[2.2]])[0]))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码先建立符合输入要求的估计器。
-- 参数应在交叉验证中选择，测试集不参与。
+- 完整给定一维训练点，不隐藏 X_train。
+- 输出只解释这个构造邻域，没有真实性能结论。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-得到距离加权的 KNN Pipeline。
+```text
+K=1 uniform=1
+K=3 uniform=1
+K=5 uniform=0
+K=5 distance: 1
+```
 :::
 
 ::::
@@ -130,8 +153,8 @@ model=make_pipeline(StandardScaler(),KNeighborsClassifier(n_neighbors=5,weights=
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 中小数据分类
-- 相似检索
+- 局部模式基线
+- 检查距离表示是否具有任务意义
 :::
 
 

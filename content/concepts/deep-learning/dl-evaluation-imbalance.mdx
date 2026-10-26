@@ -38,18 +38,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 手算 P/R/F1
-- 选择阈值
-- 排除 padding
+- 六条预测手算精确率与召回率
+- 为什么不能平均每个 batch 的 F1？
+- 说明：小构造例子只核对计数公式，不能替代真实分布下的置信区间与误差分析。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-决定真实业务表现
-
-避免少数类失效
+类别不平衡评估结合混淆矩阵、每类精确率召回率、F1 或 PR 曲线等指标；训练时的重采样或加权与评估时真实分布应分别处理。
 :::
 
 
@@ -60,30 +58,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-模型排序好不代表阈值好或概率校准好。
+当正类很少时，永远预测负类也可能得到很高准确率。深度学习评估需要从业务代价、类别分布和决策阈值出发，而非只记录一个总准确率。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-损失用于学习，指标用于解释任务表现；类别不平衡时 Accuracy 可能误导。
+类别不平衡评估结合混淆矩阵、每类精确率召回率、F1 或 PR 曲线等指标；训练时的重采样或加权与评估时真实分布应分别处理。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-不同指标回答不同问题，先说明哪种错误更贵。
+模型找到多少真正的异常，以及它报警时有多少是真的，是两个不同问题，分别对应召回率与精确率。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-验证集选阈值/权重/温度，测试只最后评估；评估集保持真实分布。
+TP、FP、FN、TN 应跨完整评估数据累计，再计算指标。直接平均各批 F1 通常不等于全数据 F1，特别是尾批大小不同或某批没有正例时。多分类还需明确 macro、micro 和 weighted 平均。
 
-序列任务仅统计 valid mask；指标跨完整数据累计而非平均 batch 指标。
+阈值控制精确率与召回率的权衡，应按验证集和业务代价选择。使用加权损失或重采样后，输出概率的校准也可能改变，不能默认 0.5 永远合适；最终测试只使用已经锁定的规则。
+
+序列与分割任务需排除 padding 和 ignore 标签。评估分布应尽量代表部署环境，不能为让分数好看把测试集平衡化后仍声称是原分布表现。
 :::
 
 
@@ -101,7 +101,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-P 精确率，R 召回率。
+类别不平衡评估结合混淆矩阵、每类精确率召回率、F1 或 PR 曲线等指标；训练时的重采样或加权与评估时真实分布应分别处理。
 :::
 
 ::::
@@ -120,36 +120,42 @@ P 精确率，R 召回率。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 指标
+### 六条预测手算精确率与召回率
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- TP=30,FP=10,FN=20,TN=940
+- 标签为 1、1、0、0、0、0
+- 预测为 1、0、1、0、0、0
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. Precision=30/40=.75
-2. Recall=30/50=.6
+1. TP=1，FP=1，FN=1，TN=3。
+2. 精确率与召回率均为 1/2。
+3. F1 为 0.5，准确率为 4/6。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-F1≈0.667
+accuracy=0.6667，precision=recall=F1=0.5；指标表达的含义不同。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 小构造例子只核对计数公式，不能替代真实分布下的置信区间与误差分析。
 :::
+
+### 六条预测手算精确率与召回率
+
+同样的准确率可由不同错误结构产生。若漏掉一个正例代价远高于一次误报，就不能仅凭准确率挑模型，而要检查召回率与误报预算。
+
+代码对分母为零显式返回 0，这是本例约定。真实报告应声明无正预测或无正例时的处理方式，并同时报告类别支持数，避免一个指标掩盖样本过少。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 收集 logits
-2. 转概率
-3. 验证选阈值
-4. 累计混淆
-5. 计算每类指标
-6. 最终测试
+1. TP=1，FP=1，FN=1，TN=3。
+2. 精确率与召回率均为 1/2。
+3. F1 为 0.5，准确率为 4/6。
 :::
 
 
@@ -157,33 +163,43 @@ F1≈0.667
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 深度学习评估与类别不平衡 · PyTorch 示例
+### 六条预测手算精确率与召回率的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证深度学习评估与类别不平衡的输入、计算和输出。
+使用完整构造输入核对六条预测手算精确率与召回率，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-prob=torch.sigmoid(logits)
-pred=(prob>=.5).long()
-tp=((pred==1)&(target==1)).sum()
+```python
+import torch
+y = torch.tensor([1, 1, 0, 0, 0, 0])
+pred = torch.tensor([1, 0, 1, 0, 0, 0])
+tp = int(((pred == 1) & (y == 1)).sum())
+fp = int(((pred == 1) & (y == 0)).sum())
+fn = int(((pred == 0) & (y == 1)).sum())
+precision = tp / (tp + fp) if tp + fp else 0.
+recall = tp / (tp + fn) if tp + fn else 0.
+f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.
+print(f"TP={tp} FP={fp} FN={fn}")
+print(f"accuracy={(pred == y).float().mean().item():.4f} precision={precision:.4f} recall={recall:.4f} F1={f1:.4f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- logits 先 Sigmoid
-- 阈值决定类别
-- 按全数据累计
+- 全量累计后计算指标。
+- 显式处理零分母，未依赖默认行为。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-得到 TP 等计数用于指标。
+```text
+TP=1 FP=1 FN=1
+accuracy=0.6667 precision=0.5000 recall=0.5000 F1=0.5000
+```
 :::
 
 ::::
@@ -191,7 +207,8 @@ tp=((pred==1)&(target==1)).sum()
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 医学/故障/序列
+- 稀有异常检测的阈值选择
+- 多分类与分割的每类误差分析
 :::
 
 
@@ -213,18 +230,17 @@ tp=((pred==1)&(target==1)).sum()
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### AUC 高代表概率可信？
+### 为什么不能平均每个 batch 的 F1？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-不代表，校准是另一问题。
+F1 是计数的非线性比值，各批分数平均会丢失支持数信息；应先汇总混淆计数，再按统一定义计算。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 阈值在哪选？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-验证集。
+小构造例子只核对计数公式，不能替代真实分布下的置信区间与误差分析。
 :::
-

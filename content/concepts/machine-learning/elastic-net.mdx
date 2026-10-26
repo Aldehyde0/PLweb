@@ -36,28 +36,44 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-L1 在高度相关特征中可能任意留一个，数据略变选择就交换；L2 更倾向共同缩小。
+L1 可以产生稀疏解，但相关特征之间的选择可能不稳定；L2 能平滑收缩，却通常不会自动给出大量精确零。Elastic Net 在同一目标里结合两者，为这种取舍提供连续控制。
+
+混合不是对所有数据都优于单一惩罚，仍需要与 Lasso、Ridge 和无惩罚基线在同一协议下比较。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-l1\_ratio=ρ 控制 L1/L2 比例；ρ=1 接近纯 L1，ρ=0 接近纯 L2。
+scikit-learn 常用 Elastic Net 目标在 1/(2n) 平方损失之外，加 alpha×l1_ratio×L1 与 alpha×(1−l1_ratio)/2×L2 平方项。
+
+alpha 控制总体强度，l1_ratio 控制两类惩罚的混合。数值约定与其他模型可能不同，尤其不能把 Ridge 的 alpha 直接当成完全相同的归一化系数。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-既允许删掉弱特征，又避免相关特征之间过于武断地二选一。
+既允许弱系数进入零区间，也对留下的系数继续做平滑收缩。可以把它理解为在“选择哪些方向”和“保留方向有多大”之间建立一个联合取舍。
 :::
+
+### 一维混合惩罚为什么给出 1.4
+
+使用 X=[-1,1]、y=[-2,2] 且无截距，令 alpha=0.5、l1_ratio=0.5。对应一维目标为 0.5(w−2)²+0.25|w|+0.125w²。
+
+正解区域的导数为 (w−2)+0.25+0.25w，因此 w=1.4。这个数既不同于同归一化 Lasso 的 1.5，也不能在未核对参数约定时直接与某个 Ridge 调用比较。
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-alpha 与 l1\_ratio 联合交叉验证；仍需标准化并检查稀疏性、验证表现和稳定性。
+两类参数应联合选择。固定 alpha 改混合比例，也在改变具体惩罚结构；仅看非零数量可能漏掉预测误差和稳定性的变化。
+
+特征尺度仍影响惩罚公平性，缩放和参数选择应放在当前训练折中。相关特征可能较倾向共同进入，但这不是保证选择真实因果群组。
+
+不同混合比例会产生不同优化难度。应记录求解器、容差和收敛警告，不能把未达到数值稳定的结果当成可靠正则路径。
+
+最终解释需要列名与预处理映射。一个较稳定的非零系数也仍只是当前目标和数据条件下的模型关系，不能越过统计与业务证据边界。
 :::
 
 
@@ -94,32 +110,36 @@ alpha 与 l1\_ratio 联合交叉验证；仍需标准化并检查稀疏性、验
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### Elastic Net 示例
+### 核对混合惩罚的一维解析解
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+让库结果与明确写出的目标系数对应。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-from sklearn.linear_model import ElasticNetCV
-model=make_pipeline(StandardScaler(),ElasticNetCV(l1_ratio=[.1,.5,.9,1],cv=5))
+```Python
+from sklearn.linear_model import ElasticNet
+model = ElasticNet(alpha=0.5, l1_ratio=0.5, fit_intercept=False,
+                   tol=1e-10, max_iter=10000)
+model.fit([[-1.0], [1.0]], [-2.0, 2.0])
+print(f"coefficient={model.coef_[0]:.4f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 损失、L1 与 L2 的系数都与本页的一维推导一致。
+- 只有两条构造记录，不是训练内部交叉验证或真实选型结果。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-选择 alpha 与 l1\_ratio，输出折中稀疏权重。
+coefficient=1.4000
 :::
 
 ::::

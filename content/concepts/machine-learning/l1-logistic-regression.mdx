@@ -36,28 +36,44 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-高维稀疏分类可借此做嵌入式选择，但多分类策略和相关特征影响解释。
+逻辑回归用线性分数表达二分类概率关系，也可能在很多冗余特征上分配不稳定权重。L1 正则化把稀疏约束加入分类训练，但并没有把分类问题变成平方误差回归。
+
+使用时既要理解概率与阈值，也要检查缩放、求解器和惩罚设置是否匹配当前库版本。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-L1 逻辑回归需要支持该 penalty 的求解器，如 liblinear 或 saga。
+L1 逻辑回归在逻辑损失目标中加入绝对值惩罚，可能得到部分精确零系数。scikit-learn 中 C 的方向与通常惩罚强度相反：较小 C 通常表示较强正则化。
+
+具体 penalty、l1_ratio 和 solver 的支持应按版本核对；不能将线性回归的 alpha 值直接复制为 C，也不能假设任何求解器都支持同一配置。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-在保持分类概率有效的同时，要求模型只使用一部分权重。
+模型不仅要分对训练标签，还要为使用更多权重付出代价。限制过强时，连真正区分类别的方向也可能被压掉，所以“更稀疏”不是无条件的改进。
 :::
+
+### 相同构造数据，约束太强时所有系数都可为零
+
+构造第一列为 [-4,-3,-2,-1,1,2,3,4]，类别按正负分开，第二列为对称的无关模式。标准化后，用本机支持的 L1 配置，C=0.01 得到 0 个非零系数，C=1 得到 1 个。
+
+这只展示强度方向和稀疏结果，并不是泛化比较。真实任务仍要在训练内部选择 C，检查少数类、概率和独立验证，不能把本例数值当成通用推荐。
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-标准化、solver/penalty 兼容和折内选择 C 缺一不可。C 与 λ 方向相反。
+特征尺度影响权重惩罚的相对含义。通常应把标准化与分类器放在训练内部的 Pipeline 中，而不是在全数据上先选列或缩放。
+
+L1 是训练目标的约束，不直接规定业务决策阈值。即使概率映射不变，阈值与成本也需在独立验证范围下选择，不能把稀疏分类器等同于已校准决策。
+
+强度、求解器、最大迭代与容差共同影响结果。未收敛或依赖输入顺序的结果，应先检查数值问题，再解释系数变化。
+
+相关特征的选择可能不稳定，零系数并非因果结论。报告时可同时给出原始列名、缩放方式、非零数量与验证表现，而不只贴一个所谓重要特征榜单。
 :::
 
 
@@ -95,31 +111,44 @@ $$
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### L1 逻辑回归 示例
+### 明确数据与本机支持的 L1 配置
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+核对 C 的强度方向，不用未定义的训练变量。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-classifier=make_pipeline(StandardScaler(),LogisticRegression(penalty="l1",solver="liblinear",C=0.1,max_iter=5000))
+```Python
+import numpy as np
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+X = np.column_stack([[-4., -3., -2., -1., 1., 2., 3., 4.],
+                     [1., -1., -1., 1., 1., -1., -1., 1.]])
+y = np.array([0, 0, 0, 0, 1, 1, 1, 1])
+for C in [0.01, 1.0]:
+    model = make_pipeline(StandardScaler(), LogisticRegression(
+        C=C, l1_ratio=1.0, solver="liblinear", fit_intercept=False,
+        random_state=7, tol=1e-9, max_iter=10000)).fit(X, y)
+    print(f"C={C:.2f} nonzero={np.count_nonzero(model[-1].coef_)}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 代码按现有 scikit-learn 接口使用 l1_ratio=1.0 和支持 L1 的求解器。
+- 仅打印系数非零数量，没有声称较大 C 的真实测试成绩一定更好。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-得到具有部分零权重的逻辑回归 Pipeline。
+C=0.01 nonzero=0
+C=1.00 nonzero=1
 :::
 
 ::::

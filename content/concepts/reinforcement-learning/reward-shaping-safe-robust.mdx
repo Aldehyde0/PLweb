@@ -55,18 +55,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Reward Shaping、Safe 与 Robust RL并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 区分训练辅助奖励、可行性约束和环境扰动下的鲁棒目标。
+- 独立复核“势函数塑形的折扣望远镜效应”的输入、计算和解释。
+- 策略不变结论依赖折扣、势函数及终止边界条件。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Reward Shaping、Safe 与 Robust RL位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+区分训练辅助奖励、可行性约束和环境扰动下的鲁棒目标。
 :::
 
 
@@ -77,36 +75,32 @@ Reward Shaping、Safe 与 Robust RL位于“状态—行动—反馈—更新”
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+让机器人更接近目标就加分，可能加速学习，也可能鼓励来回移动刷奖励。把碰撞写成大负分又不一定禁止碰撞；针对随机扰动训练也未必涵盖真实极端情况。三种设计必须分别定义与验证。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Shaping 添加辅助奖励；Safe RL 加约束；Robust RL 针对环境变化。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+奖励塑形改变反馈以辅助学习；安全强化学习把成本或禁止条件纳入约束；鲁棒强化学习针对一组模型或扰动优化。它们可以组合，但更高塑形回报、满足平均成本和抵御最坏情形是不同结论。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-给学习提示，但不能让提示变成刷分漏洞。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+给练车者过程鼓励，不等于给车装上防撞系统；在雨天练习，也不等于能应对任意天气。训练信号、执行约束和环境变化是三层不同的问题。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-Potential-based shaping 可保持最优策略的一类条件。
+势函数塑形使用 γΦ(s′)−Φ(s)。折扣和边界条件正确时，整条轨迹的差值会望远镜式消去，留下与起点有关的常数，从而保持原策略排序；终点势或未处理的时限可能破坏这一结论。
 
-安全约束应由环境强制。
+成本约束可以限制期望累计违规，但期望约束仍允许某些轨迹违规。必须禁止的行动通常还需可行集合、屏障或执行层检查，不能只靠一个“足够大”的负奖励。
+
+鲁棒性结论相对于选定扰动集合成立。集合太窄漏掉部署变化，太宽可能过度保守；应报告扰动类型、范围、最坏情形指标与常规回报，而非笼统称策略安全鲁棒。
 :::
 
 
@@ -114,17 +108,17 @@ Potential-based shaping 可保持最优策略的一类条件。
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### 势函数奖励塑形
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+r\prime(s,a,s\prime)=r(s,a,s\prime)+\gamma\Phi(s\prime)-\Phi(s)
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+无限折扣有界势或正确处理的 episodic 边界下，额外回报不改变固定起点的策略排序。
 :::
 
 ::::
@@ -135,9 +129,9 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| Φ | 状态势函数 |
+| r′ | 塑形后的奖励 |
+| γ | 与原任务一致的折扣 |
 :::
 
 ::::
@@ -145,30 +139,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Reward Shaping、Safe 与 Robust RL的最小计算
+### 势函数塑形的折扣望远镜效应
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 两步奖励为 0、1，γ=0.9。
+- 状态势为 −2、−1、0，终点势为零。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 塑形项依次为 0.9×(−1)−(−2)=1.1 与 0−(−1)=1。
+2. 新奖励为 1.1、2，折扣回报为 2.9。
+3. 原回报为 0.9，差值为 2，正好等于 −Φ(s0)。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+原回报 0.900，塑形后 2.900；固定起点下该差值与路径动作无关。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 策略不变结论依赖折扣、势函数及终止边界条件。
+- 塑形不自动提供硬安全或任意扰动鲁棒性。
 :::
 
 
@@ -186,7 +177,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Reward Shaping、Safe 与 Robust RL的本地数值骨架
+### 势函数塑形的折扣望远镜效应
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -194,28 +185,29 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+原回报 0.900，塑形后 2.900；固定起点下该差值与路径动作无关。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+rewards, potential, gamma = [0.0, 1.0], [-2.0, -1.0, 0.0], 0.9
+shaped = [r + gamma * potential[t+1] - potential[t] for t, r in enumerate(rewards)]
+original_return = sum(gamma ** t * r for t, r in enumerate(rewards))
+shaped_return = sum(gamma ** t * r for t, r in enumerate(shaped))
+print(f"original={original_return:.3f}, shaped={shaped_return:.3f}, difference={shaped_return-original_return:.3f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 塑形项依次为 0.9×(−1)−(−2)=1.1 与 0−(−1)=1。
+- 新奖励为 1.1、2，折扣回报为 2.9。
+- 原回报为 0.9，差值为 2，正好等于 −Φ(s0)。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+original=0.900, shaped=2.900, difference=2.000
+```
 :::
 
 ::::
@@ -231,9 +223,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 任意距离奖励都声称保持原最优策略。
+- 把低平均违规率当作每条轨迹零违规保证。
+- 训练只见少量扰动却声称抵御任意环境变化。
 :::
 
 
@@ -244,7 +236,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Ng 等：Policy Invariance under Reward Transformations](https://www.cs.utexas.edu/~shivaram/readings/b2hd-NgHR1999.html)。
 :::
 
 
@@ -255,9 +247,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 任意距离奖励都声称保持原最优策略。
+- 把低平均违规率当作每条轨迹零违规保证。
+- 训练只见少量扰动却声称抵御任意环境变化。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -274,11 +266,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Reward Shaping、Safe 与 Robust RL是 on-policy 还是 off-policy？
+### 碰撞罚得很重就能保证安全了吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+不能。期望收益仍可能接受小概率高代价事件，学习和分布偏移也会出错；必须满足的条件应进入独立约束与执行机制。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -288,4 +280,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

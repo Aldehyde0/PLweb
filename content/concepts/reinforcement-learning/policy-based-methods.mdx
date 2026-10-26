@@ -56,18 +56,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Policy-based Methods并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 直接参数化动作分布，理解策略参数如何改变行为。
+- 独立复核“相同偏移不改变 softmax 策略”的输入、计算和解释。
+- 策略参数不是动作价值。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Policy-based Methods位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+直接参数化动作分布，理解策略参数如何改变行为。
 :::
 
 
@@ -78,38 +76,32 @@ Policy-based Methods位于“状态—行动—反馈—更新”学习链中的
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+机械臂动作是连续力矩，直接枚举所有动作不现实；而在不完全信息游戏中，随机行动本身也可能必要。直接输出动作分布的策略网络，可以表达这些控制方式，并按回报改善分布参数。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Policy-based 方法直接学习 πθ(a\|s) 或确定性动作映射。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+策略方法直接学习带参数的随机策略 πθ 或确定性动作映射 μθ。策略可由 logits、Gaussian 均值与尺度等表示；学习目标是提高期望回报。critic 可以辅助估计梯度信号，所以“policy-based”与“actor-critic”不是互斥概念。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-不先给每个动作打完整分，而直接调整“怎么选”。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+价值方法像先给所有菜评分再点菜，策略方法像直接调整点单偏好。偏好参数本身不是概率，必须经 softmax 等变换形成满足约束的分布。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-随机策略自然支持探索。
+离散策略通常用 softmax 把 logits 转为概率；所有 logits 加上同一常数不改变分布。连续策略需明确密度、动作边界与变换修正，简单截断动作会影响概率计算。
 
-梯度估计通常高方差。
+策略梯度利用被采样动作的对数概率导数乘以回报或优势。好于预期的动作概率上升，差于预期的动作概率下降；并不是让所有高原始奖励动作一律上升。
 
-on-policy 数据不能无限复用。
+随机梯度方差可能很大，因此使用基线、critic 和批量采样。策略直接更新也可能过快失去探索，通常要监测熵、概率比率和 KL；这些诊断不保证得到全局最优。
 :::
 
 
@@ -117,17 +109,17 @@ on-policy 数据不能无限复用。
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### 离散 softmax 策略
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+\pi_\theta(a\mid s)=\frac{e^{z_\theta(s,a)}}{\sum_b e^{z_\theta(s,b)}}
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+logits 的相对差异决定动作分布，稳定实现会先减去最大 logit。
 :::
 
 ::::
@@ -138,9 +130,8 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| z | 网络输出的未归一化 logit |
+| π | 动作概率分布 |
 :::
 
 ::::
@@ -148,30 +139,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Policy-based Methods的最小计算
+### 相同偏移不改变 softmax 策略
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 两动作 logits 为 0 与 log 3。
+- 给两个 logits 同时加 5。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 指数比例为 1∶3，归一化概率为 0.25 和 0.75。
+2. 共同平移会给分子分母乘同一常数，概率不变。
+3. 只有相对 logits 改变才影响离散策略。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+原 logits 和共同平移后的概率均为 0.2500、0.7500。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 策略参数不是动作价值。
+- 给所有 logits 同时加常数不能提高任何动作的相对概率。
 :::
 
 
@@ -189,7 +177,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Policy-based Methods的本地数值骨架
+### 相同偏移不改变 softmax 策略
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -197,28 +185,33 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+原 logits 和共同平移后的概率均为 0.2500、0.7500。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+import math
+def softmax(logits):
+    maximum = max(logits)
+    weights = [math.exp(x - maximum) for x in logits]
+    return [x / sum(weights) for x in weights]
+for shift in [0.0, 5.0]:
+    probs = softmax([shift, math.log(3) + shift])
+    print("probabilities=" + ",".join(f"{p:.4f}" for p in probs))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 指数比例为 1∶3，归一化概率为 0.25 和 0.75。
+- 共同平移会给分子分母乘同一常数，概率不变。
+- 只有相对 logits 改变才影响离散策略。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+probabilities=0.2500,0.7500
+probabilities=0.2500,0.7500
+```
 :::
 
 ::::
@@ -234,9 +227,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 把 logits 当作已经归一化的动作概率。
+- 把动作裁剪后仍用裁剪前密度当真实动作概率。
+- 认为直接优化策略就不需要价值估计或探索诊断。
 :::
 
 
@@ -247,7 +240,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Sutton 与 Barto《Reinforcement Learning: An Introduction》](http://incompleteideas.net/book/the-book-2nd.html)（第 13 章）。
 :::
 
 
@@ -258,9 +251,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 把 logits 当作已经归一化的动作概率。
+- 把动作裁剪后仍用裁剪前密度当真实动作概率。
+- 认为直接优化策略就不需要价值估计或探索诊断。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -277,11 +270,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Policy-based Methods是 on-policy 还是 off-policy？
+### 有 actor 就一定是 on-policy 吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+不是。PPO 常按 on-policy 数据组织，DDPG、TD3、SAC 则使用 replay 做 off-policy actor-critic 学习。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -291,4 +284,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

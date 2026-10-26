@@ -37,18 +37,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 读懂训练验证曲线
-- 区分欠拟合与不稳定
-- 设计数据划分
+- 五轮构造日志选择检查点
+- 训练损失比验证高就一定没有过拟合吗？
+- 说明：验证表现差也可能来自分布差异、实现错误或标注噪声，不能仅凭一条曲线断言原因。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-保证可信泛化
-
-防止测试集泄漏
+过拟合指模型对训练样本的适配超过了可泛化结构的学习。验证集用于选模型、超参数和停止时机；测试集用于方案锁定后的最终评估。
 :::
 
 
@@ -59,30 +57,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-只看训练 loss 无法判断新数据表现。
+训练损失持续下降，而独立数据表现转差，说明网络可能开始学习训练集的特殊噪声。没有可信验证集，无法知道何时发生这种转折。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-过拟合表现为训练持续改善而验证恶化；验证集用于选择模型，测试集只最终评估。
+过拟合指模型对训练样本的适配超过了可泛化结构的学习。验证集用于选模型、超参数和停止时机；测试集用于方案锁定后的最终评估。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-训练题越做越熟，但模拟考试开始退步，说明模型在记细节。
+反复做熟悉题的分数可以一直变好，但换新题后下降，才暴露模型记住了练习细节。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-验证损失最低点常比训练末尾更适合作为保存检查点。
+划分必须反映部署时的独立性。相同用户、病人、视频片段或未来时间泄漏到训练与验证两边，会造成虚高表现；按行随机划分并不总是合适。所有数据驱动预处理也只能在训练部分拟合。
 
-解决方法包括代表性数据、合理增强、降低容量、权重衰减、Dropout 和早停。
+训练使用 train，验证使用 eval 并关闭梯度；否则 Dropout 噪声和 BatchNorm 更新可能污染指标。比较损失时还要注意训练损失是否包含正则项或增强，避免把口径不同的数值误认成泛化间隙。
+
+早停按验证趋势保存最佳检查点，而非默认取最后一轮。耐心值、最小改善量和最大预算都要预先约定；频繁在同一验证集试很多方案也会产生选择偏差，必要时使用额外验证或交叉验证。
 :::
 
 
@@ -100,7 +100,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-λ 控制权重衰减强度。
+过拟合指模型对训练样本的适配超过了可泛化结构的学习。验证集用于选模型、超参数和停止时机；测试集用于方案锁定后的最终评估。
 :::
 
 ::::
@@ -120,35 +120,42 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 曲线诊断
+### 五轮构造日志选择检查点
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- train loss\:0.8→0.1
-- val loss\:0.9→0.4→0.7
+- 训练损失依次 1.0、0.7、0.5、0.3、0.2
+- 验证损失依次 0.9、0.65、0.6、0.7、0.8
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 验证最低点在中间 epoch
+1. 训练损失五轮都下降。
+2. 验证最低点在第 3 轮。
+3. 按最低验证损失选择第 3 轮，而非第 5 轮。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-应保存 val loss=0.4 的模型
+本日志最佳轮次为 3，验证损失 0.6。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 验证表现差也可能来自分布差异、实现错误或标注噪声，不能仅凭一条曲线断言原因。
 :::
+
+### 五轮构造日志选择检查点
+
+这些数值是演示选择规则的构造日志，不是某模型的实测结果。它显示训练最优与验证最优可以分离，不能把训练末轮自动当作交付模型。
+
+早停并不是每次上升就立即结束；随机波动需要耐心值等规则。无论何时停止，最后应恢复真正保存的最佳权重，再在锁定协议下测试。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 划分 train/val/test
-2. 每 epoch 记录两类指标
-3. 保存验证最佳
-4. 早停
-5. 最终测试一次
+1. 训练损失五轮都下降。
+2. 验证最低点在第 3 轮。
+3. 按最低验证损失选择第 3 轮，而非第 5 轮。
 :::
 
 
@@ -156,34 +163,37 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 深度学习过拟合与验证 · PyTorch 示例
+### 五轮构造日志选择检查点的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证深度学习过拟合与验证的输入、计算和输出。
+使用完整构造输入核对五轮构造日志选择检查点，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-model.eval()
-with torch.inference_mode():
-    val_logits=model(x_val)
-    val_loss=criterion(val_logits,y_val)
+```python
+train = [1., 0.7, 0.5, 0.3, 0.2]
+valid = [0.9, 0.65, 0.6, 0.7, 0.8]
+best = min(range(len(valid)), key=valid.__getitem__)
+print(f"best_epoch={best + 1} train={train[best]:.2f} validation={valid[best]:.2f}")
+print(f"last_epoch={len(valid)} validation={valid[-1]:.2f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- eval 控制 Dropout/BN
-- inference\_mode 关闭梯度
-- 验证不 step
+- 输入是明确标注的构造日志。
+- 只演示选轮次，不虚构训练实验。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-得到不更新参数的验证损失。
+```text
+best_epoch=3 train=0.50 validation=0.60
+last_epoch=5 validation=0.80
+```
 :::
 
 ::::
@@ -191,8 +201,8 @@ with torch.inference_mode():
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 模型选择
-- 早停
+- 保存与恢复最佳模型
+- 识别泄漏和训练验证口径差异
 :::
 
 
@@ -213,18 +223,17 @@ with torch.inference_mode():
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 验证损失上升时一定停止吗？
+### 训练损失比验证高就一定没有过拟合吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-应结合 patience、噪声和验证趋势。
+不是。训练可能含增强、Dropout 或正则项，两个口径不同；应控制评估模式和目标定义，并看独立任务指标。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 测试集能否选 epoch？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-不能，那会让测试集变成验证集。
+验证表现差也可能来自分布差异、实现错误或标注噪声，不能仅凭一条曲线断言原因。
 :::
-

@@ -37,18 +37,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释核心机制
-- 手算一个主要形状或公式
-- 运行完整示例并排查错误
+- 带动量 SGD 的断点恢复核对
+- 只保存 model.state_dict 能精确续训吗？
+- 说明：本例证明优化器状态的重要性，不承诺跨硬件或分布式训练完全确定。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-掌握可靠训练工程的输入输出与训练边界
-
-能够用 PyTorch 代码验证公式和形状
+训练工程将配置、数据版本、数值检查、日志、检查点和恢复流程组织成可追踪系统，并在正确性明确后优化吞吐与资源使用。
 :::
 
 
@@ -59,30 +57,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-可靠训练工程是该文档中连接数据表示、训练目标和工程实现的核心主题。
+长训练可能中断，实验也需要复查。只有权重而没有优化器、随机状态和数据进度，通常只能重新开始一个相近实验，不能保证接着原轨迹走。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-训练工程让实验正确、可恢复、可比较、可复现。
+训练工程将配置、数据版本、数值检查、日志、检查点和恢复流程组织成可追踪系统，并在正确性明确后优化吞吐与资源使用。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把可靠训练工程理解为数据在模型中的一套明确变换，而不是只记一个类名。
+断点像游戏存档：只存角色位置而不存背包、任务进度和随机状态，继续游戏就可能发生不同结果。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-保存模型、优化器、调度器、scaler、进度与配置；先正确再性能优化。
+用于恢复的检查点通常包含模型、优化器、调度器、AMP scaler、当前进度、最佳指标及配置。随机采样还依赖 Python、NumPy、PyTorch 和设备随机状态，数据加载器或采样器进度也可能需要保存。
 
-实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+指标记录应带样本计数和步骤定义，非有限损失或梯度应及时暴露。保存时注意 state_dict 引用当前张量；如果把“最佳状态”仅留在内存，需深拷贝或立即序列化，避免后续训练继续改动它。
+
+恢复一致性最好用“连续两步”和“第一步保存、恢复后第二步”比较。分布式算子、工作进程和设备差异仍可能带来不确定性，因此不要从设置 seed 就宣称所有环境位级复现。
 :::
 
 
@@ -100,7 +100,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-可靠训练工程的核心数学表达。
+训练工程将配置、数据版本、数值检查、日志、检查点和恢复流程组织成可追踪系统，并在正确性明确后优化吞吐与资源使用。
 :::
 
 ::::
@@ -120,37 +120,42 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 可靠训练工程数值/形状检查
+### 带动量 SGD 的断点恢复核对
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=8
-- D=64
+- 参数初值 1，学习率 0.1，momentum=0.9
+- 每步梯度固定为 1
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 按公式或模块逐步计算
-2. 核对输出 shape
+1. 第一步参数变为 0.9，动量 buffer 为 1。
+2. 第二步方向为 0.9×1+1=1.9，参数变为 0.71。
+3. 保存第一步的参数和优化器状态，恢复后重复第二步。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出保持 batch 维并符合任务头约定
+连续与恢复路径均得到 0.7100。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 本例证明优化器状态的重要性，不承诺跨硬件或分布式训练完全确定。
 :::
+
+### 带动量 SGD 的断点恢复核对
+
+若只恢复参数 0.9 而没有动量，第二步只减去 0.1，会得到 0.8。代码通过内存序列化快照保存真正的第一步状态，避免被第二步覆盖。
+
+真实任务还有数据顺序与随机增强，因此这个确定性例子只隔离优化器状态。需要精确续训时，应扩展到完整数据与随机状态检查。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认输入与目标
-2. 建立最小模块
-3. 随机张量前向
-4. 计算损失
-5. 反向与更新
-6. 验证与错误分析
+1. 第一步参数变为 0.9，动量 buffer 为 1。
+2. 第二步方向为 0.9×1+1=1.9，参数变为 0.71。
+3. 保存第一步的参数和优化器状态，恢复后重复第二步。
 :::
 
 
@@ -158,32 +163,49 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 可靠训练工程 · PyTorch 示例
+### 带动量 SGD 的断点恢复核对的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证可靠训练工程的输入、计算和输出。
+使用完整构造输入核对带动量 SGD 的断点恢复核对，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-checkpoint={'epoch':epoch,'model':model.state_dict(),'optimizer':optimizer.state_dict(),'scheduler':scheduler.state_dict(),'best':best}
-torch.save(checkpoint,'checkpoint.pt')
+```python
+import io
+import torch
+p = torch.nn.Parameter(torch.tensor(1.))
+opt = torch.optim.SGD([p], lr=0.1, momentum=0.9)
+p.grad = torch.ones_like(p)
+opt.step()
+buffer = io.BytesIO()
+torch.save({"parameter": p.detach().clone(), "optimizer": opt.state_dict()}, buffer)
+p.grad = torch.ones_like(p)
+opt.step()
+buffer.seek(0)
+state = torch.load(buffer, weights_only=True)
+q = torch.nn.Parameter(state["parameter"].clone())
+resumed = torch.optim.SGD([q], lr=0.1, momentum=0.9)
+resumed.load_state_dict(state["optimizer"])
+q.grad = torch.ones_like(q)
+resumed.step()
+print(f"continuous={p.item():.4f} resumed={q.item():.4f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码显式标注输入和输出
-- 使用框架稳定实现
-- 结果通过 shape 或数值检查
+- 保存真实序列化快照而非可变引用。
+- 固定梯度排除随机数据影响。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印与页面说明一致的张量形状或损失。
+```text
+continuous=0.7100 resumed=0.7100
+```
 :::
 
 ::::
@@ -191,8 +213,8 @@ torch.save(checkpoint,'checkpoint.pt')
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 可靠训练工程
-- 教学与项目基线
+- 长训练中断恢复
+- 记录可追溯实验与数值异常
 :::
 
 
@@ -213,18 +235,17 @@ torch.save(checkpoint,'checkpoint.pt')
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 可靠训练工程最先检查什么？
+### 只保存 model.state_dict 能精确续训吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-先检查输入输出 shape、dtype 和数据边界。
+通常不能，优化器矩、调度位置、scaler 和随机数据进度都会影响后续更新；仅推理则通常不需要这些训练状态。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 何时使用测试集？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-全部设计锁定后最终评估。
+本例证明优化器状态的重要性，不承诺跨硬件或分布式训练完全确定。
 :::
-

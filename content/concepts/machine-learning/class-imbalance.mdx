@@ -39,28 +39,44 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-990 个正常与 10 个异常时，全预测正常已有 99% 准确率，但异常召回率为 0。
+当目标类别很少时，整体准确率可能掩盖几乎所有重要错误。一个总是猜多数类的模型，既可能得到很高分数，也可能完全没有找到真正关心的样本。
+
+不平衡问题还涉及阈值、代价与数据采集，不能只靠“把两类数量变相同”就认为任务已经解决。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-类别不平衡表示不同类别样本数量差异明显，常伴随不同错误代价。
+类别不平衡描述训练或评价中各类别支持数明显不同。是否构成问题，取决于目标类别、错误成本和模型评价，而不是存在一个放之四海皆准的比例界限。
+
+样本加权、重采样、阈值调整与数据补充是不同工具：它们分别改变训练目标、采样分布、行动规则或信息覆盖，不能互相混称。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-如果真正重要的是少数异常，不能用“总体答对多少”掩盖“关键问题一个都没找到”。
+在大多数东西都正常的场景，只说“我判断正常”就可能很准确。但如果任务是寻找少数异常，应该看它究竟找回了多少、误报了多少，以及复核负担多大。
 :::
+
+### 99% 准确率可以对应零召回
+
+构造 1,000 条记录，其中 990 条为负类、10 条为正类。全部预测负类的准确率是 0.99，但正类召回率为 0/10=0，十个目标一个也没有找到。
+
+若按 n/(类别数×该类数量) 计算平衡权重，负类约为 0.5051、正类为 50。这个计算只说明训练权重，不是使用权重后的真实模型成绩，更不能代替独立评价。
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-关注 Precision、Recall、F1、PR-AUC、混淆矩阵和 Macro-F1；阈值影响误报漏报权衡。重采样只能在训练集或每个训练折内发生。
+评价应报告每类支持数与混淆矩阵，再结合 Recall、Precision、PR 曲线和宏平均等指标。没有预测出任何正类时，Precision 的数学分母为零，应说明库采用的约定，而不是把它当成一个自然有定义的比率。
+
+class_weight='balanced' 常根据训练类别频率提高少数类样本的损失权重，它并不生成新信息，也不保证概率已经校准。使用后仍需按验证协议选择阈值和模型。
+
+重采样必须只作用于训练范围或每个训练折，不能先对全数据复制少数样本再划分，否则近乎相同的记录可能泄漏到验证中。
+
+分层能帮助保持类别比例，但不能解决少数类太少、标签错误、实体重复和分布变化。增加代表性少数类数据，有时比重复已有几条记录更重要。
 :::
 
 
@@ -133,37 +149,40 @@ Precision 与 Recall 的调和平均。
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 类别权重与分类报告
+### 核对多数类基线与平衡权重
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-训练时提高少数类权重并查看逐类结果。
+用固定类别计数说明为什么不能只看准确率。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import classification_report
-
-model = LogisticRegression(class_weight="balanced", max_iter=2000)
-model.fit(X_train, y_train)
-y_pred = model.predict(X_test)
-print(classification_report(y_test, y_pred))
+```Python
+import numpy as np
+from sklearn.utils.class_weight import compute_class_weight
+y = np.array([0] * 990 + [1] * 10)
+weights = compute_class_weight(class_weight="balanced", classes=np.array([0, 1]), y=y)
+print(f"majority_accuracy={np.mean(y == 0):.4f}")
+print("minority_recall=0.0000")
+print(f"class_weights={weights[0]:.4f},{weights[1]:.4f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- balanced 根据训练类别频率设置权重。
-- 报告 Precision、Recall、F1 和 support。
+- 基线总预测 0，所以找不到任何标签 1；召回率为 0。
+- 权重只由训练标签频率计算，不代表训练后一定改善。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-每个类别各自的 Precision、Recall、F1，以及 macro/weighted 平均。
+majority_accuracy=0.9900
+minority_recall=0.0000
+class_weights=0.5051,50.0000
 :::
 
 ::::

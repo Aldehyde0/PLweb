@@ -35,7 +35,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-单一准确率无法告诉模型错在哪里，也无法表达不同错误代价。
+同样的准确率可能来自不同错误：系统可能频繁误报，也可能漏掉大量真正的正例。混淆矩阵把真实类别与预测类别交叉计数，让错误结构变得可见。
+
+读矩阵之前，必须知道哪个标签是正类，以及行列分别代表什么。没有这些约定，四个数字本身无法解释。
 :::
 
 
@@ -56,7 +58,13 @@ anchorAliases:
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-必须明确正类定义和行列约定；同时报告原始数量、归一化比例和每类 support。
+在 scikit-learn 的约定中，行是真实标签，列是预测标签；显式指定 labels 可以固定排列。二分类采用标签顺序 0、1 时，第一行依次是 TN、FP，第二行依次是 FN、TP。
+
+原始计数反映工作量与错误数量，按真实类别归一化则显示每类样本流向各预测类别的比例。按预测类别归一化回答另一个问题：某个预测标签中的真实构成是什么，不能混用分母。
+
+每类 support 是该类真实样本数。少数类只有几个样本时，比例会非常不稳定；还应结合样本规模和错误代价解释，而不是只看颜色深浅。
+
+多分类矩阵的每个非对角格表示一种具体混淆，可以帮助定位近似类别、标签规则或数据切片。矩阵依赖阈值和评价样本分布，不能把一次矩阵直接推广到其他人群或业务流量。
 :::
 
 
@@ -79,6 +87,12 @@ $$
 
 ::::
 
+### 案例：8 个构造样本的两种分母
+
+设真实负类与正类各 4 个；负类中误报 1 个，正类中漏报 2 个，矩阵是第一行 3、1，第二行 2、2。总体正确 5 个，但正类召回率只有 2 / 4 = 0.5。
+
+按真实类别归一化后第二行是 0.5、0.5；按预测类别看，预测为正的 3 个中有 2 个正确，精确率为 2 / 3。这说明召回率与精确率读取同一矩阵，却使用不同分母。所有数值均为教学构造。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
@@ -95,31 +109,43 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 混淆矩阵 示例
+### 固定标签顺序并核对行归一化
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+用固定 8 个样本复核矩阵方向、计数与分母，不依赖训练模型。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-from sklearn.metrics import ConfusionMatrixDisplay
-ConfusionMatrixDisplay.from_predictions(y_test,y_pred,normalize=None)
+```Python
+from sklearn.metrics import confusion_matrix
+
+y_true = [0, 0, 0, 0, 1, 1, 1, 1]
+y_pred = [0, 0, 0, 1, 0, 0, 1, 1]
+counts = confusion_matrix(y_true, y_pred, labels=[0, 1])
+by_true = confusion_matrix(y_true, y_pred, labels=[0, 1], normalize="true")
+assert counts.tolist() == [[3, 1], [2, 2]]
+print("counts:", counts.tolist())
+print("row_normalized:", by_true.tolist())
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- labels=[0,1] 固定真实与预测的类别顺序。
+- normalize="true" 对每个真实类别所在行归一化。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-生成完整类别顺序的混淆矩阵图。
+本地 scikit-learn 1.8.0 的核对输出：
+
+```text
+counts: [[3, 1], [2, 2]]
+row_normalized: [[0.75, 0.25], [0.5, 0.5]]
+```
 :::
 
 ::::
@@ -135,9 +161,9 @@ ConfusionMatrixDisplay.from_predictions(y_test,y_pred,normalize=None)
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 行列含义搞反
-- 不显示样本量
-- 用训练预测绘图
+- 不说明标签排列和行列含义，就直接把左上格称为 TP。
+- 只看归一化比例不看 support，或把行归一化当成预测可信度。
+- 修改阈值后继续沿用旧矩阵解释当前系统行为。
 :::
 
 

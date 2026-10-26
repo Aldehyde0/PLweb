@@ -54,18 +54,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义稀疏/延迟奖励与 Credit Assignment并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 分清奖励出现少、反馈来得晚和历史贡献难归因这三个问题。
+- 独立复核“一次成功中，MC 与一步 TD 传播到哪里”的输入、计算和解释。
+- 备份顺序不同会改变一次扫描的信息传播速度。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-稀疏/延迟奖励与 Credit Assignment位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+分清奖励出现少、反馈来得晚和历史贡献难归因这三个问题。
 :::
 
 
@@ -76,36 +74,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+迷宫里只有到终点才得 1 分，会同时遇到两个困难：可能始终走不到终点，即探索失败；偶尔走到了，又难判断长路径里哪些动作必要，即信用分配困难。增加回放次数不能产生数据中从未出现的成功证据。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Credit assignment 决定哪些历史动作应对结果负责。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+稀疏奖励指大量转移没有有用的非零或区分性反馈；延迟奖励指结果在动作很久以后才出现；信用分配决定如何将后果关联到早先决策。三者相关但并不等价，密集噪声反馈同样可能难归因。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-项目最后成功，难点是判断前面哪些决定真正贡献。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+团队项目几周后成功，不能给每次会议同样的功劳。某些动作建立了条件，另一些只是恰好发生；把终点分数无差别复制给所有动作会有很大方差。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-更长 horizon 增加方差。
+一步 TD 用后继价值向前传播信息。如果初始价值全为零，第一次成功只直接更新离终点最近的状态；更早状态需要之后的备份或重放才能接收这项证据。
 
-reward shaping 可能改变最优策略。
+Monte Carlo 和 n-step 回报让一次成功影响更长的历史，但更依赖整段轨迹的随机结果。资格迹与 GAE 用衰减权重融合多步信号，在传播距离与估计方差之间折中。
+
+辅助奖励和目标重标记能让学习信号更丰富，但必须核对任务语义。任意“离终点更近就加分”可能鼓励来回刷分；势函数塑形的条件和终止处理不能省略。
 :::
 
 
@@ -144,30 +138,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 稀疏/延迟奖励与 Credit Assignment的最小计算
+### 一次成功中，MC 与一步 TD 传播到哪里
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 轨迹为 s0→s1→终点，奖励依次为 0、10。
+- 初始价值均为 0，折扣 0.9，学习率 1；按时间向前做一次 TD。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 更新 s0 时，后继旧价值还是 0，所以 TD 值为 0。
+2. 更新 s1 时直接得到终点奖励 10。
+3. 完整回报已知后，MC 可给 s0 目标 0+0.9×10=9。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+一次向前 TD 扫描得到 V(s0)=0、V(s1)=10；MC 的 s0 目标为 9。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 备份顺序不同会改变一次扫描的信息传播速度。
+- MC 更快使用这条轨迹的远期奖励，但不意味着它的统计方差更低。
 :::
 
 
@@ -184,7 +175,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 稀疏/延迟奖励与 Credit Assignment的本地数值骨架
+### 一次成功中，MC 与一步 TD 传播到哪里
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -192,28 +183,32 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+一次向前 TD 扫描得到 V(s0)=0、V(s1)=10；MC 的 s0 目标为 9。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
 gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+values = [0.0, 0.0, 0.0]
+values[0] = 0 + gamma * values[1]
+values[1] = 10.0
+mc_target_s0 = 0 + gamma * 10.0
+print(f"one_pass_td_s0={values[0]:.1f}, td_s1={values[1]:.1f}")
+print(f"mc_target_s0={mc_target_s0:.1f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 更新 s0 时，后继旧价值还是 0，所以 TD 值为 0。
+- 更新 s1 时直接得到终点奖励 10。
+- 完整回报已知后，MC 可给 s0 目标 0+0.9×10=9。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+one_pass_td_s0=0.0, td_s1=10.0
+mc_target_s0=9.0
+```
 :::
 
 ::::
@@ -229,9 +224,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 将探索失败误诊为只需要更强的价值网络。
+- 把所有零奖励当成没有学习信息。
+- 随意添加过程奖励而不检查最优策略是否改变。
 :::
 
 
@@ -242,7 +237,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Sutton 与 Barto《Reinforcement Learning: An Introduction》](http://incompleteideas.net/book/the-book-2nd.html)（第 5—7、12 章）。
 :::
 
 
@@ -253,9 +248,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 将探索失败误诊为只需要更强的价值网络。
+- 把所有零奖励当成没有学习信息。
+- 随意添加过程奖励而不检查最优策略是否改变。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -272,11 +267,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 稀疏/延迟奖励与 Credit Assignment是 on-policy 还是 off-policy？
+### 奖励延迟就必须使用折扣吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+折扣定义偏好和有效时间范围，不能消除信用分配困难；有限 episode 也可使用不折扣回报，具体取决于任务目标。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -286,4 +281,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

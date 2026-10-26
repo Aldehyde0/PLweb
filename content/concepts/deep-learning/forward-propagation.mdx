@@ -35,18 +35,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 区分前向与更新
-- 跟踪每层形状
-- 识别 logits
+- 固定两层权重追踪中间结果
+- 只调用 model(x) 会改变参数吗？
+- 说明：前向输出正确不代表模型已经学会任务，也不代表参数已经更新。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-训练循环第一步
-
-确定张量形状和计算图
+前向传播是从输入出发，依次执行层运算得到输出的过程。它可能记录供反向传播使用的计算图，但本身不执行参数更新。
 :::
 
 
@@ -57,30 +55,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-只有得到预测，才能计算损失并开始反向传播。
+训练前必须先回答一个确定的问题：给定这批输入和当前参数，模型到底会预测什么。前向传播按网络连接顺序计算中间表示，是计算损失和梯度的前提。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-前向传播执行模型定义的计算图，输出 logits、概率参数或连续预测。
+前向传播是从输入出发，依次执行层运算得到输出的过程。它可能记录供反向传播使用的计算图，但本身不执行参数更新。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-像把数据沿流水线送过每个加工站，先得到结果再评价。
+可以把每一层当作带形状约定的工序。前一层交付的张量既要有正确数值，也要有下一层接受的维度；最终输出的含义由任务头决定。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-每层输出成为下一层输入；此过程构建 Autograd 计算图，但没有调用 optimizer.step。
+在线性层中，输入末维与 in_features 匹配，输出末维换成 out_features。以批量输入为例，$[N,D]$ 乘以权重转置后变成 $[N,H]$，偏置在 batch 维广播。激活再逐元素变换这个表示。
 
-训练与推理都执行前向，区别在模块模式和是否记录梯度。
+同一个模型在 train 和 eval 模式都会执行前向；Dropout、BatchNorm 等层会按模式采取不同计算。eval 不会自动关闭梯度，而 no_grad 或 inference_mode 控制的是是否跟踪计算。
+
+前向成功只说明这一批运算能够完成。输出可能因广播、标签顺序或错误归一化而语义错误，因此需要检查若干可手算样本，不能只看程序没有报错。
 :::
 
 
@@ -98,7 +98,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-f\_l 是第 l 层变换。
+前向传播是从输入出发，依次执行层运算得到输出的过程。它可能记录供反向传播使用的计算图，但本身不执行参数更新。
 :::
 
 ::::
@@ -118,36 +118,43 @@ f\_l 是第 l 层变换。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 简单线性前向
+### 固定两层权重追踪中间结果
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- x=2
-- w=1.5
-- b=0.5
+- 输入一条样本为 (1,2)
+- 第一层两行权重为 (1,-1)、(2,0)，偏置为 (1,-1)
+- 第二层把两个隐藏值相加
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. z=1.5×2+0.5
+1. 第一层得到 (0,1)。
+2. ReLU 后仍为 (0,1)。
+3. 第二层求和得到 1。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-预测 z=3.5
+中间张量为 (1,2)，最终输出张量为 (1,1)，数值为 1。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 前向输出正确不代表模型已经学会任务，也不代表参数已经更新。
 :::
+
+### 案例推演与判断
+
+这里第一个隐藏单元的原始分数是 1−2+1=0，第二个是 2×1−1=1。逐个打印这些值，可以把“输入有误”“权重朝向有误”“激活位置有误”分别定位，而不是只盯最终损失。
+
+如果目标是三分类，应把末层改为三个 logits，并重新明确标签含义；不能把一个实数输出直接解释成三类概率。无论任务如何，只有后续调用 backward 和优化器 step 才会训练参数。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 读取 batch
-2. 移动设备
-3. 调用 model(x)
-4. 检查输出形状
-5. 送入损失
+1. 第一层得到 (0,1)。
+2. ReLU 后仍为 (0,1)。
+3. 第二层求和得到 1。
 :::
 
 
@@ -155,34 +162,40 @@ f\_l 是第 l 层变换。
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 前向传播 · PyTorch 示例
+### 固定两层权重追踪中间结果的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证前向传播的输入、计算和输出。
+使用完整构造输入核对固定两层权重追踪中间结果，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-model.train()
-x=torch.randn(16,10)
-logits=model(x)
-print(logits.shape)
+```python
+import torch
+x = torch.tensor([[1., 2.]])
+w1 = torch.tensor([[1., -1.], [2., 0.]])
+b1 = torch.tensor([1., -1.])
+h = torch.relu(x @ w1.T + b1)
+y = h @ torch.ones(2, 1)
+print("hidden:", h.tolist())
+print("output:", y.tolist())
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- train 设置模块行为
-- model(x) 调用 forward 与 hooks
-- 前向不会更新参数
+- 显式写矩阵转置以对应 Linear 的权重排列。
+- 所有参数固定，结果不依赖随机初始化。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-输出形状由任务头决定。
+```text
+hidden: [[0.0, 1.0]]
+output: [[1.0]]
+```
 :::
 
 ::::
@@ -190,9 +203,8 @@ print(logits.shape)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 训练
-- 验证
-- 推理
+- 检查模型每层输入输出
+- 保存模型后比较推理一致性
 :::
 
 
@@ -212,18 +224,17 @@ print(logits.shape)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 前向会改变权重吗？
+### 只调用 model(x) 会改变参数吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-不会，参数更新由 optimizer.step 完成。
+普通层不会因此执行梯度更新；但训练模式的 BatchNorm 会更新统计 buffer，带状态模块也可能改变内部状态。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 验证也需要前向吗？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-需要，但通常关闭梯度并使用 eval 模式。
+前向输出正确不代表模型已经学会任务，也不代表参数已经更新。
 :::
-

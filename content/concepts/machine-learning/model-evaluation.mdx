@@ -24,16 +24,30 @@ preserved: {}
 ## 通俗直觉 {#intuition}
 
 :::field{path="explanation" type="text"}
-准确率只回答“总体对了多少”，却可能掩盖少数类漏报；指标要围绕真正关心的错误选择。
+准确率只回答总体对了多少，却不区分漏报与误报的业务后果。疾病筛查、风险预警与普通图像分类的错误代价不同，不能凭同一个高分判断系统是否可用。
+
+评价应先明确预测对象、正类和实际决策，再选择数据划分与指标。分数必须来自未参与相应训练与选择的数据，才能讨论对新样本的表现。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="principle" type="text"}
-混淆矩阵拆分 TP、FP、FN、TN；精确率关注误报，召回率关注漏报，F1 平衡二者。
+混淆矩阵把二分类拆成 TP、FP、FN、TN。Precision 关注被预测为正的对象中有多少是真的，Recall 关注真实正例覆盖了多少；同一系统可以有很高精确率却漏掉大量正例。
+
+F1 汇总精确率与召回率，但不直接包含真负例，也不等于业务成本。若漏报代价为误报的很多倍，可以建立明确的代价表达式，比较阈值变化带来的总影响，同时检查审核容量等约束。
+
+概率质量、排序质量与阈值决策也不同。AUC 高不保证当前阈值合适；概率校准不足时，预测 0.8 也未必对应实际 80% 发生率。阈值和模型方案应在开发数据上选择，再独立评估。
+
+总体指标需结合类别比例、切片和样本规模解释。类别分布或错误代价变化后，原来合适的阈值可能不再合适，应重新验证，而不是把一次测试分数当作永久认证。
 :::
 
+
+### 案例：95% 准确率是否值得采用
+
+构造 100 个样本，其中 10 个正类。模型找到其中 5 个，没有误报，于是准确率 95%、精确率 100%，但召回率仅 50%。如果每次漏报损失 20 个代价单位，总代价是 5 × 20 = 100。
+
+全猜负类准确率也有 90%，却漏掉全部 10 个正类，代价为 200。这个模型比常量基线有进步，但是否足够仍取决于业务要求和其他阈值表现。数字仅用于说明代价比较，不能视作真实场景测得结果。
 
 ## 数学公式 {#formulas}
 
@@ -66,20 +80,37 @@ Python
 
 :::field{path="code.source" type="code" trailing="0"}
 ```Python
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score
 
-print(confusion_matrix(y_test, y_pred))
-print(classification_report(y_test, y_pred))
+y_true = [0] * 90 + [1] * 10
+y_pred = [0] * 95 + [1] * 5
+tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
+cost = int(fp + 20 * fn)
+print(f"tn={tn}, fp={fp}, fn={fn}, tp={tp}")
+print(f"accuracy={accuracy_score(y_true, y_pred):.3f}")
+print(f"precision={precision_score(y_true, y_pred):.3f}")
+print(f"recall={recall_score(y_true, y_pred):.3f}")
+print("cost:", cost)
 ```
 :::
 
 :::field{path="code.highlights" type="list"}
-- 先检查数据和张量形状
-- 把会学习参数的步骤限制在训练数据内
+- 显式指定负类 0、正类 1，与矩阵展开顺序一致。
+- 20 倍漏报成本是教学假设，真实成本需要业务确认。
 :::
 
 :::field{path="codeExplanation" type="text"}
-不要只报告单一准确率；同时查看每类指标和具体错误样本。
+计算上方案例的混淆矩阵与明确构造的代价，保留 legacy 结构与旧锚点。
+
+运行输出（本地 scikit-learn 1.8.0）：
+
+```text
+tn=90, fp=0, fn=5, tp=5
+accuracy=0.950
+precision=1.000
+recall=0.500
+cost: 100
+```
 :::
 
 
@@ -94,8 +125,9 @@ print(classification_report(y_test, y_pred))
 ## 常见误区 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只记接口而不检查数据边界
-- 只看单次分数而忽略泛化
+- 只报准确率或精确率，隐去少数类数量与漏报。
+- 在最终测试集上选阈值或反复选模型，再用同一分数证明泛化。
+- 把教学代价、默认阈值或一次类别比例直接当成所有业务的标准。
 :::
 
 

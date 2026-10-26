@@ -36,18 +36,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 检查四个 Tensor 属性
-- 编写 Module
-- 区分 Parameter/buffer
+- 用一个参数和一个 buffer 做线性映射
+- 普通列表为什么不适合存放待训练层？
+- 说明：buffer 不训练不代表不重要；丢失预处理统计可能改变整个模型输出。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-PyTorch 全部代码基础
-
-避免设备和未注册参数错误
+Tensor 保存数值与可选的梯度信息；nn.Module 组织计算、子模块、Parameter 和 buffer。Parameter 默认可训练，持久 buffer 保存随模型移动的状态。
 :::
 
 
@@ -58,30 +56,32 @@ PyTorch 全部代码基础
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-安全训练必须明确数据、参数和状态在何处、以什么类型存在。
+把权重放进普通 Python 列表并不能保证优化器发现它们。要让参数、设备移动和保存加载协同工作，模型需要遵守 PyTorch 的模块注册规则。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Tensor 具有 shape、dtype、device、requires\_grad；Module 注册子模块和状态。
+Tensor 保存数值与可选的梯度信息；nn.Module 组织计算、子模块、Parameter 和 buffer。Parameter 默认可训练，持久 buffer 保存随模型移动的状态。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-Tensor 是数据容器，Module 是会管理状态的计算单元。
+Module 像一份可遍历的设备清单：参数列入优化名单，buffer 列入状态名单，普通属性则不会自动获得同样待遇。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-通过 model(x) 调用 forward；Parameter 参与优化，buffer 随模型移动和保存但不训练。
+将 nn.Linear 等子模块赋给 self 的属性，会注册其参数；将 nn.Parameter 赋为属性也会注册。若要装多个层，应使用 ModuleList 或 Sequential，而非期待普通列表自动注册。forward 描述计算，通常通过 model(x) 调用以保留钩子等框架行为。
 
-state\_dict 保存参数与持久 buffer，不保存类定义。
+register_buffer 适合均值、位置表等非训练状态。持久 buffer 会进入 state_dict，并随 .to(device) 移动；普通 Tensor 属性默认不会。requires_grad=False 的参数仍是参数，只是暂停求梯度。
+
+state_dict 保存注册的参数与持久 buffer，不保存 Python 类定义或完整预处理流程。恢复时仍需同一结构及一致配置；即使键名匹配，类别映射错位也会使输出含义出错。
 :::
 
 
@@ -99,7 +99,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-Linear 对最后一维做仿射变换。
+Tensor 保存数值与可选的梯度信息；nn.Module 组织计算、子模块、Parameter 和 buffer。Parameter 默认可训练，持久 buffer 保存随模型移动的状态。
 :::
 
 ::::
@@ -119,37 +119,41 @@ Linear 对最后一维做仿射变换。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Linear 形状
+### 用一个参数和一个 buffer 做线性映射
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- X \[8,10\]
-- Linear(10,4)
+- 参数 scale=2
+- buffer offset=1
+- 输入为 3 和 4
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 矩阵乘 W^T
-2. 广播 b
+1. 计算 x×scale+offset。
+2. 查看参数名字和 state_dict 名字。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-Y \[8,4\]
+输出为 7、9；优化器只看到 scale，保存状态包含 scale 与 offset。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- buffer 不训练不代表不重要；丢失预处理统计可能改变整个模型输出。
 :::
+
+### 案例推演与判断
+
+这个模块只有一个可训练标量，offset 虽然参与前向，却不会出现在 parameters() 中。这样可以表达“固定中心化基准，但学习缩放”的语义。
+
+如果把 offset 直接写成普通张量属性，本例在 CPU 上仍能运行，却可能在搬到 GPU 后出现设备不一致。模型能前向运行，并不足以证明状态管理正确。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 创建 Tensor
-2. 检查属性
-3. 定义 Module
-4. 注册层
-5. 实现 forward
-6. 随机输入验证
+1. 计算 x×scale+offset。
+2. 查看参数名字和 state_dict 名字。
 :::
 
 
@@ -157,35 +161,46 @@ Y \[8,4\]
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### PyTorch Tensor 与 nn.Module · PyTorch 示例
+### 用一个参数和一个 buffer 做线性映射的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证PyTorch Tensor 与 nn.Module的输入、计算和输出。
+使用完整构造输入核对用一个参数和一个 buffer 做线性映射，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-class Tiny(nn.Module):
+```python
+import torch
+from torch import nn
+class Scale(nn.Module):
     def __init__(self):
-        super().__init__();self.fc=nn.Linear(10,4)
-    def forward(self,x):return self.fc(x)
-print(Tiny()(torch.randn(8,10)).shape)
+        super().__init__()
+        self.scale = nn.Parameter(torch.tensor(2.))
+        self.register_buffer("offset", torch.tensor(1.))
+    def forward(self, x):
+        return x * self.scale + self.offset
+model = Scale()
+print(model(torch.tensor([3., 4.])).tolist())
+print(list(dict(model.named_parameters())))
+print(list(model.state_dict()))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- fc 被自动注册
-- model(x) 保留 hooks
-- 输出最后一维变 4
+- 类定义、输入和导入完整。
+- 清单输出直接区分参数与持久 buffer。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-torch.Size(\[8,4\])。
+```text
+[7.0, 9.0]
+['scale']
+['scale', 'offset']
+```
 :::
 
 ::::
@@ -193,7 +208,8 @@ torch.Size(\[8,4\])。
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 所有 PyTorch 模型
+- 构建可保存的自定义网络
+- 管理归一化统计与位置编码
 :::
 
 
@@ -214,18 +230,17 @@ torch.Size(\[8,4\])。
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### buffer 会保存吗？
+### 普通列表为什么不适合存放待训练层？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-持久 buffer 会进入 state\_dict。
+普通列表里的层不会通过列表容器自动注册，模块遍历、设备移动和优化器构建可能遗漏它们；应使用 ModuleList。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 为何用 model(x)？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-会经过 Module 管理的 hooks 等机制。
+buffer 不训练不代表不重要；丢失预处理统计可能改变整个模型输出。
 :::
-

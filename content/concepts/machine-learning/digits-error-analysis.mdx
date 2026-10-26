@@ -41,7 +41,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-总体 macro F1 无法说明哪些数字形状相似、哪些类别召回低或是否存在模糊标签。
+总体 macro F1 无法说明哪个数字被误认、错误是否集中在少数类别，或模型到底依赖了什么输入。错误分析需要把预测与原始 8×8 图像重新对应，并结合矩阵计数和样本数量解释。
+
+图表应回答具体问题：数据长什么样，类别是否均衡，候选差异有多稳定，哪个混淆最常见，以及错误图里有哪些可检验现象。只生成装饰性图片不足以支持结论。
 :::
 
 
@@ -62,7 +64,15 @@ anchorAliases:
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-图表必须保存为 PNG、包含完整标签与标题；错误少于 20 条时展示全部，不得删除不利样本。
+样本图与类别分布先检查表示和支持，候选比较图展示开发分数与描述性波动，混淆矩阵拆解类别流向，错误网格则把统计定位到具体记录。五类图各自承担不同证据任务，不能只保存一张准确率柱状图。
+
+保留原始行索引十分关键。验证折内位置不等于全数据位置，标准化后的像素也不应直接作为原始灰度显示；应通过索引回到 data.images，并统一灰度范围 0–16，标注真实值、预测值和原始编号。
+
+错误样本应按可复现规则选取，例如按原验证顺序取前 20 个；不足 20 个时展示全部，零错误时明确说明，而不是人为制造或删除记录。混淆矩阵同时显示完整 0–9 标签与原始数量，必要时另加归一化图。
+
+图像观察形成的是假设。例如笔画少可能与分辨率有关，但不能仅凭肉眼就改标签或宣称原因确定。改动需要回到开发数据上验证，并检查是否伤害其他类别。
+
+开发错误可以用于迭代；最终测试错误只用于描述固定方案的边界。若根据最终测试图修改配置，就必须承认测试参与了开发，不能继续把原结果当成独立最终评价。
 :::
 
 
@@ -80,21 +90,27 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-图表必须保存为 PNG、包含完整标签与标题；错误少于 20 条时展示全部，不得删除不利样本。
+箭头描述实验与报告阶段，不是关于图表的数学公式。开发错误用于迭代，最终测试错误用于说明边界；二者在报告中必须注明。
 :::
 
 ::::
 
+### 案例：开发留出中的错误位置怎样还原
+
+下方先封存 20% 测试，再从开发部分划出内部验证，拟合一棵固定深度树。错误位置先映射到验证索引，再映射回全数据编号，确保图像、真实值与预测对应。
+
+示例保存混淆矩阵和最多 20 个错误的 PNG，属于开发诊断；样本图、类别图和模型比较图应使用相应阶段记录另行生成。若某张图像似乎同时像两个数字，报告应保留样本并说明歧义，不能为了减少错误数直接删掉它。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 展示至少 20 个样本
-2. 画 0–9 分布
-3. 画 CV 平均与误差线
-4. 最终模型混淆矩阵
-5. 定位错误索引
-6. 画至少 20 个错误
-7. 总结混淆对
+1. 保存带原始编号的至少 20 个样本图，核对 8×8 表示和像素范围。
+2. 画 0–9 类别数量，注明来自全部数据还是开发子集。
+3. 用相同开发折记录绘制模型均值与描述性误差线。
+4. 对当前评价子集画固定标签顺序的混淆矩阵，标明开发或最终测试。
+5. 将错误位置映射回原始图像与编号，按固定顺序展示最多 20 个，不足则全部。
+6. 保存 PNG，写明主要混淆、证据规模与待验证假设。
+7. 仅用开发错误改进；若依据最终测试改动，重新安排独立验证。
 :::
 
 
@@ -102,33 +118,87 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Digits 可视化与错误分析 核心代码
+### 保存开发验证的混淆矩阵与原图错误网格
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应项目要求中的可运行核心步骤。
+在开发内部留出上定位错误，完整生成两张 PNG。输出只写当前工作目录的 outputs/digits_demo，不读写用户原始数据。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-error_idx=np.flatnonzero(y_pred!=y_test)
-for idx in error_idx[:20]:
-    image=X_test[idx].reshape(8,8)
-    print("true",y_test[idx],"pred",y_pred[idx])
+```Python
+from pathlib import Path
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.metrics import ConfusionMatrixDisplay
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
+
+data = load_digits()
+all_indices = np.arange(len(data.target))
+development, test = train_test_split(all_indices, test_size=0.2, stratify=data.target, random_state=42)
+train, valid = train_test_split(development, test_size=0.25, stratify=data.target[development], random_state=7)
+model = DecisionTreeClassifier(max_depth=8, random_state=42)
+model.fit(data.data[train], data.target[train])
+prediction = model.predict(data.data[valid])
+errors = np.flatnonzero(prediction != data.target[valid])
+output = Path("outputs") / "digits_demo"
+output.mkdir(parents=True, exist_ok=True)
+
+figure, axis = plt.subplots(figsize=(7, 6))
+ConfusionMatrixDisplay.from_predictions(data.target[valid], prediction, labels=np.arange(10),
+    cmap="Blues", ax=axis, colorbar=False)
+axis.set_title("Digits: development validation confusion")
+figure.savefig(output / "confusion_matrix.png", dpi=140, bbox_inches="tight")
+plt.close(figure)
+
+shown = errors[:20]
+rows = max(1, (len(shown) + 4) // 5)
+figure, axes = plt.subplots(rows, 5, figsize=(10, 2.2 * rows), squeeze=False)
+for axis in axes.flat:
+    axis.axis("off")
+for axis, position in zip(axes.flat, shown):
+    original = int(valid[position])
+    axis.imshow(data.images[original], cmap="gray_r", vmin=0, vmax=16)
+    axis.set_title(f"id={original}\ntrue={data.target[original]}, pred={prediction[position]}", fontsize=9)
+if len(shown) == 0:
+    axes[0, 0].text(0.1, 0.5, "No errors in this validation set")
+figure.suptitle("Digits: first development errors in validation order")
+figure.tight_layout(rect=(0, 0, 1, 0.94))
+figure.savefig(output / "error_samples.png", dpi=140, bbox_inches="tight")
+plt.close(figure)
+assert (output / "error_samples.png").is_file()
+print("development_train_valid:", (len(train), len(valid)))
+print("validation_errors:", len(errors))
+print("shown_errors:", len(shown))
+print("first_original_ids:", valid[shown[:5]].tolist())
+print("saved: confusion_matrix.png, error_samples.png")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 固定数据协议保证模型公平比较。
-- 测试集在方案锁定前保持不可见。
+- 错误数组保存验证集位置，valid[position] 才是全数据编号。
+- 灰度图来自原始 images，统一 0–16；矩阵固定完整 0–9 标签。
+- 以固定顺序展示最多 20 个错误，测试数据未用于诊断或调整。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印前 20 个错误样本的真实和预测数字，可用于绘图。
+本地 scikit-learn 1.8.0 的核对输出；分数仅属于下方固定教学实验：
+
+```text
+development_train_valid: (1077, 360)
+validation_errors: 44
+shown_errors: 20
+first_original_ids: [415, 633, 1689, 975, 1571]
+saved: confusion_matrix.png, error_samples.png
+```
 :::
 
 ::::
@@ -144,9 +214,9 @@ for idx in error_idx[:20]:
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只挑易解释错误
-- 图不保存
-- 只有分数无样本
+- 对标准化后的向量直接 reshape 当作原图，或把折内位置误当全数据编号。
+- 只挑容易解释的错误、隐去分母，或者修改测试标签来改善分数。
+- 图没有完整标签和保存路径，或把错误图上的观察直接当成已验证因果。
 :::
 
 

@@ -35,18 +35,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 正确放置裁剪
-- 记录总范数
-- 区分根因修复
+- 把 (3,4) 梯度裁剪到范数 1
+- 裁剪后为什么损失仍可能爆炸？
+- 说明：裁剪限制有限梯度的幅度；非有限梯度应定位原因而不是靠阈值隐藏。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-防止单步破坏参数
-
-AMP/RNN 常用护栏
+全局范数裁剪把所有参与参数的梯度看成一个向量；范数超过阈值 M 时按同一比例缩小，低于阈值时保持。它与逐元素截断不同。
 :::
 
 
@@ -57,30 +55,32 @@ AMP/RNN 常用护栏
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-RNN、长序列和不稳定训练可能产生巨大梯度。
+循环网络或困难批次可能产生很大的梯度，使一次更新破坏已有参数。梯度裁剪限制更新方向的输入幅度，用于控制这种瞬时风险。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-范数裁剪保持方向并统一缩小过大梯度；值裁剪逐元素截断。
+全局范数裁剪把所有参与参数的梯度看成一个向量；范数超过阈值 M 时按同一比例缩小，低于阈值时保持。它与逐元素截断不同。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-方向不变，只把过长箭头缩到安全半径。
+不是把方向重新指向别处，而是把过长的箭头缩短；各参数之间的相对比例尽量保留。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-顺序 backward→AMP unscale→clip→step；裁剪不能修复 NaN 损失。
+若梯度向量 g 的 L2 范数为 G，裁剪系数约为 min(1,M/G)。clip_grad_norm_ 原地修改梯度，并返回裁剪前总范数。阈值是梯度尺度，和学习率共同影响实际参数变化。
 
-clip\_grad\_norm\_ 原地修改梯度并返回裁剪前范数。
+顺序通常是 backward、必要时 AMP unscale、clip、optimizer.step。若在 scaled 梯度上裁剪，阈值会被缩放因子扭曲；若在 backward 前裁剪，则没有本步梯度可处理。
+
+裁剪不能修复 NaN 损失、标签越界或除零。若频繁触发，应检查学习率、数据异常和目标归一化；持续强裁剪可能掩盖更深问题，也可能让有效更新过小。
 :::
 
 
@@ -98,7 +98,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-M 是最大范数。
+全局范数裁剪把所有参与参数的梯度看成一个向量；范数超过阈值 M 时按同一比例缩小，低于阈值时保持。它与逐元素截断不同。
 :::
 
 ::::
@@ -118,36 +118,40 @@ M 是最大范数。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 范数裁剪
+### 把 (3,4) 梯度裁剪到范数 1
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- \|\|g\|\|=5
-- M=1
+- 单个参数的梯度向量为 (3,4)
+- 最大范数为 1
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 缩放系数 1/5
+1. 原范数 sqrt(9+16)=5。
+2. 统一乘 1/5，得到约 (0.6,0.8)。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-新范数 1
+返回原范数 5；裁剪后范数约为 1，方向保持。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 裁剪限制有限梯度的幅度；非有限梯度应定位原因而不是靠阈值隐藏。
 :::
+
+### 把 (3,4) 梯度裁剪到范数 1
+
+如果逐元素把每个值截到 1，会得到 (1,1)，方向从 3 比 4 改为 1 比 1。范数裁剪与值裁剪即使使用相同阈值，也不是相同算法。
+
+代码保留框架为数值稳定加入的极小项，因此输出格式化到三位小数，不把微小浮点差异误认成公式错误。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. zero\_grad
-2. forward/loss
-3. backward
-4. unscale AMP
-5. clip
-6. step
+1. 原范数 sqrt(9+16)=5。
+2. 统一乘 1/5，得到约 (0.6,0.8)。
 :::
 
 
@@ -155,33 +159,38 @@ M 是最大范数。
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 梯度裁剪 · PyTorch 示例
+### 把 (3,4) 梯度裁剪到范数 1的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证梯度裁剪的输入、计算和输出。
+使用完整构造输入核对把 (3,4) 梯度裁剪到范数 1，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-loss.backward()
-norm=torch.nn.utils.clip_grad_norm_(model.parameters(),1.0,error_if_nonfinite=True)
-optimizer.step()
+```python
+import torch
+p = torch.nn.Parameter(torch.zeros(2))
+p.grad = torch.tensor([3., 4.])
+before = torch.nn.utils.clip_grad_norm_([p], 1., error_if_nonfinite=True)
+print(f"before={before.item():.3f} after={p.grad.norm().item():.3f}")
+print([round(v, 3) for v in p.grad.tolist()])
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 必须在 backward 后
-- 返回原范数
-- step 使用裁剪后梯度
+- 返回值是裁剪前范数。
+- 不执行优化，单独验证梯度变换。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-norm 可大于 1，但实际梯度已限制到 1。
+```text
+before=5.000 after=1.000
+[0.6, 0.8]
+```
 :::
 
 ::::
@@ -189,9 +198,8 @@ norm 可大于 1，但实际梯度已限制到 1。
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- RNN
-- Transformer
-- AMP
+- RNN 训练的梯度爆炸控制
+- AMP 训练中限制异常更新
 :::
 
 
@@ -211,18 +219,17 @@ norm 可大于 1，但实际梯度已限制到 1。
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 裁剪解决梯度消失吗？
+### 裁剪后为什么损失仍可能爆炸？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-不能。
+裁剪不改变坏输入或不稳定前向，而且 Adam 等优化器还有内部状态；应检查非有限数值来源及整体更新设置。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### AMP 时先做什么？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-先 scaler.unscale\_。
+裁剪限制有限梯度的幅度；非有限梯度应定位原因而不是靠阈值隐藏。
 :::
-

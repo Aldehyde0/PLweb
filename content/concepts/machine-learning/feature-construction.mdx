@@ -38,28 +38,44 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-线性模型对 φ(x) 仍是线性的，但 φ 可以包含比率、平方项与交互项，使模型表达弯曲或共同作用。
+原始列不一定直接表达任务关心的关系。总消费额与订单数分别有用，但客单价、变化率或交互项可能更直接反映某种模式；这些变换应来自可解释的问题结构。
+
+构造新特征也可能制造错误，例如分母为零、未来信息进入聚合、不同单位混算，以及高阶展开带来过多自由度。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-特征构造是定义映射 φ(x)，把原始输入转为模型实际学习的表示。
+特征构造用预测时可用的原始信息，通过领域变换、组合、比例或展开产生新的表示。它不同于从现有列中筛选子集的特征选择，虽然两者可以组合。
+
+一个特征需要同时有数学定义与业务可用性：哪段时间、哪些记录、什么单位、缺失或零值怎样处理，都属于定义。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-总消费和订单数是原材料，“平均客单价”把业务关系直接告诉模型；平方项让直线拥有弯曲能力。
+把“总量”拆成“次数×平均水平”，可能让模型更容易区分不同类型的用户。但当次数为零时，平均水平没有定义，不能为了让程序跑通就偷偷把分母改为 1。
 :::
+
+### 比率的零分母与二阶展开
+
+构造三名用户的消费额 [100,0,90]、订单数 [4,0,3]。客单价应为 [25,未定义,30]，第二名用户的零消费并不能让 0/0 成为一个已观测均值。
+
+另取两项特征 [2,3]，不含常数列的二阶展开为 [2,3,4,6,9]：原值、各自平方与交互项。输入两列变成五列，说明增加表达能力也会增加模型需要处理的维度。
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-所有特征必须在预测时可获得、定义稳定且无未来信息。高阶多项式会快速增加维度，应结合正则化和交叉验证。
+领域特征应说明机制或假设，并在固定验证协议下检验是否提供增量信息。看起来容易解释不等于必然有预测价值，也不等于具有因果作用。
+
+比率需要处理零分母、异常值和单位；滚动统计需要限定时间与可用范围。对于缺失比率，可以保留缺失和指示，而不是不加说明地赋为普通零。
+
+多项式和交互项能让线性参数模型表达弯曲或联合效应，但维度会随原始特征数和阶数快速增长，需要考虑正则化、计算成本和泛化。
+
+数据驱动的构造参数与后续选择仍应在训练边界内学习。构造前就使用测试集的分位数、目标或未来聚合，会使后续比较失去独立性。
 :::
 
 
@@ -114,38 +130,40 @@ $$
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 构造比率和二阶特征
+### 显式保留未定义比率并检查展开结果
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-Python
+NumPy
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-展示领域比率与 PolynomialFeatures。
+避免用分母钳制掩盖缺失语义。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```Python
+```NumPy
 import numpy as np
 from sklearn.preprocessing import PolynomialFeatures
-
-average_order_value = total_spending / np.maximum(order_count, 1)
-X_domain = np.column_stack([total_spending, order_count, average_order_value])
+spending = np.array([100., 0., 90.])
+orders = np.array([4., 0., 3.])
+average = np.divide(spending, orders, out=np.full(3, np.nan), where=orders > 0)
 poly = PolynomialFeatures(degree=2, include_bias=False)
-X_train_poly = poly.fit_transform(X_train)
-X_test_poly = poly.transform(X_test)
+print("average:", average.tolist())
+print("poly:", poly.fit_transform([[2., 3.]]).tolist())
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 分母零的业务语义需要明确。
-- PolynomialFeatures 在训练集 fit，测试集只 transform。
+- 零订单对应 NaN，后续如何填补或建指示列需要另行定义。
+- PolynomialFeatures 的输出顺序由接口定义，不能凭猜测给列命名。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-领域特征新增平均客单价；二阶展开产生原特征、平方项和两两交互项。
+average: [25.0, nan, 30.0]
+poly: [[2.0, 3.0, 4.0, 6.0, 9.0]]
 :::
 
 ::::

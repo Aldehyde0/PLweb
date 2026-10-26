@@ -37,28 +37,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-混淆二者会导致错误的调参直觉，例如以为随机森林后树专门修正前树。
+两种方法都会组合多个学习器，表面都像“多棵树一起预测”。区别在于每个新模型是否依赖之前模型的错误，以及最终如何聚合；这会改变并行性、超参数关系和对噪声的反应。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-两者都是集成，但训练依赖、组合方式、并行性和噪声敏感性不同。
+Bagging 在扰动后的训练样本上独立训练模型，通常平均概率或回归值；boosting 顺序添加模型，按当前加权错误或损失梯度修正旧集成。Bagging 常用于降低不稳定模型的方差，boosting 可逐步提高表达能力，但这不是严格的偏差方差二分保证。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-Bagging 是多人独立投票，Boosting 是接力式纠错。
+Bagging 像多人独立做完整试卷后汇总，boosting 像下一位专门接着修订上一份答案。前者需要意见有差异，后者依赖修订目标和步子是否合适。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-选择取决于基模型稳定性、训练资源、噪声与目标；都必须与单模型和业务基线比较。
+Bagging 各学习器的训练可较独立并行；boosting 的第 m 轮目标取决于前 m−1 轮，轮间通常顺序执行，但每轮内部仍可能并行。不能把“顺序依赖”说成算法内部任何操作都不能并行。
+
+Bagging 的树可以较深，再用数量与随机性稳定预测；boosting 常限制单树容量，通过树数和学习率累加。实际模型仍可调整这些设计，不能只靠树深推断训练家族。
+
+比较要固定相同的训练划分、调参预算和指标。含错标的少数样本可能被提升反复强调，森林也并非天然免疫噪声；应看误差分布与稳定性，不用一个小例子的均值给普适排名。
 :::
 
 
@@ -66,29 +70,35 @@ Bagging 是多人独立投票，Boosting 是接力式纠错。
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 核心表达
+### 两种不同聚合规则
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-Bagging: average(hᵦ)；Boosting: Σηₘhₘ
+F_{\mathrm{bag}}(x)=\frac1B\sum_b h_b(x),\qquad F_m(x)=F_{m-1}(x)+\eta h_m(x)
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-选择取决于基模型稳定性、训练资源、噪声与目标；都必须与单模型和业务基线比较。
+左侧为回归平均，右侧为梯度提升加法；分类的概率与 margin 需按各模型定义处理。
 :::
 
 ::::
 
+## 手算与场景核对 {#worked-example}
+
+只看聚合算术：三个独立回归模型预测为 1、3、5，bagging 平均为 3。另一个提升模型初值为 1，两轮树输出分别为 1、−0.5，学习率为 0.2，最终为 1+0.2×1+0.2×(−0.5)=1.1。
+
+这不是同一批训练结果的优劣比较，只说明模型之间的关系。下方代码另外在固定构造分类数据上使用相同三折验证，完整输出仅属于该协议。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 识别主要偏差/方差
-2. 选择并行或顺序策略
-3. 固定验证协议
-4. 调单模型复杂度
-5. 比较稳定性和成本
+1. 先用单树或简单业务规则建立基线。
+2. 按任务边界预先固定验证折与主要指标。
+3. 分别调节森林单树约束与提升的学习率、轮数。
+4. 在相同折上比较均值、波动和训练预测成本。
+5. 检查少数类、异常与噪声样本后再选择，最终测试只使用一次。
 :::
 
 
@@ -96,32 +106,46 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Bagging 与 Boosting 实现
+### 相同三折上比较两个完整构造数据基线
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的训练与预测逻辑。
+修复未定义的模型、X、y 和 cv；观测输出仅用于演示公平协议。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-models={"forest":RandomForestClassifier(random_state=42),"boost":HistGradientBoostingClassifier(random_state=42)}
-for name,model in models.items():
-    print(name,cross_val_score(model,X,y,cv=cv).mean())
+```Python
+from sklearn.datasets import make_moons
+from sklearn.ensemble import RandomForestClassifier, HistGradientBoostingClassifier
+from sklearn.model_selection import StratifiedKFold, cross_val_score
+
+X, y = make_moons(n_samples=180, noise=0.25, random_state=7)
+cv = list(StratifiedKFold(n_splits=3, shuffle=True, random_state=7).split(X, y))
+models = {
+    "forest": RandomForestClassifier(n_estimators=30, min_samples_leaf=2, random_state=7),
+    "boost": HistGradientBoostingClassifier(max_iter=30, max_leaf_nodes=5, random_state=7),
+}
+for name, model in models.items():
+    scores = cross_val_score(model, X, y, cv=cv, scoring="accuracy")
+    print(name + " folds=" + ",".join(f"{x:.4f}" for x in scores) + f" mean={scores.mean():.4f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码先建立符合输入要求的估计器。
-- 参数应在交叉验证中选择，测试集不参与。
+- 数据与全部输入在代码中明确生成，随机种子固定。
+- 两模型复用同一份折索引，避免划分差异伪装成模型差异。
+- 这是构造数据的实际计算，不是标准数据集榜单或调参后最终结论。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-输出两种集成在同一折上的平均分。
+```text
+forest folds=0.9167,0.8833,0.8167 mean=0.8722
+boost folds=0.9000,0.9333,0.8333 mean=0.8889
+```
 :::
 
 ::::
@@ -129,18 +153,25 @@ for name,model in models.items():
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 集成选型
+- 在表格任务里用森林和提升作为不同归纳偏好的候选基线。
+- 诊断主要误差是否来自样本扰动、容量不足或持续噪声。
 :::
 
 
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- Boosting 天然总更好
-- 只看平均分
+- 把 bagging 等同于永远低偏差、boosting 等同于永远低方差。
+- 两个模型用不同折或不同调参预算，却直接比较分数。
+- 将构造数据上的一次胜负说成算法普遍优劣。
 :::
 
 
 ## 与其他概念的关系 {#related}
 
 <ConceptRelated />
+
+
+## 资料与假设 {#source-notes}
+
+参见 [scikit-learn：Ensemble methods](https://scikit-learn.org/stable/modules/ensemble.html)。 本页数值均为构造例；涉及模型分数时仅说明给定数据与协议下的计算。

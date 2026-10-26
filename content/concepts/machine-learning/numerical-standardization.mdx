@@ -274,6 +274,14 @@ print("restored:", X_train_restored.ravel().round(3))
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
 mean\: \[60.\]；std\: \[8.165\]；train scaled\: \[-1.225 0. 1.225\]；valid scaled\: \[2.449\]；restored\: \[50. 60. 70.\]
+
+```text
+mean: [60.]
+std: [8.165]
+train scaled: [-1.225  0.     1.225]
+valid scaled: [2.449]
+restored: [50. 60. 70.]
+```
 :::
 
 ::::
@@ -288,15 +296,19 @@ scikit-learn
 :::
 
 :::field{path="codeExamples.1.purpose" type="text"}
-把标准化和逻辑回归放进同一条防泄漏流程，并展示训练、验证、测试的职责。
+使用本地内置 Wine 数据展示完整缩放与逻辑回归流程；模型固定，不在测试集选择参数。
 :::
 
 :::field{path="codeExamples.1.source" type="code" trailing="0"}
 ```scikit-learn
+import numpy as np
+from sklearn.datasets import load_wine
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
+
+X, y = load_wine(return_X_y=True)
 
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
@@ -311,11 +323,11 @@ model = make_pipeline(
 model.fit(X_train, y_train)
 
 # 测试阶段只 transform 和 predict，不会重新拟合 scaler。
-print("test accuracy:", model.score(X_test, y_test))
-
+print(f"test_accuracy={model.score(X_test, y_test):.4f}")
 scaler = model.named_steps["standardscaler"]
-print("training means:", scaler.mean_)
-print("training scales:", scaler.scale_)
+print("feature_count:", int(scaler.n_features_in_))
+print("mean_matches_training:", bool(np.allclose(scaler.mean_, X_train.mean(axis=0))))
+print("scale_matches_training:", bool(np.allclose(scaler.scale_, X_train.std(axis=0))))
 ```
 :::
 
@@ -326,7 +338,14 @@ print("training scales:", scaler.scale_)
 :::
 
 :::field{path="codeExamples.1.expectedOutput" type="text"}
-输出一个 0～1 之间的测试准确率，以及长度等于特征数的 training means 和 training scales。具体分数取决于数据集。
+本例使用固定 Wine 划分；分数只描述这次教学实验，不用于选型。均值和尺度分别与当前训练数据直接计算对照。
+
+```text
+test_accuracy=0.9722
+feature_count: 13
+mean_matches_training: True
+scale_matches_training: True
+```
 :::
 
 ::::

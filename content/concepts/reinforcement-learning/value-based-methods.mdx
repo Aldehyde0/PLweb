@@ -56,18 +56,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Value-based Methods并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 理解“先估值再选动作”的流程，以及离散最大化和连续优化的差别。
+- 独立复核“一次价值更新如何改变贪心动作”的输入、计算和解释。
+- 策略通过价值排序间接改变。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Value-based Methods位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+理解“先估值再选动作”的流程，以及离散最大化和连续优化的差别。
 :::
 
 
@@ -78,38 +76,32 @@ Value-based Methods位于“状态—行动—反馈—更新”学习链中的�
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+在有限棋盘上，每一步只有少量合法动作，可以给每个动作估一个分数再取最大。若动作是任意实数的机械臂力矩，价值网络虽能评分，却不能简单遍历所有候选；动作空间结构决定实现难度。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Value-based 方法以价值函数为主要可学习对象。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+价值方法以状态价值或动作价值为主要学习对象，再通过贪心、ε-greedy 或模型备份导出策略。Q-learning 与 DQN 是典型动作价值控制方法；动态规划也能通过状态价值和已知模型改进策略。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-先给每个选择打长期分，再选分最高动作。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+先建立路段总成本表，再按成本表选路线，类似价值方法。评分表会随新经验变化，因此“选当下最高分”依赖这张表有没有充分数据支撑。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-离散动作可直接 argmax Q。
+学习目标一般结合即时奖励与下一状态价值。控制算法的目标可能使用最大动作价值，而策略评价则使用当前策略期望；两者不能因为都写 Q 就混在一起。
 
-连续动作 argmax 困难。
+贪心动作不一定是收集数据时唯一动作。ε-greedy 等探索机制会故意尝试其他行动，Q-learning 可以从这些数据学习贪心目标；SARSA 则把实际行为策略纳入备份。
 
-函数近似时需稳定化机制。
+函数近似下的最大化会偏好偶然高估值；双估计、目标网络和 replay 分别针对不同问题。它们是稳定化措施，不是任意神经网络设置下的收敛保证。
 :::
 
 
@@ -117,17 +109,17 @@ Value-based 方法以价值函数为主要可学习对象。
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### 由动作价值导出贪心动作
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+a^*(s)\in\arg\max_{a\in\mathcal A(s)}Q(s,a)
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+最大化只能遍历合法动作；并列最优需要约定打破平局的方式。
 :::
 
 ::::
@@ -138,9 +130,8 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| Q(s,a) | 当前动作价值估计 |
+| A(s) | 状态 s 下的合法动作集合 |
 :::
 
 ::::
@@ -148,30 +139,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Value-based Methods的最小计算
+### 一次价值更新如何改变贪心动作
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 当前两个动作 Q 值为 1 与 1.2。
+- 动作 0 的目标为 2，学习率 0.5；动作 1 本次不更新。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 动作 0 更新为 1+0.5×(2−1)=1.5。
+2. 动作 1 仍为 1.2。
+3. 更新前贪心动作是 1，更新后变成 0。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+价值更新改变动作排序：贪心选择从动作 1 切换到动作 0。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 策略通过价值排序间接改变。
+- 一次排序翻转不代表真实最优动作已被识别。
 :::
 
 
@@ -189,7 +177,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Value-based Methods的本地数值骨架
+### 一次价值更新如何改变贪心动作
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -197,28 +185,29 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+价值更新改变动作排序：贪心选择从动作 1 切换到动作 0。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+q = [1.0, 1.2]
+before = max(range(2), key=q.__getitem__)
+q[0] += 0.5 * (2.0 - q[0])
+after = max(range(2), key=q.__getitem__)
+print(f"before={before}, after={after}, updated_Q0={q[0]:.2f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 动作 0 更新为 1+0.5×(2−1)=1.5。
+- 动作 1 仍为 1.2。
+- 更新前贪心动作是 1，更新后变成 0。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+before=1, after=0, updated_Q0=1.50
+```
 :::
 
 ::::
@@ -234,9 +223,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 以为学到 Q 就不再需要探索。
+- 对连续动作直接调用数组 argmax 而未定义候选集合。
+- 把表格收敛条件直接套用到非线性函数逼近。
 :::
 
 
@@ -247,7 +236,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Sutton 与 Barto《Reinforcement Learning: An Introduction》](http://incompleteideas.net/book/the-book-2nd.html)（第 4、6 章）。
 :::
 
 
@@ -258,9 +247,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 以为学到 Q 就不再需要探索。
+- 对连续动作直接调用数组 argmax 而未定义候选集合。
+- 把表格收敛条件直接套用到非线性函数逼近。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -277,11 +266,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Value-based Methods是 on-policy 还是 off-policy？
+### 价值方法是否都只能用离散动作？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+不是，但连续动作需要处理最大化问题，可能借助解析结构、候选搜索或 actor；普通 DQN 的有限输出枚举形式主要面向离散动作。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -291,4 +280,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

@@ -38,28 +38,40 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-它是回归任务的重要基线，可用解析方法或梯度优化求参数。加入多项式特征后仍对转换后特征线性。
+如果想根据面积预测房价、根据广告投入预测销量，输出是一个连续数值。最简单的起点，是假设预测值能够写成输入特征的加权和，再加上一个整体偏移。
+
+线性回归既是可解释的基线，也是理解损失、拟合、残差和正则化的入口。它能帮助检查数据是否具有可利用的关系，但拟合出一条线不等于证明特征对结果有因果影响。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-多元线性回归假设预测值是输入特征的仿射组合。
+单特征线性回归写成预测值等于 w 乘以 x 再加 b。w 表示输入每增加一个单位时预测值的变化，b 表示输入为零时模型给出的基准预测；如果零点不在合理输入范围内，b 未必具有实际业务含义。
+
+多特征情形把多个特征分别乘以权重后相加。这里的“线性”主要指对参数的线性关系：即使把平方项作为输入特征，只要参数仍线性组合，也可以用线性回归求解。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-寻找一条线或超平面，使所有样本到预测面的平方偏差总体最小。
+把每个样本的真实值与预测值画在同一张图上，两者之间的竖直差称为残差。最小二乘选择参数，让所有残差的平方和尽量小；平方会让正负残差都产生代价，也会更强地惩罚大误差。
+
+有噪声的数据不必被直线逐点穿过。让训练点全部零误差不一定是目标，尤其当数据本身存在测量噪声或模型要预测新的样本时。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-权重和偏置由训练数据 fit；MSE 强调大误差。尺度、异常值、共线性和高维会影响稳定性。
+拟合只使用训练集。确定 w 与 b 之后，对验证集、测试集和未来输入都直接应用同一个预测函数，不应为了让测试预测更好而重新拟合。
+
+最小化平方误差和与最小化平均平方误差，在同一份固定数据上得到相同的最优参数，因为两者只差一个正的常数因子。但 MSE 的单位是目标单位的平方，不能脱离目标的尺度解释数值大小。
+
+多个高度相关的特征可能使权重估计不稳定：预测值相近，并不意味着每个权重都能被稳定地单独解释。异常值也可能显著改变拟合结果，需要结合残差、数据来源和稳健性检查判断。
+
+模型适用范围还取决于输入范围和关系形式。训练数据仅覆盖小面积房屋时，直接外推到极大面积可能不合理；明显弯曲的关系则需要合适的特征或其他模型，而不只是增加训练次数。
 :::
 
 
@@ -82,6 +94,24 @@ $$
 
 ::::
 
+## 手算：三个点怎样决定一条拟合直线 {#worked-example}
+
+使用构造数据 $(1,2)$、$(2,3)$、$(3,5)$。样本均值为 $\bar x=2$、$\bar y=10/3$。当 x 不是常量时，单特征最小二乘解为：
+
+$$
+w=\frac{\sum_i(x_i-\bar x)(y_i-\bar y)}{\sum_i(x_i-\bar x)^2}=\frac{3}{2},\qquad b=\bar y-w\bar x=\frac{1}{3}.
+$$
+
+| x | 真实 y | 预测值 | 残差：真实 − 预测 |
+| --- | --- | --- | --- |
+| 1 | 2 | 11/6 ≈ 1.8333 | 1/6 |
+| 2 | 3 | 10/3 ≈ 3.3333 | -1/3 |
+| 3 | 5 | 29/6 ≈ 4.8333 | 1/6 |
+
+平方残差的平均值为 $[(1/6)^2+(-1/3)^2+(1/6)^2]/3=1/18$，约为 0.055556。输入 x=4 时模型给出约 6.333333，但这个点没有提供真实标签，因此不能凭它计算测试误差。
+
+这个小例子同时说明两件事：拟合线不必穿过每个点；计算出一个新输入的预测值，不等于已经验证这个预测正确。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
@@ -97,34 +127,44 @@ $$
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 线性回归 实现
+### 用完整小数据核对权重、偏置与 MSE
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的训练与预测逻辑。
+拟合上面的三个点，并核对解析解与模型预测。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
+```Python
 from sklearn.linear_model import LinearRegression
-model=LinearRegression().fit(X_train,y_train)
-print(model.coef_, model.intercept_)
-print(model.score(X_test,y_test))
+from sklearn.metrics import mean_squared_error
+
+x_train = [[1.0], [2.0], [3.0]]
+y_train = [2.0, 3.0, 5.0]
+model = LinearRegression().fit(x_train, y_train)
+prediction = model.predict(x_train)
+print(f"w={model.coef_[0]:.6f}, b={model.intercept_:.6f}")
+print(f"train_mse={mean_squared_error(y_train, prediction):.6f}")
+print(f"x=4 prediction={model.predict([[4.0]])[0]:.6f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码先建立符合输入要求的估计器。
-- 参数应在交叉验证中选择，测试集不参与。
+- 每个输入样本仍是一个特征向量，因此 x_train 使用二维结构；y_train 为一维目标。
+- fit 得到的权重 1.5 和偏置 1/3 与手算一致，MSE 使用同一批三个点计算。
+- 最后一行只展示对新输入的预测，没有提供测试标签，也没有声称模型已经具备某种泛化精度。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-输出特征权重、偏置和测试 R²。
+w=1.500000, b=0.333333
+train_mse=0.055556
+x=4 prediction=6.333333
 :::
 
 ::::
@@ -140,9 +180,10 @@ print(model.score(X_test,y_test))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 相关性当因果
-- 异常值主导 MSE
-- 非线性关系仍强行解释
+- 把相关关系解释成因果关系，或把权重大小直接当成不受单位影响的特征重要性。
+- 在测试集上反复选特征、调参数或重新拟合，导致最终评价失去独立性。
+- 只看一个总分，不检查残差是否随输入变化、是否由少数异常点主导。
+- 把直线延伸到训练范围外仍当成可靠结论，忽略输入分布变化。
 :::
 
 

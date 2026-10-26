@@ -55,18 +55,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义TD Error、TD(0) 与 n-step并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 用一步奖励加后继价值立即更新，识别 bootstrap 的优势与误差来源。
+- 独立复核“非终止与终止转移的 TD(0) 更新”的输入、计算和解释。
+- bootstrap 改变目标，终止标记不是可忽略的日志字段。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-TD Error、TD(0) 与 n-step位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+用一步奖励加后继价值立即更新，识别 bootstrap 的优势与误差来源。
 :::
 
 
@@ -77,38 +75,32 @@ TD Error、TD(0) 与 n-step位于“状态—行动—反馈—更新”学习�
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+机器人每秒都收到反馈，等到数小时任务结束才更新会很慢。TD 在得到一个后继状态后就使用当前价值估计补足未来，使持续任务也能边交互边学习；代价是目标本身含有估计误差。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-TD 学习结合 MC 采样与 DP bootstrap。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+时序差分学习用实际一步奖励与后继价值构造目标，比较目标和当前预测得到 TD error。TD(0) 是一步方法；n-step 方法使用更长真实奖励片段后再 bootstrap。该思想既可评价状态价值，也可进入动作价值与 actor-critic 算法。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-不用等比赛结束，每一步都用当前比分和下一局势修正预测。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+原来预计路还要走 10 分钟，走了一段后用时 2 分钟、剩余估计变成 9 分钟，就发现先前估计偏低 1 分钟。TD error 是相邻预测在新证据下的不一致。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-TD(0) 一步 bootstrap。
+更新前需要固定当前价值与后继价值，先构造目标，再按学习率缩小误差。若共享网络同时变化，目标会随参数漂移；表格收敛条件不能直接涵盖任意非线性网络。
 
-n-step 在偏差与方差之间折中。
+真实终止状态没有后续回报，bootstrap 项为零。纯采样截断的持续任务通常仍保留最后观察的价值；mask 错误会系统性扭曲所有接近时间边界的状态。
 
-TD error 可作为 advantage 估计。
+TD 通常比完整回报的方差更低，但会利用不准确的后继估计。目标误差、采样噪声与函数逼近需要区分；增大学习率可以更快传播信息，也可能放大震荡。
 :::
 
 
@@ -147,30 +139,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### TD Error、TD(0) 与 n-step的最小计算
+### 非终止与终止转移的 TD(0) 更新
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 当前价值 4，奖励 1，后继价值 5，折扣 0.9。
+- 学习率 0.2；对比同样奖励下真正终止的转移。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 非终止目标为 1+0.9×5=5.5，误差为 1.5。
+2. 新价值为 4+0.2×1.5=4.3。
+3. 真正终止时目标为 1，新价值为 4+0.2×(1−4)=3.4。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+相同奖励下，非终止更新为 4.300，终止更新为 3.400。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- bootstrap 改变目标，终止标记不是可忽略的日志字段。
+- TD error 是学习残差，不是真实价值误差的直接测量。
 :::
 
 
@@ -188,7 +177,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### TD Error、TD(0) 与 n-step的本地数值骨架
+### 非终止与终止转移的 TD(0) 更新
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -196,28 +185,31 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+相同奖励下，非终止更新为 4.300，终止更新为 3.400。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+value, reward, next_value = 4.0, 1.0, 5.0
+alpha, gamma = 0.2, 0.9
+for terminal in [False, True]:
+    target = reward + gamma * (not terminal) * next_value
+    updated = value + alpha * (target - value)
+    print(f"terminal={terminal} target={target:.3f} updated={updated:.3f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 非终止目标为 1+0.9×5=5.5，误差为 1.5。
+- 新价值为 4+0.2×1.5=4.3。
+- 真正终止时目标为 1，新价值为 4+0.2×(1−4)=3.4。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+terminal=False target=5.500 updated=4.300
+terminal=True target=1.000 updated=3.400
+```
 :::
 
 ::::
@@ -233,9 +225,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 用更新后的值重新计算同一次目标，改变预期备份。
+- 真正终止后仍加上价值网络预测。
+- 把 TD error 为零当成真实价值已经正确。
 :::
 
 
@@ -246,7 +238,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Sutton 与 Barto《Reinforcement Learning: An Introduction》](http://incompleteideas.net/book/the-book-2nd.html)（第 6、7 章）。
 :::
 
 
@@ -257,9 +249,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 用更新后的值重新计算同一次目标，改变预期备份。
+- 真正终止后仍加上价值网络预测。
+- 把 TD error 为零当成真实价值已经正确。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -276,11 +268,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### TD Error、TD(0) 与 n-step是 on-policy 还是 off-policy？
+### TD 是模型方法吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+通常不需要显式转移模型；它使用采样转移加价值 bootstrap。价值预测未来回报，不等于预测下一状态的动力学模型。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -290,4 +282,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

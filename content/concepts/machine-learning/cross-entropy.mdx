@@ -36,28 +36,44 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-准确率相同的模型可能概率质量不同；交叉熵利用了完整概率而不只看最终类别。
+两个分类器可能给出相同的最终类别，却对正确类别分配完全不同的概率。只看是否分对，无法区分谨慎判断与非常自信的错误，交叉熵则利用整个概率输出评价。
+
+它既是常见训练目标，也可用于独立概率评价；但用交叉熵训练，不会自动使所有样本或群体的概率都校准。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-多分类交叉熵对每条样本取真实类别预测概率的负对数并平均。
+对一个标签确定的多分类样本，交叉熵等于真实类别预测概率的负对数。对多个样本再取平均；二分类可以写成正负两类概率的对应形式。
+
+数学公式常把标签写成 one-hot，但具体库接口可能要求整数类别、概率向量或 logits。阅读接口时应区分这些输入，而不是只根据公式中的符号猜测。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-答对但犹豫会有少量损失，自信答错会受到很大惩罚。
+给正确答案越低的概率，负对数代价越大。把真实类别概率从 0.9 降到 0.1，损失不是简单增加 0.8，而是从约 0.105 增至 2.303；极度自信地错判会受到更强惩罚。
 :::
+
+### 预测类别一样，交叉熵可以不同
+
+真实类别为 1 时，两组二分类概率 [0.49,0.51] 与 [0.01,0.99] 都预测类别 1，准确与否相同；对应损失约为 0.673 与 0.010。若给真实类别的概率只有 0.01，则损失约为 4.605。
+
+下面代码再核对两条三分类样本：真实类别是 0 和 2，对应正确类别概率为 0.9 与 0.7，平均交叉熵为 -[ln(0.9)+ln(0.7)]/2≈0.2310。两组小例子都只是固定概率的计算。
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-概率必须有效且类别顺序一致；低交叉熵不自动证明概率完全校准。
+类别列的顺序必须与标签编码一致。概率矩阵每行表示哪些类别，应明确保留；列顺序弄反时，即使每行仍然和为 1，损失也在评价错误的对应关系。
+
+合法概率非负、各类总和为 1。理论上给真实类别零概率会产生无穷损失；实际实现会采用稳定的 log-softmax 或数值裁剪，不应把这些技术处理解释成允许随意填写无效概率。
+
+PyTorch CrossEntropyLoss 一般直接接收 logits，sklearn log_loss 则接收概率。重复或遗漏 Softmax 会改变计算和梯度，应核对具体函数契约。
+
+交叉熵利用置信程度，但并不是所有业务错误成本的直接替代。还要检查类别不平衡、校准、阈值及错误类型，不能仅凭一个平均损失决定上线。
 :::
 
 
@@ -94,8 +110,9 @@ $$
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 交叉熵与概率分类：最小可验证示例
+### 按正确类别概率核对平均交叉熵
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -103,25 +120,26 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-把正文原理映射为可检查的代码行为。
+显式指定三类概率列的顺序，复现 0.2310。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
 from sklearn.metrics import log_loss
 y_true = [0, 2]
-y_prob = [[0.9,0.08,0.02],[0.1,0.2,0.7]]
-print(log_loss(y_true, y_prob, labels=[0,1,2]))
+y_prob = [[0.9, 0.08, 0.02], [0.1, 0.2, 0.7]]
+loss = log_loss(y_true, y_prob, labels=[0, 1, 2])
+print(f"cross_entropy={loss:.4f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 先确认输入形状和数据边界。
-- 把输出与公式或定义逐项对照。
+- 第一行取类别 0 的概率 0.9，第二行取类别 2 的概率 0.7。
+- labels 固定列语义，不能仅根据当前样本中出现哪些类别重新猜测顺序。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-输出一个较小的正交叉熵数值。
+cross_entropy=0.2310
 :::
 
 ::::

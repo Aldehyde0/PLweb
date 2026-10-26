@@ -39,18 +39,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释核心机制
-- 手算一个主要形状或公式
-- 运行完整示例并排查错误
+- 相同 latent 导致无法区分的重构
+- 为什么重构网络不能直接当成可靠生成器？
+- 说明：低重构误差、漂亮样例或较小生成损失都不能单独证明分布覆盖与新样本质量。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-掌握AE、VAE、GAN 与扩散模型的输入输出与训练边界
-
-能够用 PyTorch 代码验证公式和形状
+深度生成模型学习数据分布或与其相关的采样机制。VAE 用潜变量与变分目标，GAN 用对抗反馈，扩散模型用分步加噪与逆向去噪；它们的训练损失不能直接横向比较。
 :::
 
 
@@ -61,30 +59,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-AE、VAE、GAN 与扩散模型是该文档中连接数据表示、训练目标和工程实现的核心主题。
+分类模型给已有样本分配标签，生成模型则要产生新的内容。仅能重构训练输入的压缩网络，并不自动拥有可以随机采样的合理潜在分布。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-生成模型学习重建、潜分布、对抗或去噪目标，采样过程各不相同。
+深度生成模型学习数据分布或与其相关的采样机制。VAE 用潜变量与变分目标，GAN 用对抗反馈，扩散模型用分步加噪与逆向去噪；它们的训练损失不能直接横向比较。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把AE、VAE、GAN 与扩散模型理解为数据在模型中的一套明确变换，而不是只记一个类名。
+重构像按原稿复写，生成像从指定规则中创作新稿。复写得好并不保证任意随机起点都会变成合理作品。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-必须分别记录损失组成、固定采样条件并评价质量与多样性。
+普通自编码器把输入压到 latent 再重构，主要约束见过输入的编码位置。若直接从标准正态采样 latent，可能落在解码器从未学习过的区域；需要额外分布建模或其他生成机制。
 
-实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+VAE 对近似后验施加先验约束，GAN 让生成样本接受判别器反馈，扩散模型学习各噪声级别的去噪目标。各家损失的意义、尺度与采样步骤都不同，不能只挑一个更小的数就宣布生成更好。
+
+评价要兼顾质量、多样性、条件一致性与记忆训练样本的风险。固定随机输入有助于比较训练阶段，仍需独立样本和明确协议；精选几张好图不能说明模型覆盖了完整分布。
 :::
 
 
@@ -97,12 +97,12 @@ AE、VAE、GAN 与扩散模型是该文档中连接数据表示、训练目标�
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-generation\ objective\ depends\ on\ model\ family
+z=E_\phi(x),\quad \widehat x=D_\theta(z),\quad L_{recon}=\frac{1}{ND}\sum_{n,d}(x_{nd}-\widehat x_{nd})^2
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-AE、VAE、GAN 与扩散模型的核心数学表达。
+这是普通自编码器的重构目标，用于说明瓶颈；VAE、GAN 和扩散模型各有额外或不同目标，不能把此式作为统一生成损失。
 :::
 
 ::::
@@ -122,37 +122,43 @@ AE、VAE、GAN 与扩散模型的核心数学表达。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### AE、VAE、GAN 与扩散模型数值/形状检查
+### 相同 latent 导致无法区分的重构
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=8
-- D=64
+- 输入为 (1,0) 和 (0,1)
+- 编码器将两维相加，二者 latent 都为 1
+- 解码器把 latent 各乘 0.5 输出两维
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 按公式或模块逐步计算
-2. 核对输出 shape
+1. 两个不同输入都被编码成 1。
+2. 两者均重构为 (0.5,0.5)。
+3. 全元素平均平方误差为 0.25。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出保持 batch 维并符合任务头约定
+压缩碰撞造成相同重构；拥有 encoder 和 decoder 不等于学到了可采样数据分布。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 低重构误差、漂亮样例或较小生成损失都不能单独证明分布覆盖与新样本质量。
 :::
+
+### 相同 latent 导致无法区分的重构
+
+这个构造用固定权重展示瓶颈丢失信息，没有训练过程。只看 latent shape=(2,1)，无法知道它是否保留了所需结构；必须把具体输入与重构对应起来。
+
+若现在任意采样一个 latent=10，解码器会输出 (5,5)，但它是否属于真实数据分布毫无保证。这正是“会重构”和“会生成”之间需要额外机制的地方。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认输入与目标
-2. 建立最小模块
-3. 随机张量前向
-4. 计算损失
-5. 反向与更新
-6. 验证与错误分析
+1. 两个不同输入都被编码成 1。
+2. 两者均重构为 (0.5,0.5)。
+3. 全元素平均平方误差为 0.25。
 :::
 
 
@@ -160,34 +166,45 @@ AE、VAE、GAN 与扩散模型的核心数学表达。
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### AE、VAE、GAN 与扩散模型 · PyTorch 示例
+### 相同 latent 导致无法区分的重构的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证AE、VAE、GAN 与扩散模型的输入、计算和输出。
+使用完整构造输入核对相同 latent 导致无法区分的重构，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-x=torch.rand(16,1,28,28)
-x_hat,z=autoencoder(x)
-loss=F.mse_loss(x_hat,x);loss.backward()
-print(x_hat.shape,z.shape)
+```python
+import torch
+from torch import nn
+encoder, decoder = nn.Linear(2, 1, bias=False), nn.Linear(1, 2, bias=False)
+with torch.no_grad():
+    encoder.weight.fill_(1.)
+    decoder.weight.fill_(0.5)
+x = torch.tensor([[1., 0.], [0., 1.]])
+z = encoder(x)
+reconstruction = decoder(z)
+print("latent:", z.detach().flatten().tolist())
+print("reconstruction:", reconstruction.detach().tolist())
+print(f"mse={(reconstruction - x).square().mean().item():.2f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码显式标注输入和输出
-- 使用框架稳定实现
-- 结果通过 shape 或数值检查
+- 固定简单编码器和解码器。
+- 不把自编码器重构误差包装为生成质量指标。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印与页面说明一致的张量形状或损失。
+```text
+latent: [1.0, 1.0]
+reconstruction: [[0.5, 0.5], [0.5, 0.5]]
+mse=0.25
+```
 :::
 
 ::::
@@ -195,8 +212,8 @@ print(x_hat.shape,z.shape)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- AE、VAE、GAN 与扩散模型
-- 教学与项目基线
+- 比较 VAE、GAN 与扩散的目标
+- 设计质量、多样性和条件一致性评估
 :::
 
 
@@ -216,18 +233,17 @@ print(x_hat.shape,z.shape)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### AE、VAE、GAN 与扩散模型最先检查什么？
+### 为什么重构网络不能直接当成可靠生成器？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-先检查输入输出 shape、dtype 和数据边界。
+训练可能只约束输入经过编码后的 latent 区域，任意先验采样未必落在这些区域；需要先验约束或明确的生成分布建模。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 何时使用测试集？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-全部设计锁定后最终评估。
+低重构误差、漂亮样例或较小生成损失都不能单独证明分布覆盖与新样本质量。
 :::
-

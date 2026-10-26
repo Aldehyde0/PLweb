@@ -40,7 +40,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-缺少随机种子、数据划分和预处理边界时，即使最终指标相同也无法判断实验是否可靠。
+实验报告要让别人判断改进是否可信、结果能否复现，以及还有哪些限制。只列模型名与最高分，会遗漏划分、数据处理和反复选择带来的影响。
+
+报告应围绕明确问题展开：与哪个基线比较，预先关心哪个指标，哪些数据参与了训练和选择，最终结果支持什么范围的结论。
 :::
 
 
@@ -61,7 +63,13 @@ anchorAliases:
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-预先写主要指标和协议；结果部分同时记录训练、验证、测试与限制，不隐藏未达预期或错误样本。
+数据部分记录来源版本、样本与标签口径、排除规则和拆分单位，保留实际索引或可重建方式。文件或内容哈希有助于确认同一份数据，但不能替代来源、授权与质量说明。
+
+方法部分记录整个 Pipeline、参数、搜索范围、随机性与软件环境。选择过程与最终模型配置要区分，不能只写获胜参数却隐去尝试过多少方案和怎样选中。
+
+结果应同时包括基线、每折或留出分数、关键切片、成本和错误分析，并明确哪些是构造演示、哪些是真实实测。负结果与失败运行也是证据，有助于避免重复工作和选择性报告。
+
+测试使用次数应由运行记录支撑，而不是仅在字典中写 test_used_once=True。若测试结果引发后续改动，就应说明它已进入开发；结论还需注明适用人群、数据时期和没有验证的条件。
 :::
 
 
@@ -84,6 +92,12 @@ $$
 
 ::::
 
+### 案例：一份可回查的小型实验记录
+
+下方以固定 Iris 数据、固定训练测试索引与完整 Pipeline 做一次演示，保存环境、数据哈希、参数和实际计算的准确率到临时 JSON。读取后核对索引覆盖与样本数，展示报告字段如何关联真实执行。
+
+示例代码只有一次测试评分调用，但一般项目不能仅靠报告中的次数声明证明没有反复测试，还要有运行历史。这个数据上的分数只属于该演示划分，不代表真实业务效果；没有和其他方案比较，也不能声称算法改进。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
@@ -104,36 +118,72 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 机器学习实验报告 核心代码
+### 把真实运行的配置、索引与指标写入报告
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应项目要求中的可运行核心步骤。
+在明确数据与固定划分上执行一轮拟合和测试，记录来源与边界，不宣称模型优于其他方案。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-report={
- "random_state":42,
- "cv":"5-fold stratified",
- "primary_metric":"macro_f1",
- "test_used_once":True,
+```Python
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import hashlib
+import json
+import numpy as np
+import sklearn
+from sklearn.datasets import load_iris
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+X, y = load_iris(return_X_y=True)
+train, test = train_test_split(np.arange(len(y)), test_size=0.2, stratify=y, random_state=42)
+model = make_pipeline(StandardScaler(), LogisticRegression(C=1.0, max_iter=1000))
+model.fit(X[train], y[train])
+prediction = model.predict(X[test])
+report = {
+    "dataset": "sklearn built-in iris",
+    "data_sha256": hashlib.sha256(X.tobytes() + y.tobytes()).hexdigest(),
+    "sklearn_version": sklearn.__version__,
+    "random_state": 42,
+    "train_indices": train.tolist(), "test_indices": test.tolist(),
+    "pipeline": ["StandardScaler", "LogisticRegression"],
+    "parameters": {"C": 1.0, "max_iter": 1000},
+    "primary_metric": "accuracy",
+    "test_accuracy": float(accuracy_score(y[test], prediction)),
 }
-print(report)
+with TemporaryDirectory() as temporary:
+    path = Path(temporary) / "report.json"
+    path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    loaded = json.loads(path.read_text(encoding="utf-8"))
+    assert set(loaded["train_indices"]).isdisjoint(loaded["test_indices"])
+    print("train_test:", (len(loaded["train_indices"]), len(loaded["test_indices"])))
+    print(f"test_accuracy={loaded['test_accuracy']:.3f}")
+    print("hash_length:", len(loaded["data_sha256"]))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 固定数据协议保证模型公平比较。
-- 测试集在方案锁定前保持不可见。
+- 报告指标来自实际 prediction，数据哈希与索引可用于复查输入。
+- 临时 JSON 往返核对结构；实际项目还应长期保留运行记录与产物。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-输出实验协议的可审计摘要。
+本地 scikit-learn 1.8.0 的核对输出：
+
+```text
+train_test: (120, 30)
+test_accuracy=0.933
+hash_length: 64
+```
 :::
 
 ::::
@@ -150,9 +200,9 @@ print(report)
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报最好结果
-- 省略失败实验和限制
-- 无运行命令
+- 只保留最好分数和最终参数，隐去搜索预算、失败方案与数据排除。
+- 用随机种子代替数据版本和实际索引，或把自填“测试一次”当成审计证据。
+- 将构造案例、开发分数和独立测试混写，给出超出数据与协议的结论。
 :::
 
 

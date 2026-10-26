@@ -36,28 +36,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-无需算法开始时固定最终簇数，适合小数据层级分析，但早期错误合并通常不可撤销。
+有时分组有多个有意义的尺度：小群体可以合成较大的类别，单个 K 不能表达这种关系。层次聚类保留逐次合并结构，让读者按不同阈值切割，但早期错误合并通常不能在后续自动撤销。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-single、complete、average 和 ward 用不同规则定义簇间距离。
+凝聚层次聚类从每个点各自成簇开始，反复合并簇间距离最小的一对。single、complete、average 根据跨簇点对的最小、最大或平均距离定义接近程度；Ward 根据合并导致的簇内平方和增量选择，不能当作普通任意距离 linkage。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-先每人一组，再不断合并最相似的两个组，记录完整家谱树。
+先把关系最近的小组凑起来，再把小组组成大组。关键是“两个小组有多近”如何定义：最近两人很近，还是所有人都相近，会产生不同组织结构。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-linkage 改变簇形状偏好；特征缩放和距离选择决定结果。大数据的距离矩阵成本高。
+single linkage 容易沿点链连接远处团块，complete 更偏向较紧凑簇，average 在跨簇距离上取平均。不存在对所有任务都正确的 linkage，应根据希望表达的相似结构选择。
+
+Ward 与欧氏几何和方差目标配套。特征缩放会改变所有点距离，树状图的合并高度也不等于真实语义差距；不同 linkage 的高度不能脱离定义直接比较。
+
+可按簇数或距离阈值切树，但数据顺序、距离并列和约束可能影响细节。许多实现需要较高的距离或连通存储成本；大数据应检查具体算法复杂度，而不是默认层次方法总能高效扩展。
 :::
 
 
@@ -65,30 +69,35 @@ linkage 改变簇形状偏好；特征缩放和距离选择决定结果。大数
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 核心表达
+### 三种跨簇距离
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-Ward: 选择使簇内方差增加最少的合并
+d_{single}(A,B)=\min_{x\in A,y\in B}d(x,y),\qquad d_{complete}(A,B)=\max_{x\in A,y\in B}d(x,y)
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-linkage 改变簇形状偏好；特征缩放和距离选择决定结果。大数据的距离矩阵成本高。
+average 对所有跨簇点对距离求平均；Ward 另用平方和增量。
 :::
 
 ::::
 
+## 手算与场景核对 {#worked-example}
+
+一维点 0、2、5、6，先合并距离为 1 的 [5,6]，再可形成 [0,2]。对这两个簇，跨簇距离为 5、6、3、4。
+
+single 取 3，complete 取 6，average 取 4.5。相同点集的合并高度因 linkage 而异，不能把这些数值当成同一单位下的统一质量指标。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 标准化
-2. 选择距离和 linkage
-3. 每点成簇
-4. 寻找最近簇
-5. 合并并更新距离
-6. 切割树状图
+1. 选定特征、尺度、距离和 linkage，并说明约束。
+2. 从单点簇或预定义小簇开始。
+3. 按 linkage 选择最近簇对并合并，更新簇间距离。
+4. 保存合并顺序与高度，构造层次结构。
+5. 依据验证和任务解释选切割尺度，检查异常点与链效应。
 :::
 
 
@@ -96,32 +105,39 @@ linkage 改变簇形状偏好；特征缩放和距离选择决定结果。大数
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 层次聚类 实现
+### 同一簇对的三种 linkage 距离
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的训练与预测逻辑。
+显式枚举跨簇点对，核对 linkage 的定义。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-from sklearn.cluster import AgglomerativeClustering
-model=AgglomerativeClustering(n_clusters=3,linkage="ward")
-labels=model.fit_predict(X_scaled)
+```Python
+cluster_a, cluster_b = [0.0, 2.0], [5.0, 6.0]
+distances = [abs(a-b) for a in cluster_a for b in cluster_b]
+print(f"single={min(distances):.3f}")
+print(f"complete={max(distances):.3f}")
+print(f"average={sum(distances)/len(distances):.3f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码先建立符合输入要求的估计器。
-- 参数应在交叉验证中选择，测试集不参与。
+- 同一个簇对只改变距离聚合规则。
+- 这些数值用于合并判断，不是准确率。
+- 示例没有计算 Ward，其目标不同。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-每条样本一个 0～2 的簇编号。
+```text
+single=3.000
+complete=6.000
+average=4.500
+```
 :::
 
 ::::
@@ -129,20 +145,25 @@ labels=model.fit_predict(X_scaled)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 层级客户分群
-- 小样本探索
+- 探索数据在多个分辨率下的嵌套关系。
+- 在样本量可控时可视化相似结构与聚类敏感性。
 :::
 
 
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 忽略 linkage
-- 大数据直接使用
-- 簇号语义化
+- 把 Ward 与任意预计算距离无条件混用。
+- 把 single 的一条连接链误认成内部所有点都接近。
+- 将任意切树高度解释为已验证的自然类别边界。
 :::
 
 
 ## 与其他概念的关系 {#related}
 
 <ConceptRelated />
+
+
+## 资料与假设 {#source-notes}
+
+参见 [scikit-learn：Hierarchical clustering](https://scikit-learn.org/stable/modules/clustering.html#hierarchical-clustering)。 本页数值均为构造例；涉及模型分数时仅说明给定数据与协议下的计算。

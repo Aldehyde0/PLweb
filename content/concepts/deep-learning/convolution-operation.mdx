@@ -36,18 +36,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 手算局部卷积
-- 计算输出尺寸
-- 解释多通道
+- 一个 2×2 核扫描 3×3 图像
+- padding=1 是否总能保持空间尺寸？
+- 说明：构造图像的固定响应只验证局部运算，不代表这个核能识别真实图像类别。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-计算 CNN 数值与尺寸
-
-理解多通道权重
+二维卷积层用可学习的局部核扫描输入空间，每个输出位置是覆盖窗口内的加权和。PyTorch Conv2d 实际执行互相关，核不会像严格数学卷积那样先翻转。
 :::
 
 
@@ -58,30 +56,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-卷积是 CNN 的核心局部算子，stride、padding、dilation 控制采样。
+图像相邻像素的关系通常比任意两点更紧密。把整幅图像展平成全连接输入会忽略这种结构，并为每个位置分别学习大量参数；卷积用局部连接与权重共享表达这个先验。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-PyTorch Conv2d 实际常做互相关，但深度学习领域仍称卷积。
+二维卷积层用可学习的局部核扫描输入空间，每个输出位置是覆盖窗口内的加权和。PyTorch Conv2d 实际执行互相关，核不会像严格数学卷积那样先翻转。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把一张小权重模板盖在图像局部，计算匹配响应并滑动。
+同一把检测尺在图像各处使用，能让一个边缘检测器同时响应左上角和右下角的相似图案。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-每个输出通道拥有覆盖全部输入通道的一组核；同一核跨位置共享。
+普通 Conv2d 的核形状为输出通道数、输入通道数、核高、核宽。一个输出通道不是只看某一个输入通道，而是把所有输入通道对应的局部加权和相加，再加该输出通道的偏置。groups 卷积会改变这种连接关系。
 
-dilation 扩大有效核，stride 下采样，padding 控制边界。
+stride 决定窗口移动步长，padding 决定边界是否补值，dilation 决定核采样点之间的间隔。有效核大小为 D×(K−1)+1，应代入尺寸公式；步长大于 1 时会减少空间采样密度。
+
+权重共享使参数量与图像宽高无关，但激活内存和计算量仍随空间面积增长。边界填充、下采样以及输入平移都可能改变输出，因此不能把平移等变误说成任意平移下输出完全不变。
 :::
 
 
@@ -99,7 +99,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-H 输入高，P padding，D dilation，K kernel，S stride。
+二维卷积层用可学习的局部核扫描输入空间，每个输出位置是覆盖窗口内的加权和。PyTorch Conv2d 实际执行互相关，核不会像严格数学卷积那样先翻转。
 :::
 
 ::::
@@ -121,34 +121,40 @@ H 输入高，P padding，D dilation，K kernel，S stride。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 保持尺寸卷积
+### 一个 2×2 核扫描 3×3 图像
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- H=32,K=3,S=1,P=1,D=1
+- 图像逐行为 1,2,3；4,5,6；7,8,9
+- 核为第一行 (1,0)、第二行 (0,-1)，无偏置、无 padding
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. (32+2-2-1)/1+1
+1. 左上窗口计算 1−5=-4。
+2. 水平和垂直各移动一步，重复相同核计算。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-Hout=32
+输出形状为 (1,1,2,2)，四个位置均为 -4。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 构造图像的固定响应只验证局部运算，不代表这个核能识别真实图像类别。
 :::
+
+### 一个 2×2 核扫描 3×3 图像
+
+左上输出比较的是窗口左上与右下两个点；右上窗口比较 2 和 6，仍为 -4。这里没有翻转核，因此符号对应 PyTorch 的互相关约定。
+
+若增加一个输入通道，就必须同时增加该输出通道的另一片核，并把两通道贡献相加。若 stride 改为 2，本例只保留一个窗口，信息与输出大小都会改变。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 取局部窗口
-2. 逐元素乘
-3. 跨通道求和
-4. 加偏置
-5. 移动窗口
+1. 左上窗口计算 1−5=-4。
+2. 水平和垂直各移动一步，重复相同核计算。
 :::
 
 
@@ -156,33 +162,41 @@ Hout=32
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 卷积操作 · PyTorch 示例
+### 一个 2×2 核扫描 3×3 图像的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证卷积操作的输入、计算和输出。
+使用完整构造输入核对一个 2×2 核扫描 3×3 图像，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-conv=nn.Conv2d(3,16,3,stride=1,padding=1)
-x=torch.randn(4,3,32,32)
-print(conv(x).shape)
+```python
+import torch
+from torch import nn
+conv = nn.Conv2d(1, 1, 2, bias=False)
+with torch.no_grad():
+    conv.weight.copy_(torch.tensor([[[[1., 0.], [0., -1.]]]]))
+x = torch.arange(1., 10.).reshape(1, 1, 3, 3)
+y = conv(x)
+print(tuple(y.shape))
+print(y.detach().flatten().tolist())
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- Cin 必须等于输入通道
-- Cout 决定特征图数
-- padding 保持高宽
+- 显式设置全部核权重，不依赖随机模型。
+- 单输入通道例子突出扫描与互相关符号。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-torch.Size(\[4,16,32,32\])。
+```text
+(1, 1, 2, 2)
+[-4.0, -4.0, -4.0, -4.0]
+```
 :::
 
 ::::
@@ -190,8 +204,8 @@ torch.Size(\[4,16,32,32\])。
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 边缘/纹理检测
-- 特征提取
+- 图像局部特征提取
+- 手算卷积输出与边界行为
 :::
 
 
@@ -211,18 +225,17 @@ torch.Size(\[4,16,32,32\])。
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 卷积核是否人工固定？
+### padding=1 是否总能保持空间尺寸？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-CNN 中通常由反向传播学习。
+不能。对 3×3、stride=1、dilation=1 的核可以保持；核大小、步长和膨胀率改变后必须重新代入尺寸公式。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 参数量依赖图像尺寸吗？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-不依赖高宽，因为权重共享。
+构造图像的固定响应只验证局部运算，不代表这个核能识别真实图像类别。
 :::
-

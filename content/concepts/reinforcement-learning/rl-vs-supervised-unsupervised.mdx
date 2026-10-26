@@ -56,18 +56,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义强化学习与监督/无监督学习并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 依据反馈形式和行动后果选择学习范式，而不是依据数据是否带数字标签。
+- 独立复核“动作模仿准确率不能代替策略价值”的输入、计算和解释。
+- 行为标签的频率不等于动作收益。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-强化学习与监督/无监督学习位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+依据反馈形式和行动后果选择学习范式，而不是依据数据是否带数字标签。
 :::
 
 
@@ -78,38 +76,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+同一个商店问题可以有不同建模方式：预测用户是否点击属于监督任务，按行为聚类属于无监督任务，连续调价影响库存和未来需求则可能需要序贯决策。问题的时间结构与反馈方式，比“是否使用神经网络”更能决定范式。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-监督学习学习给定标签映射，无监督学习发现数据结构，强化学习用环境反馈优化序贯行为。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+监督学习利用输入与目标标签学习映射；无监督学习从未标注数据中发现结构或学习表示。强化学习学习行动策略，收到的是动作后果的评价，通常没有每一步最优动作的标准答案。三者可以组合，例如先无监督学习表示，再用强化学习优化控制。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-监督学习像带答案练习，无监督学习像整理材料，强化学习像在真实后果中练习决策。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+老师指出“这一题答案是 B”相当于标签；只给一组没有答案的试卷可用于发现题型；让你选择复习顺序，最后用考试结果评价计划，则出现行动、延迟反馈和归因问题。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-RL 奖励不是每一步的正确动作标签。
+分类标签直接约束单个输入的预测。奖励 1 只表示某次后果按评分规则较好，无法说明所有未选动作会得多少分；把奖励当成正确动作标签会丢掉反事实信息缺失。
 
-动作改变未来数据。
+如果每次决策互不影响未来状态，问题可能是上下文老虎机。若今天的调价改变明天库存，就需要对后续机会建模；这是从单次反馈走向完整强化学习的关键。
 
-离线 RL 虽使用固定数据，仍需处理策略分布偏移。
+离线强化学习虽用固定数据，仍通过策略改进询问“采取不同动作会怎样”。行为克隆则直接拟合历史动作；两者都能使用监督式损失，但目标和覆盖风险不同。
 :::
 
 
@@ -117,17 +109,17 @@ RL 奖励不是每一步的正确动作标签。
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### 预测损失与策略目标
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+\mathcal L_{sup}=\frac1n\sum_i\ell(f_\theta(x_i),y_i),\qquad J_{RL}(\pi)=\mathbb E_{\tau\sim\pi}\left[\sum_t\gamma^t r_{t+1}\right]
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+监督目标基于标签损失；RL 目标基于策略诱导轨迹的回报。无监督目标依具体表示、密度或聚类任务定义。
 :::
 
 ::::
@@ -138,9 +130,10 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| y_i | 给定监督标签 |
+| ℓ | 预测损失 |
+| τ | 策略与环境共同产生的轨迹 |
+| γ | 回报折扣因子 |
 :::
 
 ::::
@@ -148,30 +141,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 强化学习与监督/无监督学习的最小计算
+### 动作模仿准确率不能代替策略价值
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 历史标签为左、左、左、右。
+- 始终向左准确率为 75%；构造环境中左得 1，右得 2，动作后均结束。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 模仿历史最常见动作会选择左。
+2. 该策略回报是 1；始终右的回报是 2。
+3. 本例结束后无后续状态影响，更准确地说是单步决策示例。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+监督模仿准确率 0.75 与奖励最优动作“右”回答不同问题。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 行为标签的频率不等于动作收益。
+- 若不知道动作收益，不能仅凭这四个标签得出右更优。
 :::
 
 
@@ -189,7 +179,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 强化学习与监督/无监督学习的本地数值骨架
+### 动作模仿准确率不能代替策略价值
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -197,28 +187,30 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+监督模仿准确率 0.75 与奖励最优动作“右”回答不同问题。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+labels = ["left", "left", "left", "right"]
+accuracy = sum(a == "left" for a in labels) / len(labels)
+rewards = {"left": 1.0, "right": 2.0}
+print(f"imitate_accuracy={accuracy:.2f}")
+print("reward_best=" + max(rewards, key=rewards.get))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 模仿历史最常见动作会选择左。
+- 该策略回报是 1；始终右的回报是 2。
+- 本例结束后无后续状态影响，更准确地说是单步决策示例。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+imitate_accuracy=0.75
+reward_best=right
+```
 :::
 
 ::::
@@ -234,9 +226,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 把所有带奖励的预测问题都叫强化学习。
+- 看到离线数据就认定任务只能属于监督学习。
+- 用历史动作准确率代替新策略的长期回报评价。
 :::
 
 
@@ -247,7 +239,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Sutton 与 Barto《Reinforcement Learning: An Introduction》](http://incompleteideas.net/book/the-book-2nd.html)（第 1、2 章）。
 :::
 
 
@@ -258,9 +250,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 把所有带奖励的预测问题都叫强化学习。
+- 看到离线数据就认定任务只能属于监督学习。
+- 用历史动作准确率代替新策略的长期回报评价。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -277,11 +269,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 强化学习与监督/无监督学习是 on-policy 还是 off-policy？
+### 监督学习能用于强化学习内部吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+可以。价值回归、环境模型和奖励模型常用监督损失，但最终策略仍按序贯决策目标与数据边界评价。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -291,4 +283,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

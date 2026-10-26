@@ -34,18 +34,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 手算 MaxPool
-- 比较平均/最大
-- 使用自适应池化
+- 同一窗口的最大值与平均值
+- 池化层有多少可训练参数？
+- 说明：池化会丢失空间细节；上采样不能自动逆转这种多对一映射。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-控制计算和感受野
-
-理解 CNN 形状变化
+池化按窗口对特征图取最大值、平均值等统计，通常独立作用于每个样本和每个通道。全局或自适应池化则直接约定输出空间尺寸。
 :::
 
 
@@ -56,30 +54,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-深层特征不需要一直保持原始分辨率。
+局部特征提取后，网络常需要缩小空间网格，以降低计算并聚合邻近响应。池化提供不含可学习核的局部汇总，但它也会丢失细节。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-池化通常无可学习权重，降低 H/W、减少计算并扩大后续感受野。
+池化按窗口对特征图取最大值、平均值等统计，通常独立作用于每个样本和每个通道。全局或自适应池化则直接约定输出空间尺寸。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把邻近小区域浓缩成一个代表值。
+最大池化回答“这一片有没有强响应”，平均池化回答“这一片整体响应多强”。两个问题在孤立尖峰和均匀纹理上会给出不同结果。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-普通池化不改变 batch 和通道；MaxPool(2,2) 常使高宽减半。
+MaxPool 把窗口中的最大元素传到下一层，反向梯度主要流向被选中的位置。AvgPool 将响应平均，梯度也按参与元素分配。窗口、stride、padding 和是否计入 padding 会影响数值及输出尺寸。
 
-现代网络也用 stride 卷积下采样；池化不会凭空恢复丢失信息。
+普通池化不混合不同通道，不改变通道数。2×2、stride=2 通常把偶数高宽减半；奇数尺寸和 ceil_mode 需要单独计算。自适应平均池化到 1×1 可把任意空间网格压成每通道一个数。
+
+池化提供有限的局部位置鲁棒性，但不保证全局平移不变。下采样可能移走细小目标，分割等任务常需跳接或高分辨率分支保留位置证据。
 :::
 
 
@@ -97,7 +97,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-Ω 是当前池化窗口。
+池化按窗口对特征图取最大值、平均值等统计，通常独立作用于每个样本和每个通道。全局或自适应池化则直接约定输出空间尺寸。
 :::
 
 ::::
@@ -117,33 +117,39 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 2×2 MaxPool
+### 同一窗口的最大值与平均值
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- \[\[1,3\],\[2,0\]\]
+- 窗口为第一行 (1,3)、第二行 (2,0)
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 取局部最大值
+1. 最大池化选取 3。
+2. 平均池化计算 (1+3+2+0)/4=1.5。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-3
+最大池化输出 3，平均池化输出 1.5，形状均为 (1,1,1,1)。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 池化会丢失空间细节；上采样不能自动逆转这种多对一映射。
 :::
+
+### 同一窗口的最大值与平均值
+
+若一个窗口只有一个异常亮点，MaxPool 会完全保留它；AvgPool 会把它和周围值一起平均。这可能有助于找强边缘，也可能放大噪声，需要按任务验证。
+
+输出只剩一个数，无法从它唯一恢复原来四个位置。上采样可以增大网格，却不会凭空补回被池化删除的信息。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 划分窗口
-2. 局部汇总
-3. 按 stride 移动
-4. 得到缩小特征图
+1. 最大池化选取 3。
+2. 平均池化计算 (1+3+2+0)/4=1.5。
 :::
 
 
@@ -151,33 +157,38 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 池化与下采样 · PyTorch 示例
+### 同一窗口的最大值与平均值的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证池化与下采样的输入、计算和输出。
+使用完整构造输入核对同一窗口的最大值与平均值，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-pool=nn.MaxPool2d(2,2)
-x=torch.tensor([[[[1.,3.],[2.,0.]]]])
-print(pool(x))
+```python
+import torch
+from torch import nn
+x = torch.tensor([[[[1., 3.], [2., 0.]]]])
+for name, pool in [("max", nn.MaxPool2d(2)), ("avg", nn.AvgPool2d(2))]:
+    y = pool(x)
+    print(f"{name}: value={y.item():.1f} shape={tuple(y.shape)}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 输入为 NCHW
-- 窗口覆盖 2×2
-- 输出保留最大值
+- 两个算子使用完全相同的窗口。
+- 示例核对的是聚合定义。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-tensor(\[\[\[\[3.\]\]\]\])。
+```text
+max: value=3.0 shape=(1, 1, 1, 1)
+avg: value=1.5 shape=(1, 1, 1, 1)
+```
 :::
 
 ::::
@@ -185,8 +196,8 @@ tensor(\[\[\[\[3.\]\]\]\])。
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- CNN 下采样
-- 全局特征汇总
+- 分类网络的空间下采样
+- 全局平均池化生成通道摘要
 :::
 
 
@@ -206,18 +217,17 @@ tensor(\[\[\[\[3.\]\]\]\])。
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 池化是必需层吗？
+### 池化层有多少可训练参数？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-不是，可用 stride 卷积替代。
+普通最大池化和平均池化没有可训练核参数，但仍有窗口和步长等超参数，并会影响计算与梯度。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### AdaptiveAvgPool 的优势？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-可指定固定输出尺寸，分类头不写死输入高宽。
+池化会丢失空间细节；上采样不能自动逆转这种多对一映射。
 :::
-

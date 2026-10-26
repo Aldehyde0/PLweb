@@ -54,18 +54,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Partial Observability 与 POMDP并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 在信息不完整时维护对隐藏状态的信念，区分估计状态与选择动作。
+- 独立复核“用带噪声观察更新门开启的概率”的输入、计算和解释。
+- 后验结合先验与似然，不能只使用检测准确率。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Partial Observability 与 POMDP位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+在信息不完整时维护对隐藏状态的信念，区分估计状态与选择动作。
 :::
 
 
@@ -76,36 +74,32 @@ Partial Observability 与 POMDP位于“状态—行动—反馈—更新”学�
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+机器人隔着噪声传感器判断门是否开启，读数为“开”并不保证门真的开。若按一次读数立即冲过去，策略可能忽略传感器可靠性和先前观察；部分可观测模型让这种不确定性进入决策。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-POMDP 增加隐藏状态与观测模型。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+POMDP 在状态、动作、转移与奖励之外加入观测及观测模型。智能体只能通过历史动作和观察推断隐藏状态。belief 是各隐藏状态的条件概率分布；在已知模型下，更新后的 belief 可以作为决策所需的信息状态。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-只看到雾中局部信息，需要根据历史推断位置。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+医生收到阳性检测，要结合先验患病率与检测误报率更新判断。检测结果是观察，真实是否患病是隐藏状态；重复检查还可能是为了获得信息而采取的动作。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-Observation 不等于 State。
+belief 更新先用动作转移模型预测下一隐藏状态分布，再乘以新观察在各状态下的似然，最后归一化。忘记转移预测或归一化，都会把不完整证据误当确定状态。
 
-belief 是状态概率分布。
+控制动作可能同时改变物理状态与未来信息，例如绕到另一个角度看障碍。只将最可能状态代入完全可观测控制器会丢掉不确定性，可能选择需要更多确信才安全的动作。
+
+精确 belief 的维度随状态空间增长，已知观测模型也常不现实。粒子滤波、循环策略或有限历史是近似方法；它们的估计质量与训练分布、记忆长度和模型误差有关。
 :::
 
 
@@ -113,17 +107,17 @@ belief 是状态概率分布。
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### 静态隐藏状态的 Bayes 更新
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+b(s\mid o)=\frac{p(o\mid s)b(s)}{\sum_{\tilde s}p(o\mid\tilde s)b(\tilde s)}
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+本式为没有状态变化的特例；一般 POMDP 需先按动作预测隐藏状态。
 :::
 
 ::::
@@ -134,9 +128,8 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| b(s) | 观察前的状态信念 |
+| p(o∣s) | 隐藏状态 s 下观察 o 的似然 |
 :::
 
 ::::
@@ -144,30 +137,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Partial Observability 与 POMDP的最小计算
+### 用带噪声观察更新门开启的概率
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 门开启先验概率 0.3。
+- 开门时报告“开”的概率 0.8，关门时误报概率 0.2。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. “开且报告开”的质量是 0.3×0.8=0.24。
+2. 报告开的总质量为 0.24+0.7×0.2=0.38。
+3. 后验开门概率为 0.24/0.38≈0.631579。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+看到“开”后，belief 从 0.3 升至约 0.6316，而不是变成 1。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 后验结合先验与似然，不能只使用检测准确率。
+- 本例无状态变化；有动作转移时要先做预测步骤。
 :::
 
 
@@ -184,7 +174,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Partial Observability 与 POMDP的本地数值骨架
+### 用带噪声观察更新门开启的概率
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -192,28 +182,29 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+看到“开”后，belief 从 0.3 升至约 0.6316，而不是变成 1。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+prior_open = 0.3
+open_mass = prior_open * 0.8
+closed_mass = (1 - prior_open) * 0.2
+posterior_open = open_mass / (open_mass + closed_mass)
+print(f"posterior_open={posterior_open:.6f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- “开且报告开”的质量是 0.3×0.8=0.24。
+- 报告开的总质量为 0.24+0.7×0.2=0.38。
+- 后验开门概率为 0.24/0.38≈0.631579。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+posterior_open=0.631579
+```
 :::
 
 ::::
@@ -229,9 +220,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 把最近一次观察直接当作隐藏状态。
+- 贝叶斯更新后没有归一化。
+- 忽略获取信息的动作也可能有长期价值。
 :::
 
 
@@ -242,7 +233,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Sutton 与 Barto《Reinforcement Learning: An Introduction》](http://incompleteideas.net/book/the-book-2nd.html)（第 17 章的部分可观测讨论）。
 :::
 
 
@@ -253,9 +244,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 把最近一次观察直接当作隐藏状态。
+- 贝叶斯更新后没有归一化。
+- 忽略获取信息的动作也可能有长期价值。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -272,11 +263,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Partial Observability 与 POMDP是 on-policy 还是 off-policy？
+### belief 是真实状态吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+它是对真实状态的概率估计。正确模型下它概括观测历史，但仍保留不确定性，不能当作已经观察到的真值。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -286,4 +277,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

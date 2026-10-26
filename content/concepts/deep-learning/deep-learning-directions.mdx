@@ -37,18 +37,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释核心机制
-- 手算一个主要形状或公式
-- 运行完整示例并排查错误
+- 给图节点分类任务标注三个维度
+- 自监督学习是否是一种固定网络结构？
+- 说明：概览标签是整理问题的工具，不能替代算法细节、资源测量与验证实验。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-掌握深度学习方向地图的输入输出与训练边界
-
-能够用 PyTorch 代码验证公式和形状
+深度学习方向图从数据结构、模型家族、训练范式、问题设定和应用领域组织知识。多个标签可以同时成立，例如图上的自监督预训练与下游监督分类。
 :::
 
 
@@ -59,30 +57,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-深度学习方向地图是该文档中连接数据表示、训练目标和工程实现的核心主题。
+GNN、自监督、多模态和深度强化学习常被并列称为方向，但它们描述的维度不同。先分清结构、监督来源和应用约束，能避免把一个热门名词当成完整方案。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-区分模型家族、训练范式、问题设定和应用领域，再按数据结构选择路线。
+深度学习方向图从数据结构、模型家族、训练范式、问题设定和应用领域组织知识。多个标签可以同时成立，例如图上的自监督预训练与下游监督分类。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把深度学习方向地图理解为数据在模型中的一套明确变换，而不是只记一个类名。
+“公交车、夜间驾驶、送货”不是同一层级分类，分别谈工具、运行条件与任务；技术方向也应先放回各自维度。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-该页严格作为文档方向地图，不把概览内容伪装成完整专题。
+模型家族回答怎样计算表示，例如 CNN 偏局部网格、GNN 沿图邻接传播、Transformer 做内容相关通信。训练范式回答监督从哪里来，例如人工标签、自监督构造目标或奖励反馈。
 
-实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+应用领域描述数据与约束，例如音频有采样率和时延，时序有未来不可见边界，推荐有曝光偏差与冷启动。多模态还要考虑对齐、缺失模态和某一模态独占信号，而不是简单把两个向量拼接。
+
+选择学习路线应从可用数据、目标输出、独立验证方式和资源预算开始。一个方向概览不等于已经掌握该领域，应继续进入对应专题并建立最小可检验基线。
 :::
 
 
@@ -95,12 +95,12 @@ anchorAliases:
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-model+training\ paradigm+problem\ setting+application
+\text{problem description}=\text{data structure}+\text{objective}+\text{supervision}+\text{deployment constraints}
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-深度学习方向地图的核心数学表达。
+这是学习路线的描述维度，不是数值优化公式；各项允许交叉组合。
 :::
 
 ::::
@@ -120,37 +120,43 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 深度学习方向地图数值/形状检查
+### 给图节点分类任务标注三个维度
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=8
-- D=64
+- 输入含节点特征与边
+- 少量节点有人工类别，另有未标注节点
+- 计划先构造自监督预训练目标，再监督微调
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 按公式或模块逐步计算
-2. 核对输出 shape
+1. 数据结构标签为图。
+2. 候选模型家族可为 GNN。
+3. 预训练范式为自监督，下游目标仍是监督分类。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出保持 batch 维并符合任务头约定
+GNN、自监督与节点分类可以同时描述同一项目，并非互斥选项。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 概览标签是整理问题的工具，不能替代算法细节、资源测量与验证实验。
 :::
+
+### 给图节点分类任务标注三个维度
+
+若部署时要预测未来新增节点，还需按时间或节点来源建立划分，避免通过图结构或特征泄漏未来信息。模型名字不会替你决定合法的数据可见范围。
+
+代码仅整理这个明确案例的标签，不自动推荐模型，也没有声称自监督一定改善。下一步应与只用特征的基线比较，并核查图邻接是否真的携带可用关系。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认输入与目标
-2. 建立最小模块
-3. 随机张量前向
-4. 计算损失
-5. 反向与更新
-6. 验证与错误分析
+1. 数据结构标签为图。
+2. 候选模型家族可为 GNN。
+3. 预训练范式为自监督，下游目标仍是监督分类。
 :::
 
 
@@ -158,32 +164,42 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 深度学习方向地图 · PyTorch 示例
+### 给图节点分类任务标注三个维度的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证深度学习方向地图的输入、计算和输出。
+使用完整构造输入核对给图节点分类任务标注三个维度，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-directions=['GNN','self-supervised','multimodal','deep RL','audio','time series','recommendation']
-for name in directions:print(name)
+```python
+case = {
+    "structure": "graph",
+    "candidate_family": "GNN",
+    "pretraining": "self-supervised",
+    "downstream": "supervised node classification",
+}
+for key, value in case.items():
+    print(f"{key}: {value}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码显式标注输入和输出
-- 使用框架稳定实现
-- 结果通过 shape 或数值检查
+- Python 数据结构只表达已给定案例。
+- 没有伪造自动选型评分或训练结果。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印与页面说明一致的张量形状或损失。
+```text
+structure: graph
+candidate_family: GNN
+pretraining: self-supervised
+downstream: supervised node classification
+```
 :::
 
 ::::
@@ -191,8 +207,8 @@ for name in directions:print(name)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 深度学习方向地图
-- 教学与项目基线
+- 建立后续专题学习路线
+- 整理跨模型与训练范式的项目需求
 :::
 
 
@@ -212,18 +228,17 @@ for name in directions:print(name)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 深度学习方向地图最先检查什么？
+### 自监督学习是否是一种固定网络结构？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-先检查输入输出 shape、dtype 和数据边界。
+不是，它描述从数据自身构造监督信号的方式，可与 CNN、Transformer、GNN 等不同结构结合。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 何时使用测试集？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-全部设计锁定后最终评估。
+概览标签是整理问题的工具，不能替代算法细节、资源测量与验证实验。
 :::
-

@@ -56,18 +56,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义On-policy 与 Off-policy并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 区分生成数据的行为策略与被评价或改进的目标策略。
+- 独立复核“单步重要性加权改变估计对象”的输入、计算和解释。
+- 重要性采样能修正已有支持上的分布差异。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-On-policy 与 Off-policy位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+区分生成数据的行为策略与被评价或改进的目标策略。
 :::
 
 
@@ -78,36 +76,32 @@ On-policy 与 Off-policy位于“状态—行动—反馈—更新”学习链�
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+一个驾驶员用带随机探索的路线采集数据，学习器却想评估始终选择最快路线的策略。两者面对的是不同的动作分布；未经处理直接平均历史奖励，通常是在评价采样驾驶员，而不是目标策略。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-On-policy 使用当前策略数据更新自身；off-policy 可用另一行为策略或旧数据学习目标策略。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+行为策略生成实际动作，目标策略是学习器要评价或改进的策略。on-policy 在与目标匹配的数据分布下学习；off-policy 允许二者不同。online/offline 描述能否继续收集数据，是另一条分类轴。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-是在复盘自己当前打法，还是从别人/旧记录中学习另一打法。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+用“按城市人群比例抽到的问卷”估计某个特殊群体偏好，需要检查样本来源；直接平均往往回答了另一个人群的问题。强化学习还增加了动作改变后续状态分布的困难。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-off-policy 需要处理分布差异。
+SARSA 的下一动作来自行为策略，因此其 TD 目标包含当前探索行为的后果。Q-learning 则使用贪心最大值作为目标，即使行为仍在 ε-greedy 探索，也是典型 off-policy 控制。
 
-on-policy 数据通常更新后较快过期。
+重要性采样以目标概率除以行为概率修正分布，但需要目标支持包含于行为支持。若行为从不尝试某动作，就无法靠除法恢复它的结果；长轨迹比率乘积还可能造成极大方差。
+
+off-policy 不意味着任意旧数据都能稳定复用。函数近似、自举和分布偏差叠加时可能发散；PPO 使用固定旧策略的小批数据做有限轮更新，也不能据此无限使用任意 replay。
 :::
 
 
@@ -115,17 +109,17 @@ on-policy 数据通常更新后较快过期。
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### 单步重要性比率
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+\rho_t=\frac{\pi(A_t\mid S_t)}{\mu(A_t\mid S_t)}
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+μ 为行为策略；若目标策略有正概率，行为策略也必须提供正概率支持。
 :::
 
 ::::
@@ -136,9 +130,9 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| π | 目标策略 |
+| μ | 行为策略 |
+| ρ | 动作重要性权重 |
 :::
 
 ::::
@@ -146,30 +140,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### On-policy 与 Off-policy的最小计算
+### 单步重要性加权改变估计对象
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 行为策略动作概率为 0.8、0.2；目标策略为 0.5、0.5。
+- 动作奖励分别为 1、3，行为与目标均覆盖两个动作。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 行为策略的期望奖励为 0.8×1+0.2×3=1.4。
+2. 两个重要性比率是 0.5/0.8=0.625 和 0.5/0.2=2.5。
+3. 加权期望为 0.8×0.625×1+0.2×2.5×3=2。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+行为期望为 1.400，修正后的目标策略期望为 2.000。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 重要性采样能修正已有支持上的分布差异。
+- 离线数据缺少目标动作时，本例的计算条件不成立。
 :::
 
 
@@ -187,7 +178,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### On-policy 与 Off-policy的本地数值骨架
+### 单步重要性加权改变估计对象
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -195,28 +186,30 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+行为期望为 1.400，修正后的目标策略期望为 2.000。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+behavior = [0.8, 0.2]
+target = [0.5, 0.5]
+reward = [1.0, 3.0]
+raw = sum(p * r for p, r in zip(behavior, reward))
+corrected = sum(b * (t / b) * r for b, t, r in zip(behavior, target, reward))
+print(f"behavior_value={raw:.3f}, target_value={corrected:.3f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 行为策略的期望奖励为 0.8×1+0.2×3=1.4。
+- 两个重要性比率是 0.5/0.8=0.625 和 0.5/0.2=2.5。
+- 加权期望为 0.8×0.625×1+0.2×2.5×3=2。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+behavior_value=1.400, target_value=2.000
+```
 :::
 
 ::::
@@ -232,9 +225,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 把 off-policy 误写成不能与环境交互。
+- 对行为概率为零的目标动作直接做重要性加权。
+- 认为使用 replay 就自动解决了全部分布偏差。
 :::
 
 
@@ -245,7 +238,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Sutton 与 Barto《Reinforcement Learning: An Introduction》](http://incompleteideas.net/book/the-book-2nd.html)（第 5、6 章）。
 :::
 
 
@@ -256,9 +249,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 把 off-policy 误写成不能与环境交互。
+- 对行为概率为零的目标动作直接做重要性加权。
+- 认为使用 replay 就自动解决了全部分布偏差。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -275,11 +268,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### On-policy 与 Off-policy是 on-policy 还是 off-policy？
+### off-policy 和 offline 是同义词吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+不是。SAC 可以在线交互并用旧 replay 做 off-policy 更新；offline RL 在训练期间不允许用当前策略向环境收集新样本。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -289,4 +282,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

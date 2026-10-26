@@ -42,7 +42,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-逻辑回归/KNN/SVM 需要标准化，树通常不需要。K 和 max\_depth 还需观察训练/验证差距。
+模型比较不是把几次随意运行的最高分放在一张表里。候选看到的数据、验证折、指标和调参机会不同，结果就无法公平解释，尤其容易把划分波动误当作算法差异。
+
+Digits 的像素尺度相同，但每个像素的分布不同。标准化会改变 KNN 和 SVM 的距离，也会改变逻辑回归的正则化语义；这是需要在协议内验证的设计，不是无条件的必选结论。
 :::
 
 
@@ -63,7 +65,15 @@ anchorAliases:
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-主要按训练部分 CV macro F1 选择，不读取测试结果；报告均值、标准差、训练和验证耗时。
+先定义候选注册表，每个条目都是可以独立 fit/predict 的完整流程。Dummy 提供无信息基线，逻辑回归检查线性边界，KNN 检查邻域相似，树检查分段规则，SVM 或随机森林提供额外非线性候选。
+
+所有候选共享开发集与保存的五折索引，macro F1 用于主要选择，同时报告训练分数、逐折分布与耗时。需要学习统计量的缩放放在 Pipeline 内；树通常不需要靠标准化改变阈值分裂语义。
+
+固定默认配置的初筛与后续参数搜索要分开记录。KNN 的邻居数、树深、SVM 的 C 等参数影响容量；扩大某个候选的搜索预算却不给其他候选相近机会，会混合算法差异与选择预算差异。
+
+训练分数接近满分而验证较低可能提示过拟合，二者都低则还要检查表示与容量。分数接近时应看成对折差异、推理成本和错误类别，不能凭第三位小数宣称确定优劣；折间标准差也不是独立置信区间。
+
+选型阶段不读取保留测试结果。排行榜锁定后再做最终评价，不能在测试集上循环比较所有候选再挑最高者，也不能把小型 Digits 上的排序当作所有图像任务的通用排序。
 :::
 
 
@@ -81,10 +91,16 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-主要按训练部分 CV macro F1 选择，不读取测试结果；报告均值、标准差、训练和验证耗时。
+这里表示选型在项目中的位置。公平性来自相同数据边界、指标和选择预算，不由箭头本身或候选数量保证。
 :::
 
 ::::
+
+### 案例：同一份开发集比较五种固定候选
+
+代码对 1437 行开发数据保存一组五折，分别运行 Dummy、标准化逻辑回归、标准化 KNN、深度受限树和标准化 RBF SVM。所有配置预先写定，输出训练与验证 macro F1，以及验证折间标准差。
+
+cross_validate 还返回 fit_time、score_time，可在当前机器报告成本，但这里不把机器相关耗时写成固定预期。代码未预测测试集；如果接下来增加超参数候选，应作为新的开发实验记录，而不是暗中替换排行榜。
 
 ## 计算与实现步骤 {#algorithm-steps}
 
@@ -103,35 +119,71 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Digits 候选模型公平比较 核心代码
+### 共享五折的五类候选比较
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应项目要求中的可运行核心步骤。
+固定数据、折索引与候选配置，完整运行开发比较；不使用测试结果选模型，也不声称跨任务基准优势。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-models={
- "dummy":DummyClassifier(strategy="most_frequent"),
- "lr":make_pipeline(StandardScaler(),LogisticRegression(max_iter=3000)),
- "knn":make_pipeline(StandardScaler(),KNeighborsClassifier()),
- "tree":DecisionTreeClassifier(random_state=42),
+```Python
+import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.dummy import DummyClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import StratifiedKFold, cross_validate, train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
+
+X, y = load_digits(return_X_y=True)
+train, test = train_test_split(np.arange(len(y)), test_size=0.2, stratify=y, random_state=42)
+X_dev, y_dev = X[train], y[train]
+folds = list(StratifiedKFold(5, shuffle=True, random_state=42).split(X_dev, y_dev))
+models = {
+    "dummy": DummyClassifier(strategy="most_frequent"),
+    "lr": make_pipeline(StandardScaler(), LogisticRegression(max_iter=3000)),
+    "knn": make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=5)),
+    "tree": DecisionTreeClassifier(max_depth=8, random_state=42),
+    "svm": make_pipeline(StandardScaler(), SVC(C=10.0, kernel="rbf", gamma="scale")),
 }
+results = {}
+for name, model in models.items():
+    result = cross_validate(model, X_dev, y_dev, cv=folds,
+        scoring="f1_macro", return_train_score=True)
+    results[name] = result
+    print(f"{name}: train={result['train_score'].mean():.3f}, cv={result['test_score'].mean():.3f}, std={result['test_score'].std(ddof=1):.3f}")
+winner = max(results, key=lambda name: results[name]["test_score"].mean())
+print("selected_from_development:", winner)
+print("untouched_test_rows:", len(test))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 固定数据协议保证模型公平比较。
-- 测试集在方案锁定前保持不可见。
+- folds 是同一份索引列表，每个候选重复使用，预处理仍逐折 fit。
+- 训练与验证差距辅助诊断，std 是样本标准差，不能直接当作置信区间。
+- results 保留逐折分数和机器相关时间，最终模型需要另行 refit。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-得到名称到估计器的统一映射，后续同折比较。
+本地 scikit-learn 1.8.0 的核对输出；分数仅属于下方固定教学实验：
+
+```text
+dummy: train=0.018, cv=0.018, std=0.000
+lr: train=1.000, cv=0.968, std=0.008
+knn: train=0.984, cv=0.976, std=0.011
+tree: train=0.939, cv=0.838, std=0.028
+svm: train=1.000, cv=0.980, std=0.007
+selected_from_development: svm
+untouched_test_rows: 360
+```
 :::
 
 ::::
@@ -147,9 +199,9 @@ models={
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 不同折比较
-- 省略 Dummy
-- 需要缩放的模型脱离 Pipeline
+- 不同候选使用不同随机划分、不同样本清洗或不同主指标。
+- 在 CV 前全数据缩放，或只给某一模型大量调参机会却声称比较完全公平。
+- 按测试成绩选冠军，或把训练高分、第三位小数差异当作可靠胜出证明。
 :::
 
 

@@ -38,18 +38,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 逐层手算形状
-- 计算卷积参数
-- 用随机张量断言
+- 同一卷积处理两种图像大小
+- 为什么 Flatten 后容易出现 Linear 维度错误？
+- 说明：参数统计不能替代速度、显存或泛化能力评估。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-避免形状错误
-
-估算模型容量
+CNN 形状分析逐层计算 batch、通道、空间尺寸的变化；参数统计只计算可学习张量元素数，两者相关但不是同一件事。
 :::
 
 
@@ -60,30 +58,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-多数 CNN 报错来自通道衔接和 Linear in\_features 计算错误。
+卷积网络改一个步长，后面所有展平维度都可能变化。先画出形状链和参数账本，可以在训练前发现不匹配，并判断模型主要把容量花在哪里。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-普通层通常保留 N；Conv 改 C 和空间；池化改空间；Flatten 合并 C/H/W。
+CNN 形状分析逐层计算 batch、通道、空间尺寸的变化；参数统计只计算可学习张量元素数，两者相关但不是同一件事。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-每经过一层都记账：N 看输入，C 看 out\_channels，H/W 用公式。
+激活大小像流水线当前占用的工作台，参数量像固定安装的工具数量。换大图会占更多工作台，却不一定增加工具。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-Conv 参数与 H/W 无关，Linear 参数与展平维度强相关。
+普通卷积输出空间长度按输入、padding、dilation、核、stride 计算并向下取整。batch 通常保持，通道变为 out_channels；池化一般保留通道，只改变空间。Flatten(start_dim=1) 合并非 batch 维，避免误把样本拼在一起。
 
-手算后必须用随机张量、打印和 assert 验证。
+带偏置普通卷积参数为 C_out×(C_in×K_h×K_w+1)，groups 不为 1 时需把每核输入通道除以 groups。线性层参数为 out_features×(in_features+1)。BatchNorm 另有缩放和偏移参数，running stats 是 buffer。
+
+参数少不代表运行快：高分辨率卷积会在很多位置重复计算。训练显存还包括激活、梯度和优化器状态，因此应分别记录参数、输出形状和实际内存测量。
 :::
 
 
@@ -101,7 +101,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-bias=True 的普通卷积。
+CNN 形状分析逐层计算 batch、通道、空间尺寸的变化；参数统计只计算可学习张量元素数，两者相关但不是同一件事。
 :::
 
 ::::
@@ -122,38 +122,43 @@ bias=True 的普通卷积。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Conv+Pool
+### 同一卷积处理两种图像大小
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- \[10,1,28,28\]
-- Conv 1→8,k3,p1
-- Pool2
+- 卷积从 3 通道变为 8 通道，3×3 核，有偏置
+- stride=2，padding=1
+- 输入高宽分别为 32 与 64
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. Conv→\[10,8,28,28\]
-2. Pool→\[10,8,14,14\]
+1. 32 的输出为 floor((32+2−3)/2)+1=16。
+2. 64 的输出为 32。
+3. 参数始终为 8×(3×9+1)=224。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-最终 \[10,8,14,14\]
+输出分别是 (2,8,16,16) 和 (2,8,32,32)，参数均为 224。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 参数统计不能替代速度、显存或泛化能力评估。
 :::
+
+### 同一卷积处理两种图像大小
+
+空间边长翻倍，输出元素数变为四倍，但核仍是同一组 224 个参数。若之后接展平全连接，输入特征数也变为四倍，分类头参数才会跟着增加。
+
+这解释了为什么一张高分辨率图片可能耗尽显存，即使模型文件没有变大。估算资源时，只报模型参数数量会遗漏主要的激活成本。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 保留 N
-2. 更新 C
-3. 计算 H/W
-4. 池化
-5. Flatten 相乘
-6. Linear 输出
+1. 32 的输出为 floor((32+2−3)/2)+1=16。
+2. 64 的输出为 32。
+3. 参数始终为 8×(3×9+1)=224。
 :::
 
 
@@ -161,33 +166,40 @@ bias=True 的普通卷积。
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### CNN 张量形状与参数量 · PyTorch 示例
+### 同一卷积处理两种图像大小的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证CNN 张量形状与参数量的输入、计算和输出。
+使用完整构造输入核对同一卷积处理两种图像大小，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-model=nn.Sequential(nn.Conv2d(1,8,3,padding=1),nn.MaxPool2d(2))
-y=model(torch.randn(10,1,28,28))
-assert y.shape==(10,8,14,14)
+```python
+import torch
+from torch import nn
+conv = nn.Conv2d(3, 8, 3, stride=2, padding=1)
+for size in [32, 64]:
+    y = conv(torch.zeros(2, 3, size, size))
+    print(f"input={size} output={tuple(y.shape)}")
+print("parameters:", sum(p.numel() for p in conv.parameters()))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 随机输入不下载数据
-- assert 验证手算
-- 错误立即暴露
+- 同一个卷积层复用于不同空间尺寸。
+- 显式包含偏置参数。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-断言通过。
+```text
+input=32 output=(2, 8, 16, 16)
+input=64 output=(2, 8, 32, 32)
+parameters: 224
+```
 :::
 
 ::::
@@ -195,8 +207,8 @@ assert y.shape==(10,8,14,14)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 网络设计
-- 参数预算
+- 训练前验证网络结构
+- 比较分辨率变化的资源成本
 :::
 
 
@@ -217,18 +229,17 @@ assert y.shape==(10,8,14,14)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Conv 参数为何不含 H/W？
+### 为什么 Flatten 后容易出现 Linear 维度错误？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-同一核跨位置共享。
+in_features 必须等于实际通道×高×宽。任何池化、步长或输入分辨率变化都会改变这个乘积，需重新核对或使用自适应池化。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### Flatten 是否删除 batch？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-从 dim=1 开始时保留 batch。
+参数统计不能替代速度、显存或泛化能力评估。
 :::
-

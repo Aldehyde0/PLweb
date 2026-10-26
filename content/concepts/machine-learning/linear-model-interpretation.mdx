@@ -36,29 +36,45 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-尺度、共线性、多分类参数和正则化都会改变权重，模型关联不是因果。
+同一个预测函数，换一种计量单位就会得到另一组权重。解释参数前必须恢复输入尺度、目标含义和比较条件，否则“大权重”很容易被误读为“大影响”。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-在线性分数中，wⱼ 表示 xⱼ 增加一个单位时 score 的变化；标准化后可比较一个标准差变化的影响。
+线性模型的权重描述其他输入固定时，某特征变化引起的线性分数变化。回归是预测值变化，逻辑回归是 log-odds 变化；都不是自动成立的因果效应。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-权重像模型内部的方向和力度，不是现实世界的原因证明。
+权重的单位来自输入和输出：每米的变化与每厘米的变化数字不同，不能只按系数绝对值排名。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-解释前说明预处理、目标编码、类别基准和不确定性；相关特征可能分摊或交换权重。
+若标准化特征 z_j=(x_j−mu_j)/s_j，模型中的系数 beta_j 对应原始尺度权重 beta_j/s_j，截距还需减去各 beta_j×mu_j/s_j。直接把标准化系数说成原始单位变化，会遗漏这一转换。
+
+二元逻辑回归中，分数增加 beta 对应 odds 乘 exp(beta)，不是概率增加 beta。多分类还需要指定类别和基准；不能把某个类别的分数系数脱离其他类别联合解释。
+
+共线特征能分摊或交换权重，正则强度也改变它们。参数符号与大小应结合重采样稳定性、特征相关性和合理取值范围解释。模型是观察数据上的关联表达，除非另有因果设计，不应承诺改变某特征就产生相同效果。
 :::
+
+### 将标准化系数还原到原始单位
+
+- 训练均值 10，标准差 5
+- 标准化模型 score=2z−1
+
+标准化一单位等于原始 5 单位；分数变化为 2，逻辑回归 odds 比约为 7.389056。
+
+如果直接把系数 2 当成原始 x 每增加 1 的影响，会高估五倍。标准化截距 -1 也不是原始 x=0 时的分数，后者为 -5。
+
+这个算例只固定一个特征，现实中“其他特征保持不变”可能对应数据中罕见或不可能的组合，解释仍需要领域约束。
+
 
 
 ## 数学表达 {#formulas}
@@ -70,12 +86,12 @@ anchorAliases:
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-Δscore=wⱼΔxⱼ
+\beta_j^{raw}=\beta_j^{std}/s_j,\quad b^{raw}=b^{std}-\sum_j\beta_j^{std}\mu_j/s_j
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-解释前说明预处理、目标编码、类别基准和不确定性；相关特征可能分摊或交换权重。
+这里假定输入做逐列标准化；若目标也被变换，还需另外还原目标尺度。
 :::
 
 ::::
@@ -83,11 +99,9 @@ $$
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认特征尺度
-2. 提取正确类别权重
-3. 结合方向与单位
-4. 检查相关性和稳定性
-5. 避免因果语言
+1. 记录特征预处理、目标编码和解释所用类别。
+2. 把标准化系数与截距还原到有意义单位。
+3. 检查相关特征与重采样稳定性，避免因果过度解释。
 :::
 
 
@@ -95,32 +109,43 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 线性模型权重解释 实现
+### 将标准化系数还原到原始单位的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的训练与预测逻辑。
+使用完整构造输入核对将标准化系数还原到原始单位，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-logreg=model.named_steps["logisticregression"]
-print(logreg.coef_.shape)
-print(logreg.coef_)
+```python
+import math
+mean, std = 10., 5.
+coef_std, intercept_std = 2., -1.
+coef_raw = coef_std / std
+intercept_raw = intercept_std - coef_std * mean / std
+print(f"raw_coefficient={coef_raw:.1f} raw_intercept={intercept_raw:.1f}")
+for x in [15., 20.]:
+    print(f"x={x:.0f} score={coef_raw * x + intercept_raw:.1f}")
+print(f"odds_ratio_for_5_units={math.exp(coef_raw * 5):.6f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码先建立符合输入要求的估计器。
-- 参数应在交叉验证中选择，测试集不参与。
+- 所有尺度参数明确给出。
+- odds 比只在逻辑回归分数语义下成立。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-二分类或多分类对应的权重矩阵。
+```text
+raw_coefficient=0.4 raw_intercept=-5.0
+x=15 score=1.0
+x=20 score=3.0
+odds_ratio_for_5_units=7.389056
+```
 :::
 
 ::::
@@ -128,8 +153,8 @@ print(logreg.coef_)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 模型审查
-- 特征方向分析
+- 报告线性回归的单位效应
+- 解释逻辑回归 odds 比与尺度
 :::
 
 

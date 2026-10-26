@@ -35,7 +35,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-泄漏模型上线后失效，因为它依赖的隐藏信息不再存在。泄漏分数高并不说明模型能力强。
+如果模型训练利用了真实预测时不可能获得的信息，离线成绩就会高估可用能力。泄漏可能来自预处理，也可能来自目标的替代字段、重复实体或时间顺序，并不一定表现为直接把标签放进输入。
+
+检查泄漏要沿数据产生过程追踪：某个值何时产生，哪个步骤在哪些样本上 fit，评价对象是否已经以其他记录出现过。
 :::
 
 
@@ -56,7 +58,13 @@ anchorAliases:
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-对每个有状态步骤追问“它 fit 了哪些样本”；对每个特征追问“预测时点是否可用”。
+预处理泄漏发生在验证信息参与估计时，例如全数据求中位数、缩放、PCA 或特征选择，再进行交叉验证。正确边界是每个训练折独立 fit，验证折仅使用对应变换。
+
+目标泄漏来自标签或后果的代理信息。例如预测是否违约时使用“催收次数”，若该字段在违约后才产生，即使训练验证严格隔离也仍不符合预测时点。
+
+实体泄漏与时间泄漏需要划分规则处理。Pipeline 只能管理其中步骤的拟合边界，不会自动阻止同一患者跨折，也不会把未来记录从训练集中移除。
+
+泄漏诊断可从异常高分、训练部署差距和特征含义入手，但不能只凭分数判定。应核查数据血缘、时间戳和拆分索引，保留可复现的无泄漏基线再比较改动。
 :::
 
 
@@ -79,6 +87,12 @@ $$
 
 ::::
 
+### 案例：中位数填补为什么也需要折内拟合
+
+若一列存在缺失值，在交叉验证前用全部数据中位数填补，就让每个验证折的数值影响了训练输入。正确流程把填补器与分类器放进同一 Pipeline，交叉验证会为每一折创建并拟合独立副本。
+
+下方不仅计算分数，还检查每折填补器的 statistics_ 是否等于对应训练行的中位数。这个检查只验证拟合边界；若特征本身是未来才知道的结果字段，Pipeline 仍不能修复它。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
@@ -95,31 +109,55 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 数据泄漏 示例
+### 逐折核对填补器只学习训练行
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+以显式缺失值与保存的折索引验证填补器边界，而非仅展示函数名称。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-pipeline=make_pipeline(SimpleImputer(strategy="median"),StandardScaler(),LogisticRegression())
-scores=cross_val_score(pipeline,X,y,cv=cv)
+```Python
+import numpy as np
+from sklearn.datasets import load_iris
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import StratifiedKFold, cross_validate
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+X, y = load_iris(return_X_y=True)
+X = X.copy()
+X[::10, 0] = np.nan
+splits = list(StratifiedKFold(3, shuffle=True, random_state=42).split(X, y))
+pipeline = make_pipeline(SimpleImputer(strategy="median"), StandardScaler(), LogisticRegression(max_iter=1000))
+result = cross_validate(pipeline, X, y, cv=splits, scoring="accuracy", return_estimator=True)
+for (train, valid), estimator in zip(splits, result["estimator"]):
+    fitted = estimator.named_steps["simpleimputer"].statistics_
+    assert np.allclose(fitted, np.nanmedian(X[train], axis=0))
+print("folds:", len(result["estimator"]))
+print("fold_medians_match_training:", True)
+print("finite_scores:", bool(np.isfinite(result["test_score"]).all()))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 每折 estimator 都保留自己的中位数，和该折训练数据直接比较。
+- 验证分数有限不证明无业务泄漏；这里断言只检查折内拟合。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-每折预处理只在训练折拟合，避免常见泄漏。
+本地 scikit-learn 1.8.0 的核对输出：
+
+```text
+folds: 3
+fold_medians_match_training: True
+finite_scores: True
+```
 :::
 
 ::::
@@ -135,10 +173,9 @@ scores=cross_val_score(pipeline,X,y,cv=cv)
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 全数据标准化
-- 全数据特征选择
-- 重复用户跨折
-- 测试集调参
+- 认为没有把标签列放进 X 就绝不泄漏，忽略代理字段与实体重复。
+- 在全数据上填补、缩放或选特征，再把变换后的矩阵交给 CV。
+- 以为使用 Pipeline 就自动解决时间、群组与业务预测时点的全部问题。
 :::
 
 

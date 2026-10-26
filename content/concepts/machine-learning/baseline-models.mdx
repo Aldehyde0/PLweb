@@ -35,7 +35,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-没有基线时，0.90 准确率可能只是类别 90% 不平衡，R² 也缺少参照。
+一个复杂模型的分数只有与合理基准比较才有意义。类别极不平衡时，总猜多数类也能获得高准确率；时间预测中，简单沿用上一期值可能已经很有竞争力。
+
+基线帮助检查指标、数据和建模工作是否有效，也给增加复杂度设定可比较的起点。它应模拟真实可用信息，而不是刻意做弱的陪衬。
 :::
 
 
@@ -56,7 +58,13 @@ DummyClassifier/Regressor 不学习特征规律，只按标签频率、常数或
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-基线使用与候选模型相同的划分和指标；基线差距、成本与稳定性共同决定是否值得部署。
+最简单的分类基线包括训练集多数类或类别先验策略；回归可以使用训练目标的均值或中位数。均值常对应平方误差目标，中位数常对应绝对误差目标，不能随意换成验证集统计量。
+
+业务规则、线性模型与上一时刻值也可以作为更有信息的基线。基线复杂度可分层增加，便于判断收益来自信息、特征工程还是模型结构，而不是一次改变全部条件。
+
+所有方案应使用相同划分、预处理边界、指标与可用特征。不同数据集上一个高分与另一个低分不能说明复杂模型优于基线；调参预算与计算成本也应说明。
+
+基线差距需要结合波动、错误切片与运行成本判断。小幅总体提升若伴随关键群体恶化或维护成本剧增，未必值得采用；异常大的提升反而可能提示数据泄漏或评价错误。
 :::
 
 
@@ -79,6 +87,12 @@ $$
 
 ::::
 
+### 案例：90% 准确率却完全漏掉正类
+
+构造一个正类占 10% 的任务。多数类基线永远输出 0，测试样本若同样是 9 个负类与 1 个正类，就有 90% 准确率，但正类召回率为 0，balanced accuracy 只有 0.5。
+
+候选模型若只报 91% 准确率，很难判断是否解决了真正问题。应检查正类召回、误报量、代价和独立评估波动。下方只是常量策略的算术演示，不代表实际部署类别比例或测得性能。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
@@ -94,32 +108,48 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Dummy 基线模型 示例
+### 多数类基线暴露准确率的盲区
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+训练与测试为两个显式构造集合，展示常量基线与指标差别。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
+```Python
+import numpy as np
 from sklearn.dummy import DummyClassifier
-baseline=DummyClassifier(strategy="most_frequent")
-print(cross_val_score(baseline,X,y,cv=cv,scoring="f1_macro"))
+from sklearn.metrics import accuracy_score, balanced_accuracy_score, f1_score
+
+X_train = np.arange(10).reshape(-1, 1)
+y_train = [0] * 9 + [1]
+X_test = np.arange(20, 30).reshape(-1, 1)
+y_test = [0] * 9 + [1]
+baseline = DummyClassifier(strategy="most_frequent").fit(X_train, y_train)
+prediction = baseline.predict(X_test)
+print(f"accuracy={accuracy_score(y_test, prediction):.3f}")
+print(f"balanced_accuracy={balanced_accuracy_score(y_test, prediction):.3f}")
+print(f"macro_f1={f1_score(y_test, prediction, average='macro', zero_division=0):.3f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 多数类从 y_train 确定，没有读取 y_test 来选择策略。
+- macro F1 对两个类别等权，zero_division 明确处理没有预测正类的情形。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-输出各折 Dummy macro F1。
+本地 scikit-learn 1.8.0 的核对输出：
+
+```text
+accuracy=0.900
+balanced_accuracy=0.500
+macro_f1=0.474
+```
 :::
 
 ::::
@@ -135,8 +165,9 @@ print(cross_val_score(baseline,X,y,cv=cv,scoring="f1_macro"))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 跳过基线
-- 基线和模型使用不同折
+- 用测试集目标均值或多数类建立基线，让基线偷看评价答案。
+- 故意选不匹配业务的弱基线，或在不同划分上比较方案。
+- 只报告总体高分，不检查候选模型是否超越常量策略和业务规则。
 :::
 
 

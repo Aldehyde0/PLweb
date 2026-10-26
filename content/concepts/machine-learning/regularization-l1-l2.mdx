@@ -37,29 +37,46 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-高维、小样本、噪声与共线性可能让线性模型权重过大且不稳定。
+高维或相关特征常让训练数据允许很多近似同样好的权重。若只追求训练误差，参数可能过大、对样本变化敏感；正则化在这些解之间加入偏好。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-L1 惩罚绝对值和并产生稀疏权重；L2 惩罚平方和并平滑收缩；Elastic Net 混合二者。
+L1 惩罚权重绝对值和，常产生精确零；L2 惩罚平方和，通常连续收缩；Elastic Net 将稀疏与收缩两种偏好组合。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-不仅要求答对训练题，还对过于极端的参数收费。
+L2 让大家一起缩小，L1 还可能让较弱的权重彻底退出。退出的特征不一定没有科学意义，只是当前模型与惩罚下不被保留。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-特征需先标准化以保证惩罚公平。正则过强会欠拟合，强度必须在训练集内部交叉验证。
+一维平方损失加 L1 时，零点处的尖角形成软阈值：信号小于惩罚阈值时最优权重为零。L2 的导数连续，通常把非零权重缩小而不精确归零。两者改变目标最优点，允许训练拟合变差。
+
+特征尺度决定同样预测贡献需要多大权重，未缩放时惩罚可能偏向某种计量单位。连续特征常先标准化，但哑变量、稀疏矩阵与截距的处理应遵从模型约定。相关特征下 L1 可能任意保留其中一个，Elastic Net 往往更倾向共同保留，但不保证稳定选择。
+
+强度通过训练内交叉验证确定，所有变换留在 Pipeline 内。不同库的 alpha、C、样本归一化和 1/2 系数约定不同，不能按数字直接迁移；C 常是强度倒数，alpha 常与强度同向。
 :::
+
+### 一维解析解显示稀疏与收缩
+
+- 数据项为 0.5×(w−a)²，a 为 3 或 0.2
+- 比较 L1=|w|，L2=0.5w²
+- 混合惩罚为 0.5|w|+0.5w²
+
+a=3 时得到 2、1.5、1.25；a=0.2 时得到 0、0.1、0。
+
+弱信号 0.2 在 L1 下归零，在 L2 下仍保留 0.1。这是目标几何与零点次梯度产生的效果，不是训练程序把小数手动截断。
+
+本例是分离的一维问题。多特征设计矩阵存在相关性时，坐标不再独立，不能把每个未正则化系数单独套这个式子就当完整回归解。
+
 
 
 ## 数学表达 {#formulas}
@@ -71,12 +88,12 @@ L1 惩罚绝对值和并产生稀疏权重；L2 惩罚平方和并平滑收缩�
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-J=Jdata+λ₁||w||₁+λ₂||w||²₂
+J=J_{data}+\lambda_1\sum_j|w_j|+\frac{\lambda_2}{2}\sum_j w_j^2
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-特征需先标准化以保证惩罚公平。正则过强会欠拟合，强度必须在训练集内部交叉验证。
+本页 L2 显式包含 1/2，代码一维例子使用相同系数；其他库可能采用不同归一化。
 :::
 
 ::::
@@ -84,12 +101,9 @@ $$
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 标准化
-2. 选择惩罚类型
-3. 设对数候选强度
-4. 交叉验证
-5. 检查训练/验证和非零权重
-6. 最终测试
+1. 说明损失与惩罚系数的归一化约定。
+2. 在训练折内拟合缩放与正则模型，搜索强度和混合比例。
+3. 比较验证误差、稀疏度与特征选择稳定性。
 :::
 
 
@@ -97,33 +111,39 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### L1、L2 与 Elastic Net 实现
+### 一维解析解显示稀疏与收缩的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的训练与预测逻辑。
+使用完整构造输入核对一维解析解显示稀疏与收缩，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-from sklearn.linear_model import ElasticNet
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
-model=make_pipeline(StandardScaler(),ElasticNet(alpha=0.1,l1_ratio=0.5))
+```python
+def soft(value, threshold):
+    return max(value - threshold, 0.) if value >= 0 else -max(-value - threshold, 0.)
+for a in [3., 0.2]:
+    l1 = soft(a, 1.)
+    l2 = a / 2
+    elastic = soft(a, 0.5) / 2
+    print(f"a={a:.1f} L1={l1:.2f} L2={l2:.2f} mixed={elastic:.2f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码先建立符合输入要求的估计器。
-- 参数应在交叉验证中选择，测试集不参与。
+- 解析解对应明确的一维平方目标。
+- 不把一维闭式解推广到相关多特征设计。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-得到同时受 L1 与 L2 约束的回归模型。
+```text
+a=3.0 L1=2.00 L2=1.50 mixed=1.25
+a=0.2 L1=0.00 L2=0.10 mixed=0.00
+```
 :::
 
 ::::
@@ -131,9 +151,8 @@ model=make_pipeline(StandardScaler(),ElasticNet(alpha=0.1,l1_ratio=0.5))
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 高维回归
-- 稳定权重
-- 特征选择
+- 高维线性模型的容量控制
+- 比较稀疏性与相关特征稳定性
 :::
 
 

@@ -55,18 +55,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Value Function 与 Q Function并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 分清状态价值、动作价值和单次回报，避免把估计最大值当成已知真值。
+- 独立复核“同一 Q 下，策略平均与贪心价值不同”的输入、计算和解释。
+- Vπ 是策略加权平均，不是 max Qπ。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Value Function 与 Q Function位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+分清状态价值、动作价值和单次回报，避免把估计最大值当成已知真值。
 :::
 
 
@@ -77,38 +75,32 @@ Value Function 与 Q Function位于“状态—行动—反馈—更新”学习
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+同一个路口可以按不同路线策略继续行驶，长期收益也就不同。只说“这个路口价值 5”缺少策略与时间范围；价值不是状态固有的标签，而是对某种后续行为的条件期望。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Vπ(s) 是按策略 π 从状态 s 出发的期望回报；Qπ(s,a) 固定第一动作 a 后继续按 π 的期望回报。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+状态价值 Vπ(s) 是从状态 s 开始、之后按策略 π 行动的期望回报。动作价值 Qπ(s,a) 先固定第一步动作 a，此后仍按 π 行动。一次轨迹的回报是随机样本，价值函数则对相应未来随机性求期望。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-V 问“这个局面好不好”，Q 问“在这个局面做这个动作好不好”。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+V 像评价“到这个路口后照现有习惯走有多好”，Q 像评价“先向右，再照现有习惯走有多好”。评价已有习惯与寻找最优路线是不同问题。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-Q 可直接 argmax 选离散动作。
+离散策略下，Vπ 是各动作 Qπ 按 π 加权的平均，而不是最大值。只有切换到贪心改进或讨论最优价值时，最大值才进入相应表达式。
 
-V 需要结合模型或 Actor 选动作。
+仅有 V 通常不能直接比较动作，还需要环境模型预测后继，或由 actor 给动作。Q 为每个动作提供比较分数，但连续动作的最大化可能需要额外优化，不能简单枚举。
 
-最优价值对应最优策略。
+估计误差与数据覆盖会影响动作排序。高 Q 可能是真高回报，也可能是模型在缺乏证据动作上的乐观误差；价值预测应结合固定策略评估与独立数据诊断。
 :::
 
 
@@ -147,30 +139,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Value Function 与 Q Function的最小计算
+### 同一 Q 下，策略平均与贪心价值不同
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 两动作价值为 2 与 6。
+- 当前策略概率为 0.75 与 0.25。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 按当前策略求状态价值：0.75×2+0.25×6=3。
+2. 贪心选择第二动作，其动作价值是 6。
+3. 改变策略后长期 Q 也可能变化；本次只比较给定 Q 的一步策略改进。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+当前策略价值是 3，给定 Q 的贪心动作价值是 6。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- Vπ 是策略加权平均，不是 max Qπ。
+- 策略改进后需要重新评价，不能永远沿用旧策略的全部价值。
 :::
 
 
@@ -188,7 +177,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Value Function 与 Q Function的本地数值骨架
+### 同一 Q 下，策略平均与贪心价值不同
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -196,28 +185,28 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+当前策略价值是 3，给定 Q 的贪心动作价值是 6。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+q = [2.0, 6.0]
+policy = [0.75, 0.25]
+value = sum(p * action_value for p, action_value in zip(policy, q))
+print(f"V_policy={value:.1f}, greedy_Q={max(q):.1f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 按当前策略求状态价值：0.75×2+0.25×6=3。
+- 贪心选择第二动作，其动作价值是 6。
+- 改变策略后长期 Q 也可能变化；本次只比较给定 Q 的一步策略改进。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+V_policy=3.0, greedy_Q=6.0
+```
 :::
 
 ::::
@@ -233,9 +222,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 把 Vπ 写成所有动作 Q 的最大值。
+- 比较不同策略或折扣下的数值，却没有对齐定义。
+- 用单次幸运回报宣称价值估计已经准确。
 :::
 
 
@@ -246,7 +235,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Sutton 与 Barto《Reinforcement Learning: An Introduction》](http://incompleteideas.net/book/the-book-2nd.html)（第 3、4 章）。
 :::
 
 
@@ -257,9 +246,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 把 Vπ 写成所有动作 Q 的最大值。
+- 比较不同策略或折扣下的数值，却没有对齐定义。
+- 用单次幸运回报宣称价值估计已经准确。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -276,11 +265,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Value Function 与 Q Function是 on-policy 还是 off-policy？
+### 价值高就是动作一定好吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+价值是特定策略、状态和奖励定义下的期望估计，还包含采样与逼近误差；不能替代安全约束或对分布外动作的证据。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -290,4 +279,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

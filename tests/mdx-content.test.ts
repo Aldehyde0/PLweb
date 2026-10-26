@@ -86,6 +86,21 @@ void test('MDX syntax errors and unsupported demo mappings cannot silently pass'
     /bad-kind.mdx.*kind/,
   );
 });
+
+void test('literal math braces cannot become JavaScript evaluated in the reader', async () => {
+  assert.throws(
+    () =>
+      parseArticle(
+        source + '\n递推 A_{t+1} 不能作为普通文字直接插入。\n',
+        'accidental-expression.mdx',
+      ),
+    /accidental-expression\.mdx.*MDX 表达式/,
+  );
+  const safe = source + '\n写作行内代码 `A_{t+1}`，或公式 $A_{t+1}$。\n';
+  const article = parseArticle(safe, 'safe-expression.mdx');
+  assert.match(article.searchText, /A_\{t\+1\}/);
+  await compileArticle(safe, 'safe-expression.mdx');
+});
 void test('malformed structured fields cannot silently discard content', () => {
   assert.throws(
     () =>

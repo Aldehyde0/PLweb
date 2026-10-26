@@ -57,18 +57,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Rainbow DQN并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 理解多项 DQN 改进如何组合，并以消融区分收益来源。
+- 独立复核“三步目标比一步目标多使用哪些证据”的输入、计算和解释。
+- 多步目标只是 Rainbow 的一个部件，不等于完整实现。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Rainbow DQN位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+理解多项 DQN 改进如何组合，并以消融区分收益来源。
 :::
 
 
@@ -79,36 +77,32 @@ Rainbow DQN位于“状态—行动—反馈—更新”学习链中的关键位
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+DQN 的问题并不只有一种：目标可能过估计、样本复用效率不高、探索不足，回报分布也可能被一个均值压缩。Rainbow 把针对不同问题的部件组合起来，但组件越多，复现与归因越困难。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Rainbow 是多项 DQN 改进的集成。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+原始 Rainbow 组合 Double Q-learning、优先经验回放、dueling 网络、多步学习、分布式价值学习和 NoisyNet。这里“分布式价值”指学习回报分布，不是多机器训练。它属于离散动作深度价值方法的组合方案。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-不是单一新更新，而是一套相互配合的增强包。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+一辆车同时改了轮胎、制动和悬架，成绩变化不能只归功于某一项。需要固定其他条件逐项关闭部件，才能知道哪一项在当前赛道发挥作用。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-组合收益需通过消融实验理解。
+多步目标先累计若干步真实奖励，再由末端价值 bootstrap，能缩短信息传播链。分布式头预测离散支持上的回报概率，训练时需把移动后的支持投影回固定网格，不能只套普通标量均方误差。
 
-实现复杂度和调参成本更高。
+Double 目标处理选择评价耦合，dueling 改善表示共享，PER 改变采样，NoisyNet 用可学习参数噪声支持探索。它们作用层次不同，也会相互影响，不能把所有机制归为“更大的网络”。
+
+消融要对齐交互步数、网络规模、训练更新比和评测协议。原论文基准成绩不能直接当作当前环境的预期提升，更不能从一个简化多步算术示例推断完整 Rainbow 性能。
 :::
 
 
@@ -116,17 +110,17 @@ Rainbow 是多项 DQN 改进的集成。
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### n-step 标量目标示意
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+y_t^{(n)}=\sum_{k=0}^{n-1}\gamma^k r_{t+k+1}+\gamma^n V(s_{t+n})
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+终止时删除其后的 bootstrap；原始 Rainbow 还对回报分布做投影。
 :::
 
 ::::
@@ -137,9 +131,8 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| n | 真实奖励片段长度 |
+| V | 片段末端 bootstrap 价值 |
 :::
 
 ::::
@@ -147,30 +140,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Rainbow DQN的最小计算
+### 三步目标比一步目标多使用哪些证据
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 三步真实奖励为 1、0、2，折扣 0.9。
+- 第三步后非终止，bootstrap 值为 4。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 真实三步部分为 1+0.9×0+0.9²×2=2.62。
+2. 末端估计折扣为 0.9³×4=2.916。
+3. 总目标为 5.536；若第三步真正终止，目标只剩 2.62。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+三步非终止目标为 5.536，终止目标为 2.620。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 多步目标只是 Rainbow 的一个部件，不等于完整实现。
+- 增加真实奖励步数也会引入更长轨迹的方差和 off-policy 问题。
 :::
 
 
@@ -189,7 +179,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Rainbow DQN的本地数值骨架
+### 三步目标比一步目标多使用哪些证据
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -197,28 +187,29 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+三步非终止目标为 5.536，终止目标为 2.620。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+rewards = [1.0, 0.0, 2.0]
+gamma, next_value = 0.9, 4.0
+observed = sum(gamma ** i * r for i, r in enumerate(rewards))
+target = observed + gamma ** len(rewards) * next_value
+print(f"nonterminal_target={target:.3f}, terminal_target={observed:.3f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 真实三步部分为 1+0.9×0+0.9²×2=2.62。
+- 末端估计折扣为 0.9³×4=2.916。
+- 总目标为 5.536；若第三步真正终止，目标只剩 2.62。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+nonterminal_target=5.536, terminal_target=2.620
+```
 :::
 
 ::::
@@ -234,9 +225,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 把回报分布学习误写成并行计算。
+- 只添加两个组件却未经说明称完整原始 Rainbow。
+- 在不同预算与配置下比较消融，无法归因。
 :::
 
 
@@ -247,7 +238,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Hessel 等：Rainbow: Combining Improvements in Deep Reinforcement Learning](https://arxiv.org/abs/1710.02298)。
 :::
 
 
@@ -258,9 +249,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 把回报分布学习误写成并行计算。
+- 只添加两个组件却未经说明称完整原始 Rainbow。
+- 在不同预算与配置下比较消融，无法归因。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -277,11 +268,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Rainbow DQN是 on-policy 还是 off-policy？
+### Rainbow 是哪一个单独的新更新公式？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+它主要是一组互补改进的集成，涉及目标、网络、采样和探索多个层面；理解各组件与组合消融比背一个缩写更有用。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -291,4 +282,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

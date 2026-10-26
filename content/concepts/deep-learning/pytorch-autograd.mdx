@@ -38,18 +38,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 区分叶子/非叶子
-- 解释梯度累加
-- 使用 detach/no\_grad
+- 两次反向显示梯度累积
+- 为什么 loss.item() 不能再反向传播？
+- 说明：自动微分给出程序实际目标的导数，无法判断程序是否表达了正确的任务。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-理解 loss.backward
-
-安全控制图生命周期
+PyTorch Autograd 是基于动态计算图的自动微分系统。requires_grad 控制是否跟踪相关张量，backward 把指定输出的梯度传回叶子张量的 grad。
 :::
 
 
@@ -60,30 +58,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-数百万参数无法手工维护导数。
+大型网络无法逐个手写偏导。Autograd 记录实际执行的可微运算，再按链式法则求参数梯度；理解它的生命周期能避免梯度累积和断图错误。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-requires\_grad 控制追踪；grad\_fn 描述反向节点；叶子参数把结果累积到 .grad。
+PyTorch Autograd 是基于动态计算图的自动微分系统。requires_grad 控制是否跟踪相关张量，backward 把指定输出的梯度传回叶子张量的 grad。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-前向留下运算路线，反向沿路线逐站计算局部导数。
+计算图记录的是这一次前向经过的路线。反向沿路线传递变化率，而不是重新猜测模型的数学表达式。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-标量 loss 从上游梯度 1 反传；图默认一次 backward 后释放。
+标量损失 backward 默认以上游梯度 1 开始。若输出不是标量，需要先求和/求均值，或显式提供同形状的上游梯度。参数叶子的 grad 保存累积结果，重复 backward 不会自动覆盖。
 
-detach 切断路径，no\_grad 临时不记录，inference\_mode 面向纯推理。
+默认反向后释放本次图中为求导保存的中间值，因此通常每步重新前向。retain_graph 适合确有多次求导需求的场景，不能靠始终开启它修复训练循环；那可能保留不必要内存。
+
+detach 返回不沿原图求导的张量视图，item 把标量转成 Python 数值。二者若被错误地放进损失路径，会切断梯度。no_grad 适合临时禁用跟踪，inference_mode 则用于更严格的纯推理场景；它们与 model.eval 的职责不同。
 :::
 
 
@@ -101,7 +101,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-每个参数获得同形状梯度。
+PyTorch Autograd 是基于动态计算图的自动微分系统。requires_grad 控制是否跟踪相关张量，backward 把指定输出的梯度传回叶子张量的 grad。
 :::
 
 ::::
@@ -121,37 +121,42 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 梯度累加
+### 两次反向显示梯度累积
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- (w×3).backward
-- (w×4).backward
+- 叶子参数 w=2
+- 先反向传播 3w，再构建新图反向传播 4w
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 第一次 grad=3
-2. 第二次累加 4
+1. 第一次得到梯度 3。
+2. 第二次把梯度 4 加入已有 grad，得到 7。
+3. 清空 grad 后重建 4w，梯度只剩 4。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-grad=7
+打印梯度依次为 3、7、4，参数数值仍为 2。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 自动微分给出程序实际目标的导数，无法判断程序是否表达了正确的任务。
 :::
+
+### 案例推演与判断
+
+第二次使用的是新的前向图，因此不需要 retain_graph。两张图都把梯度写到同一片叶子参数存储，累积得到 7。这个行为支持梯度累积训练，但在普通每批更新中需要显式清理。
+
+反向过程中 w 本身保持 2。只有优化器 step 或显式数值更新才改变它；看到 grad 不为空不能据此认定训练已经更新。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 前向建图
-2. 标量 loss
-3. backward
-4. 检查 grad
-5. 清梯度
-6. step
+1. 第一次得到梯度 3。
+2. 第二次把梯度 4 加入已有 grad，得到 7。
+3. 清空 grad 后重建 4w，梯度只剩 4。
 :::
 
 
@@ -159,33 +164,42 @@ grad=7
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### PyTorch Autograd 与计算图 · PyTorch 示例
+### 两次反向显示梯度累积的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证PyTorch Autograd 与计算图的输入、计算和输出。
+使用完整构造输入核对两次反向显示梯度累积，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-w=torch.tensor(2.,requires_grad=True)
-(w*3).backward();print(w.grad)
-(w*4).backward();print(w.grad)
+```python
+import torch
+w = torch.tensor(2., requires_grad=True)
+(3 * w).backward()
+print(f"grad={w.grad.item():.0f}")
+(4 * w).backward()
+print(f"grad={w.grad.item():.0f}")
+w.grad = None
+(4 * w).backward()
+print(f"grad={w.grad.item():.0f} w={w.item():.0f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 梯度默认累加
-- 两个图分别反向
-- 清零才能单独看第二次
+- 每次都重新构建前向图。
+- 直接清空单个叶子梯度演示 zero_grad 的作用。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-tensor(3.)，随后 tensor(7.)。
+```text
+grad=3
+grad=7
+grad=4 w=2
+```
 :::
 
 ::::
@@ -193,9 +207,8 @@ tensor(3.)，随后 tensor(7.)。
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 训练
-- 梯度惩罚
-- 敏感性分析
+- 训练循环求梯度
+- 排查 detach 和梯度累积问题
 :::
 
 
@@ -216,18 +229,17 @@ tensor(3.)，随后 tensor(7.)。
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### eval 会关闭 Autograd 吗？
+### 为什么 loss.item() 不能再反向传播？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-不会。
+item 返回普通 Python 数值，已经脱离 Autograd 图；用于日志记录可以，用它替代训练损失则失去求导路径。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### detach 与 clone 区别？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-detach 切图；clone 复制但保留梯度关系。
+自动微分给出程序实际目标的导数，无法判断程序是否表达了正确的任务。
 :::
-

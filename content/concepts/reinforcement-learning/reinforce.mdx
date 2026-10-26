@@ -57,18 +57,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义REINFORCE并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 用完整 episode 回报构造最直接的 Monte Carlo 策略梯度。
+- 独立复核“优势符号决定同一动作的更新方向”的输入、计算和解释。
+- REINFORCE 使用采样回报，actor-critic 常用 bootstrap 优势。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-REINFORCE位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+用完整 episode 回报构造最直接的 Monte Carlo 策略梯度。
 :::
 
 
@@ -79,38 +77,32 @@ REINFORCE位于“状态—行动—反馈—更新”学习链中的关键位�
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+最简单的策略优化可以先跑完一局，计算每个动作之后实际得到的回报，再增加高回报动作的对数概率。这样无需学习后继价值网络，但整局随机结果会给早期动作带来很大的梯度波动。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-REINFORCE 在 episode 后用 Gt∇logπ 更新。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+REINFORCE 是基于采样回报的 score-function 策略梯度方法。每个时间步可使用从该步起的 return-to-go，配合只依赖状态的基线降低方差。它使用完整回报作为学习信号，标准 episodic 形式不在回报目标中 bootstrap。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-整局表现好就强化其中动作，表现差就削弱。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+一局结束后复盘，而不是每走一步就用评论家的猜测补足未来。复盘能利用真实结果，但一次幸运胜利仍可能让无关动作得到过多奖励。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-无 bootstrap 但方差高。
+return-to-go 排除动作之前已经发生的奖励，因为当前动作不能改变过去。在折扣目标下，外部时间权重与回报定义要保持一致；不同实现的采样约定应说明，不能只抄一个损失就宣称严格相同。
 
-概率策略支持探索。
+优化器通常最小化负的 log_prob×advantage；漏掉负号会反向惩罚好动作。基线只改变梯度信号的中心，不应在同一个 actor 项中变成可任意追逐的目标。
 
-baseline 和 entropy 改善训练。
+下方例子用固定种子采一个离散动作，显示优势加熵项的梯度。它只证明概率分布和梯度路径可计算，不包含真实环境采样、完整 episode 累积或多轮训练表现。
 :::
 
 
@@ -149,30 +141,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### REINFORCE的最小计算
+### 优势符号决定同一动作的更新方向
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 一次完整轨迹回报为 2，状态基线为 1.2。
+- 该动作概率的 score 梯度为 0.4，学习率 0.1。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 优势为 2−1.2=0.8。
+2. 策略上升增量为 0.1×0.8×0.4=0.032。
+3. 若基线为 2.5，优势变成 −0.5，同一 score 方向的增量为 −0.02。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+相同正回报在不同基线下可高于或低于预期，梯度方向由优势符号决定。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- REINFORCE 使用采样回报，actor-critic 常用 bootstrap 优势。
+- 下方可运行例还加入小熵奖励，它是探索正则，不是额外环境回报。
 :::
 
 
@@ -231,7 +220,11 @@ print('gradient:', logits.grad)
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印采样动作、两个动作概率和方向相反的 logits 梯度。
+```text
+action: 0
+probabilities: tensor([0.5744, 0.4256])
+gradient: tensor([-0.3397,  0.3397])
+```
 :::
 
 ::::
@@ -247,9 +240,9 @@ print('gradient:', logits.grad)
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 对最小化优化器使用正 log_prob×return，方向写反。
+- 把整局总奖励用于所有时刻却不说明高方差问题。
+- 将学习基线说成使 REINFORCE 变成了 bootstrap 回报。
 :::
 
 
@@ -260,7 +253,7 @@ print('gradient:', logits.grad)
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Sutton 与 Barto《Reinforcement Learning: An Introduction》](http://incompleteideas.net/book/the-book-2nd.html)（第 13 章）。
 :::
 
 
@@ -271,9 +264,9 @@ print('gradient:', logits.grad)
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 对最小化优化器使用正 log_prob×return，方向写反。
+- 把整局总奖励用于所有时刻却不说明高方差问题。
+- 将学习基线说成使 REINFORCE 变成了 bootstrap 回报。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -290,11 +283,11 @@ print('gradient:', logits.grad)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### REINFORCE是 on-policy 还是 off-policy？
+### 加入状态价值基线后仍算 REINFORCE 吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-本页算法/方法按 on-policy 组织。
+可以。若 actor 的目标仍使用完整 Monte Carlo 回报减去状态基线，它仍属于基于回报的策略梯度；是否 bootstrap 要看目标具体构造。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -304,4 +297,3 @@ print('gradient:', logits.grad)
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

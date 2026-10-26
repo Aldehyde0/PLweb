@@ -59,18 +59,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义DPO：Direct Preference Optimization并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 从离线偏好对优化相对概率，避免将其描述成在线 MDP 采样算法。
+- 独立复核“相对参考 margin 决定 DPO 偏好 logit”的输入、计算和解释。
+- DPO 不要求标准在线采样循环或独立奖励模型。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-DPO：Direct Preference Optimization位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+从离线偏好对优化相对概率，避免将其描述成在线 MDP 采样算法。
 :::
 
 
@@ -81,40 +79,32 @@ DPO：Direct Preference Optimization位于“状态—行动—反馈—更新�
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+已有同一问题下的人类优选与拒绝回答时，可以直接提高相对偏好概率。DPO 利用带 KL 约束奖励优化的最优策略关系，把一类 RLHF 目标改写成偏好分类式损失，减少独立奖励模型和在线采样循环的需求。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-DPO 将带 KL 约束的 RLHF 最优策略关系转写为二分类式偏好目标。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+DPO 用当前策略与固定参考策略在优选、拒绝回答上的对数概率差，形成偏好 logit 并最小化负 log-sigmoid。标准训练输入是离线偏好对；它与在线 RL 有目标推导联系，但不应直接归入普通 on-policy 或 off-policy MDP 控制算法。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-让策略相对参考模型更偏向 chosen、远离 rejected，而不是先训练显式 Reward Model 再在线采样优化。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+不是要求绝对提高每份好答案的概率，而是要求相对参考策略，更偏向优选而不是拒绝答案。两条概率都变化时，真正起作用的是相对差距的变化。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-输入是离线 preference pairs。
+参考策略的优选与拒绝 log 概率都要扣除。若只用当前策略的差，就失去 DPO 中参考约束的目标含义。β 调节相对 logit 尺度，其影响需结合数据与优化过程，不能简化为任意训练下越大或越小越好。
 
-不需要显式训练独立 Reward Model。
+序列对数概率通常由回答 token 的条件 log 概率求和，prompt 和 padding 掩码必须正确。长度归一化属于目标变体，会改变偏好关系的权重，不能默默平均后仍宣称与原式完全相同。
 
-训练时不需要传统在线环境采样循环。
-
-DPO 不应简单描述为标准 MDP 在线 RL 算法。
+偏好数据可能有评审偏差、矛盾或覆盖不足。损失下降表示更符合已提供的比较，不保证事实性、安全性或未见问题质量；新策略生成的数据若再回流，应明确这是扩展的数据迭代流程。
 :::
 
 
@@ -154,30 +144,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### DPO：Direct Preference Optimization的最小计算
+### 相对参考 margin 决定 DPO 偏好 logit
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 当前优选和拒绝 log 概率为 −1.2、−2.0。
+- 参考分别为 −1.4、−1.8，β=0.1。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 当前 margin 为 0.8，参考 margin 为 0.4。
+2. 偏好 logit 为 0.1×(0.8−0.4)=0.04。
+3. 单对损失为 −log sigmoid(0.04)≈0.673347；下方代码对两对取平均。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+第一对的相对 logit 为 0.04；它比较的是相对参考的偏好变化。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- DPO 不要求标准在线采样循环或独立奖励模型。
+- 相同离线偏好对并不能提供任意未见回答的真实效用。
 :::
 
 
@@ -236,7 +223,10 @@ print('DPO loss:', round(loss.item(), 4))
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印两个 preference logits 和一个有限正 DPO loss。
+```text
+preference logits: tensor([0.0400, 0.0200])
+DPO loss: 0.6783
+```
 :::
 
 ::::
@@ -252,9 +242,9 @@ print('DPO loss:', round(loss.item(), 4))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 省略参考策略 margin，却仍称标准 DPO。
+- 把 prompt 和 padding 的 token 误计入回答 log 概率。
+- 把离线偏好损失下降等同于在线环境回报提高。
 :::
 
 
@@ -265,7 +255,7 @@ print('DPO loss:', round(loss.item(), 4))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Rafailov 等：Direct Preference Optimization: Your Language Model is Secretly a Reward Model](https://arxiv.org/abs/2305.18290)。
 :::
 
 
@@ -300,9 +290,9 @@ prompt + chosen + rejected 离线偏好对
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 省略参考策略 margin，却仍称标准 DPO。
+- 把 prompt 和 padding 的 token 误计入回答 log 概率。
+- 把离线偏好损失下降等同于在线环境回报提高。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -319,11 +309,11 @@ prompt + chosen + rejected 离线偏好对
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### DPO：Direct Preference Optimization是 on-policy 还是 off-policy？
+### DPO 是 on-policy 还是 off-policy RL？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+标准 DPO 是离线偏好优化目标，不宜强行套入传统 MDP 采样分类。它的输入、目标和在线 PPO/GRPO 的生成评分循环不同。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -333,4 +323,3 @@ prompt + chosen + rejected 离线偏好对
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

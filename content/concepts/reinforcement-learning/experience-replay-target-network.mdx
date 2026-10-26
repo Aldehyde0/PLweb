@@ -56,18 +56,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Experience Replay 与 Target Network并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 分别处理样本相关与目标漂移，避免把两种稳定化机制混为一谈。
+- 独立复核“软更新只是移动目标，不是一次完整复制”的输入、计算和解释。
+- 硬同步会一次复制为 10，软更新只移动一部分。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Experience Replay 与 Target Network位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+分别处理样本相关与目标漂移，避免把两种稳定化机制混为一谈。
 :::
 
 
@@ -78,38 +76,32 @@ Experience Replay 与 Target Network位于“状态—行动—反馈—更新�
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+连续采集的相邻图像高度相似，而 Q 网络每次更新还会改变下一批目标。直接按时间顺序追逐这些目标，既可能浪费样本，又容易让估计发生正反馈；replay 和目标网络从不同方向缓解问题。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Replay 保存 transitions 并随机采样；Target Network 提供延迟更新目标。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+经验回放保存状态、动作、奖励、后继与终止信息，训练时抽样复用。目标网络是在线网络的延迟副本，构造较缓慢变化的 bootstrap 目标。它们常配合使用，但一个改变数据采样，另一个改变目标更新速度。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把连续经历打乱复习，并用较慢变化的老师网络提供目标。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+Replay 像把不同日期的练习题混在一起复习；目标网络像阶段性固定参考答案。混题不保证每题都正确，固定答案也不保证答案永远适合当前阶段。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-Replay 让数据更接近混合分布。
+缓冲区容量和采样方式决定训练看见的新旧数据比例。过小缓冲仍高度相关，过旧数据可能和当前状态分布差异很大；on-policy 算法不能不加处理地套用任意旧回放。
 
-旧数据造成 off-policy 分布。
+目标网络可定期硬复制，也可软更新。若软更新式写成 target=(1−τ)target+τ online，τ 越小变化越慢；不同库可能对 Polyak 系数使用相反命名，必须看公式。
 
-Target 更新太快或太慢都可能有问题。
+目标计算一般停止梯度。真正终止与纯截断仍需分别处理，自动重置时还要保存结束前后继观察；replay 里错误的数据边界会在每次重放时重复放大。
 :::
 
 
@@ -117,17 +109,17 @@ Target 更新太快或太慢都可能有问题。
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### 目标参数软更新
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+\bar\theta\leftarrow(1-\tau)\bar\theta+\tau\theta
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+本页 τ 为在线参数混合比例，不能只凭变量名对照其他实现。
 :::
 
 ::::
@@ -138,9 +130,9 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| θ | 在线网络参数 |
+| θ̄ | 延迟目标网络参数 |
+| τ | 在线参数混合比例 |
 :::
 
 ::::
@@ -148,30 +140,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Experience Replay 与 Target Network的最小计算
+### 软更新只是移动目标，不是一次完整复制
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 在线参数为 10，旧目标参数为 2。
+- 使用 target=(1−τ)target+τ online，τ=0.1。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 旧目标贡献为 0.9×2=1.8。
+2. 在线参数贡献为 0.1×10=1。
+3. 新目标为 2.8，仍明显滞后于在线参数 10。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+软更新后目标参数由 2.000 变为 2.800。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 硬同步会一次复制为 10，软更新只移动一部分。
+- 该标量例说明参数更新，不直接给出策略性能。
 :::
 
 
@@ -190,7 +179,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Experience Replay 与 Target Network的本地数值骨架
+### 软更新只是移动目标，不是一次完整复制
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -198,28 +187,27 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+软更新后目标参数由 2.000 变为 2.800。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+online, target, tau = 10.0, 2.0, 0.1
+target = (1 - tau) * target + tau * online
+print(f"online={online:.3f}, target={target:.3f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 旧目标贡献为 0.9×2=1.8。
+- 在线参数贡献为 0.1×10=1。
+- 新目标为 2.8，仍明显滞后于在线参数 10。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+online=10.000, target=2.800
+```
 :::
 
 ::::
@@ -235,9 +223,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 将软更新中 τ 的含义与库的 Polyak 系数混淆。
+- 以为随机抽样能修复错误奖励和终止标记。
+- 对 on-policy 数据无限回放而不处理策略变化。
 :::
 
 
@@ -248,7 +236,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [OpenAI Spinning Up：Deep Q-Learning 及 DDPG 目标网络说明](https://spinningup.openai.com/en/latest/algorithms/ddpg.html)。
 :::
 
 
@@ -259,9 +247,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 将软更新中 τ 的含义与库的 Polyak 系数混淆。
+- 以为随机抽样能修复错误奖励和终止标记。
+- 对 on-policy 数据无限回放而不处理策略变化。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -278,11 +266,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Experience Replay 与 Target Network是 on-policy 还是 off-policy？
+### 目标网络需要反向传播更新吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+通常通过复制或软更新获得参数，TD 目标分支停止梯度；它不是在同一次损失中与在线预测一起被任意调整。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -292,4 +280,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

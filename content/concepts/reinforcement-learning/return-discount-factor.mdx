@@ -63,9 +63,9 @@ anchorAliases:
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Return 与 Discount Factor位于“状态—行动—反馈—更新”学习链中的关键位置。
+奖励评价一次转移，回报评价从某个时刻开始的一段未来。分清两者，才能解释“眼前少得一点，是否值得换取后面的收益”。
 
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+折扣因子不仅影响数值尺度，也可能改变更优的策略。选择 gamma 需要联系任务的时间尺度和目标，不能只把它当成训练脚本中的固定常数。
 :::
 
 
@@ -76,38 +76,40 @@ Return 与 Discount Factor位于“状态—行动—反馈—更新”学习链
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
+有些动作立即获得小奖励，另一些动作先付出代价、随后才获得更大收益。如果只比较下一步奖励，系统可能永远不会选择需要等待的方案。
 
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+回报把未来奖励按约定汇总；折扣回报进一步按距离当前的步数降低未来奖励的权重。因此，何时得到奖励和一共得到多少奖励一样重要。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Return 是从某时刻开始的奖励和；折扣回报对第 k 步奖励乘 γ^k。
+从时刻 t 开始的折扣回报，是下一次奖励加上 gamma 乘再下一次奖励，再加 gamma 的平方乘第三次奖励，依次累加。最先收到的下一步奖励乘 1，而不是再乘一次 gamma。
 
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+gamma=0 时只保留下一步奖励。持续任务常取 gamma 小于 1，在奖励有界时可帮助保证无限和有限；有限步终止任务也可以使用 gamma=1，直接计算未折扣总和。具体约定需要与任务一致。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-越远的收益通常越不确定，γ 像远期权重。
+折扣像对等待时间作出的权衡：两份同样的收益，如果一份很快得到，另一份要经过很多步骤才得到，折扣回报会区分它们。它不必被解释为现实中的利率，也不等同于环境本身的成功概率。
 
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+同一个动作序列，在不同 gamma 下可以有不同价值。比较两个实验时，如果折扣设置不同，就不能把回报数字当成同一把尺子直接比较。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-γ=0 只看一步。
+回报可以直接按幂次求和，也可以从轨迹末尾向前递推：当前回报等于当前这一步收到的奖励，加 gamma 乘后面的回报。后一种写法在代码中通常更容易避免指数下标错误。
 
-接近 1 更重视长期但误差传播更远。
+gamma 越接近 1，越重视远期收益，但价值也更依赖较远未来的估计。在持续有正奖励的任务中，增加 gamma 会显著改变价值尺度，不能把数值更大直接解释成策略更好。
 
-终止任务与持续任务的回报定义需区分。
+一次轨迹的回报是一个样本，价值函数通常对特定策略下未来轨迹的回报取期望。随机环境中，两次执行同一策略也可能得到不同回报。
+
+奖励发生的时间要与时间步定义一致。把每一步从一秒改成一分钟，即使沿用同一个 gamma，也未必表达相同的时间偏好；环境终止和外部截断同样需要清楚区分。
 :::
 
 
@@ -136,9 +138,10 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 时刻 t 的回报。 |
-| γ | 折扣因子。 |
-| R\_\{t+k+1\} | 未来第 k+1 个奖励。 |
+| G_t | 从时刻 t 开始、按所选规则汇总的未来回报。 |
+| R_(t+1) | 执行当前动作之后首先收到的奖励，其折扣指数为 0。 |
+| γ | 折扣因子；持续折扣任务常取 `0≤γ<1`，有限步终止任务也可取 1。 |
+| k | 距离下一次奖励的额外步数，对应 gamma 的幂次。 |
 :::
 
 ::::
@@ -146,48 +149,50 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Return 与 Discount Factor的最小计算
+### 立即拿 4 分，还是等两步后拿 10 分？
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 方案 A 的奖励序列为 [4]，拿到奖励后终止。
+- 方案 B 的奖励序列为 [0, 0, 10]，第三次收到奖励后终止。
+- 分别使用 gamma=0.5 与 gamma=0.9，对同两条确定性序列作比较。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. A 的回报始终为 4，因为第一份奖励的折扣指数是 0。
+2. gamma=0.5 时，B 的回报为 0+0.5×0+0.5²×10=2.5，因此 A 更高。
+3. gamma=0.9 时，B 的回报为 0+0.9×0+0.9²×10=8.1，因此 B 更高。
+4. 若 gamma=1，B 的未折扣回报为 10；这里能取 1，是因为轨迹有限且终止。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+折扣设置改变了两条行动序列的优先次序：0.5 时倾向 A，0.9 时倾向 B。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 把 B 的第一项 0 漏掉一个，会错误地把 10 折扣一次而不是两次。
+- A 和 B 都是确定性构造例子，没有环境噪声；在随机任务中还需要比较回报的期望与波动。
+- 调大 gamma 不是一种对所有任务都有效的“提高分数”技巧，它可能改变正在优化的目标。
 :::
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 列出奖励
-2. 选择 γ
-3. 从后向前递推
-4. 比较不同 γ
+1. 明确一条轨迹中，每个奖励是在执行哪个动作后收到的。
+2. 写出终止边界与 gamma 的约定，确认是否使用有限或无限时间范围。
+3. 从末尾以 0 为终止后的剩余回报，逐步执行 G = reward + gamma × G。
+4. 用直接按幂次求和核对一个短例子，特别检查第一份奖励的指数。
+5. 比较策略时使用一致的回报定义，并在随机任务中检查多次评估的分布。
 :::
 
 
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### Return 与 Discount Factor的本地数值骨架
+### 同时用递推与直接求和核对折扣次数
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -195,28 +200,35 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+复现立即奖励与延迟奖励的两种排序，不进行策略训练。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+def discounted_return(rewards, gamma):
+    total = 0.0
+    for reward in reversed(rewards):
+        total = reward + gamma * total
+    direct = sum((gamma ** k) * reward for k, reward in enumerate(rewards))
+    assert abs(total - direct) < 1e-12
+    return total
+
+for gamma in [0.5, 0.9]:
+    a = discounted_return([4.0], gamma)
+    b = discounted_return([0.0, 0.0, 10.0], gamma)
+    print(f"gamma={gamma:.1f} A={a:.4f} B={b:.4f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- reversed 从最后一个奖励回推，终止后的剩余回报从 0 开始。
+- enumerate 从 0 开始计数，因此第一份奖励不被折扣；断言核对两种算法结果一致。
+- 两种 gamma 使用相同奖励序列，输出差异来自折扣规则，而不是环境或模型发生变化。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+gamma=0.5 A=4.0000 B=2.5000
+gamma=0.9 A=4.0000 B=8.1000
 :::
 
 ::::
@@ -232,9 +244,10 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 把奖励与回报混用，或把第一份下一步奖励也多乘一次 gamma。
+- 漏掉零奖励的时间步，导致延迟奖励的折扣次数不正确。
+- 使用不同 gamma 的回报直接比较，却没有说明目标已经变化。
+- 对持续任务随意使用 gamma=1 而不检查回报是否有限，或把一次幸运轨迹当成价值期望。
 :::
 
 
@@ -289,4 +302,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

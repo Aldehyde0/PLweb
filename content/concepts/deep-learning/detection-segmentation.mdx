@@ -38,18 +38,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释核心机制
-- 手算一个主要形状或公式
-- 运行完整示例并排查错误
+- 两个 4×4 框的 IoU
+- 分割 mask 缩放为什么不用普通双线性插值？
+- 说明：IoU 只描述重叠；检测 AP 还需要排序、阈值与一对一匹配协议。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-掌握目标检测与图像分割的输入输出与训练边界
-
-能够用 PyTorch 代码验证公式和形状
+目标检测输出类别与边界框；语义分割输出逐像素类别；实例分割进一步区分同类的不同个体。它们需要各自的标注、损失和匹配评估。
 :::
 
 
@@ -60,30 +58,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-目标检测与图像分割是该文档中连接数据表示、训练目标和工程实现的核心主题。
+分类只回答图中有什么，检测还回答在哪里，分割则给每个像素分配标签。目标格式与评估单位改变后，不能直接沿用图像级分类管道。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-检测预测类别/框，分割预测像素；评价需 IoU、AP/mAP 或 mIoU。
+目标检测输出类别与边界框；语义分割输出逐像素类别；实例分割进一步区分同类的不同个体。它们需要各自的标注、损失和匹配评估。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把目标检测与图像分割理解为数据在模型中的一套明确变换，而不是只记一个类名。
+检测画框圈出对象，语义分割给每块区域上色，实例分割再为两只同类动物分别编号。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-数据标注格式、同步增强和评估协议比模型名字更先确认。
+检测框可用 xyxy 或中心宽高等格式，需明确坐标是否归一化及边界定义。resize、crop、flip 必须同步变换图像和框；分割 mask 缩放通常用最近邻以免制造不存在的类别编号。
 
-实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+IoU 是交集面积除以并集面积，可比较框或像素区域。检测评估还要按类别、置信度和 IoU 阈值匹配预测与真实框，重复框不能都算真阳性；AP 不是一个 IoU 均值。
+
+语义分割常输出 $[N,C,H,W]$ logits、目标为 $[N,H,W]$ 整数类别，ignore 区域需从损失与指标排除。小目标、遮挡与类不平衡会使总像素准确率掩盖错误，应查看每类 IoU 和对象尺度。
 :::
 
 
@@ -101,7 +101,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-目标检测与图像分割的核心数学表达。
+目标检测输出类别与边界框；语义分割输出逐像素类别；实例分割进一步区分同类的不同个体。它们需要各自的标注、损失和匹配评估。
 :::
 
 ::::
@@ -121,37 +121,42 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 目标检测与图像分割数值/形状检查
+### 两个 4×4 框的 IoU
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=8
-- D=64
+- A=(0,0,4,4)，B=(2,2,6,6)
+- 采用连续 xyxy 坐标，面积不额外加 1
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 按公式或模块逐步计算
-2. 核对输出 shape
+1. 交集是 2×2，面积为 4。
+2. 两框面积均为 16，并集为 28。
+3. IoU=4/28=1/7。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出保持 batch 维并符合任务头约定
+IoU 约为 0.142857；互不相交时为 0。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- IoU 只描述重叠；检测 AP 还需要排序、阈值与一对一匹配协议。
 :::
+
+### 两个 4×4 框的 IoU
+
+若把框当作包含端点的整数像素坐标并加 1，面积会变成另一套口径。应按数据集规范统一，而不是在同一项目里混用。
+
+本例只验证几何重叠，没有类别、置信度或匹配过程，因此不能把 0.142857 称为检测准确率。空框或退化框也要有明确处理，本实现把非正并集返回 0。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认输入与目标
-2. 建立最小模块
-3. 随机张量前向
-4. 计算损失
-5. 反向与更新
-6. 验证与错误分析
+1. 交集是 2×2，面积为 4。
+2. 两框面积均为 16，并集为 28。
+3. IoU=4/28=1/7。
 :::
 
 
@@ -159,35 +164,42 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 目标检测与图像分割 · PyTorch 示例
+### 两个 4×4 框的 IoU的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证目标检测与图像分割的输入、计算和输出。
+使用完整构造输入核对两个 4×4 框的 IoU，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-def iou(a,b):
-    x1=max(a[0],b[0]);y1=max(a[1],b[1]);x2=min(a[2],b[2]);y2=min(a[3],b[3])
-    inter=max(0,x2-x1)*max(0,y2-y1)
-    return inter/((a[2]-a[0])*(a[3]-a[1])+(b[2]-b[0])*(b[3]-b[1])-inter)
-print(iou([0,0,4,4],[2,2,6,6]))
+```python
+def iou(a, b):
+    inter_w = max(0., min(a[2], b[2]) - max(a[0], b[0]))
+    inter_h = max(0., min(a[3], b[3]) - max(a[1], b[1]))
+    intersection = inter_w * inter_h
+    area_a = max(0., a[2] - a[0]) * max(0., a[3] - a[1])
+    area_b = max(0., b[2] - b[0]) * max(0., b[3] - b[1])
+    union = area_a + area_b - intersection
+    return intersection / union if union > 0 else 0.
+print(f"overlap={iou([0, 0, 4, 4], [2, 2, 6, 6]):.6f}")
+print(f"disjoint={iou([0, 0, 1, 1], [2, 2, 3, 3]):.6f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码显式标注输入和输出
-- 使用框架稳定实现
-- 结果通过 shape 或数值检查
+- 明确 xyxy 与连续坐标面积约定。
+- 处理不相交与退化并集。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印与页面说明一致的张量形状或损失。
+```text
+overlap=0.142857
+disjoint=0.000000
+```
 :::
 
 ::::
@@ -195,8 +207,8 @@ print(iou([0,0,4,4],[2,2,6,6]))
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 目标检测与图像分割
-- 教学与项目基线
+- 目标定位与区域理解
+- 核对图像增强后的标注同步
 :::
 
 
@@ -217,18 +229,17 @@ print(iou([0,0,4,4],[2,2,6,6]))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 目标检测与图像分割最先检查什么？
+### 分割 mask 缩放为什么不用普通双线性插值？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-先检查输入输出 shape、dtype 和数据边界。
+类别编号是离散标签，双线性会混合编号产生无意义值；通常用最近邻，概率图的处理则应另行定义。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 何时使用测试集？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-全部设计锁定后最终评估。
+IoU 只描述重叠；检测 AP 还需要排序、阈值与一对一匹配协议。
 :::
-

@@ -40,28 +40,44 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-特征过多会增加训练成本和偶然相关性。常量、重复、噪声和预测时昂贵的列可能降低泛化或工程可用性。
+更多特征不必然提供更多有效信息，也可能增加噪声、计算成本与不稳定性。特征选择尝试保留一个子集，但其依据与评价边界同样需要审查。
+
+特别是按标签相关性挑选列时，选择过程本身已经使用监督信息，不能放在验证之外当成无关准备工作。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-特征选择从候选输入中保留一部分列；它不同于 PCA 等特征提取，后者创建新的组合变量。
+特征选择从现有表示中保留部分列，常见方法包括低方差筛选、统计关系筛选、模型内稀疏权重、树重要性和递归消除。它与生成新表示的特征构造、PCA 降维不同。
+
+“被删除”只表示某个方法与当前数据、参数下没有保留该列，不等于该因素在现实中无作用，更不等于得到因果结论。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-不是给模型越多信息越好，而是保留稳定、有用、可获得且成本合理的信息。
+像为一个具体任务整理工具箱：需要看这次任务和其他工具的组合，而不是给每件工具贴上永远有用或永远无用的标签。相关特征之间还可能互相替代。
 :::
+
+### 低方差筛选只说明变化幅度
+
+构造四行、三列数据：第一列 [0,1,2,3]，第二列全为 1，第三列 [0,1,0,1]。总体方差分别为 1.25、0、0.25，若阈值为 0.5，只保留第一列。
+
+但若目标恰好由第三列决定，删掉它就可能伤害预测。这个例子演示选择器的规则，不证明“方差小就没价值”；真正取舍仍要在训练内部验证。
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-可用方法包括低方差/冗余删除、统计检验、L1、树重要性、递归消除和基于 CV 的选择。任何数据驱动选择必须在训练折内部完成。
+所有数据驱动的选择应在训练范围完成，交叉验证时放入当前折的 Pipeline。先使用全数据选列，再对剩余列 CV，会让验证折的信息进入模型选择。
+
+低方差只衡量某列在当前数据中的波动，不保证它缺少标签信息；罕见但关键事件的指示列也可能方差很小。选择准则应与任务匹配。
+
+相关特征可能分摊或交换模型权重，导致单次选择不稳定。应检查跨折、重采样或合理参数扰动下的保留情况，而不是只报告一个清单。
+
+最终比较要包含预处理、选择与预测的整条管线，并权衡性能、采集成本与稳定性。选择阈值同样属于超参数，不应使用测试集反复调整。
 :::
 
 
@@ -80,40 +96,37 @@ anchorAliases:
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### Pipeline 内使用 L1 选择
+### 核对低方差规则与固定输出列
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-避免先看完整数据再选择特征。
+给出完整数据，展示拟合后的列选择如何应用于未来样本。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-from sklearn.feature_selection import SelectFromModel
-from sklearn.linear_model import LogisticRegression
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
-
-model = make_pipeline(
-    StandardScaler(),
-    SelectFromModel(LogisticRegression(penalty="l1", solver="liblinear", C=0.1)),
-    LogisticRegression(max_iter=2000),
-)
+```Python
+from sklearn.feature_selection import VarianceThreshold
+X_train = [[0., 1., 0.], [1., 1., 1.], [2., 1., 0.], [3., 1., 1.]]
+selector = VarianceThreshold(threshold=0.5).fit(X_train)
+print("selected:", selector.get_support().tolist())
+print("future:", selector.transform([[4., 1., 1.]]).tolist())
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 标准化让 L1 惩罚更公平。
-- 每个交叉验证训练折独立完成选择。
+- 选择状态来自训练矩阵，未来输入使用同一支持列。
+- 这里没有使用标签，代码结果不能代替特征有用性的监督验证。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-模型只把被训练折 L1 选择器保留的列传给最终分类器。
+selected: [True, False, False]
+future: [[4.0]]
 :::
 
 ::::

@@ -39,18 +39,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 构建词表
-- 追踪 \[N,L,D\]
-- masked pooling
+- 带 padding 的向量平均
+- Embedding 是否等价于对 one-hot 做线性变换？
+- 说明：Embedding 只是表示学习组件，不自动理解语义、位置或 padding 的下游含义。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-NLP/序列基础
-
-连接词表与模型
+Embedding 是从离散索引到可学习稠密向量的查表映射。词表大小 V、向量维度 D 对应一个 V×D 参数矩阵，每个索引取出一行。
 :::
 
 
@@ -61,30 +59,32 @@ NLP/序列基础
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-文本、音频和行为序列有顺序且长度不同。
+文本 token、商品和离散类别通常先表示为整数编号。整数大小本身没有距离意义，不能把编号 100 直接当成比编号 2 强五十倍的连续特征。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Embedding 是 \[V,D\] 查找表；id 只是索引，无连续大小意义。
+Embedding 是从离散索引到可学习稠密向量的查表映射。词表大小 V、向量维度 D 对应一个 V×D 参数矩阵，每个索引取出一行。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-每个离散 token 从表中取一行向量，训练让有用 token 行逐步更新。
+编号是书架位置，向量是书的内容表示；编号相邻不保证语义相近，向量相近要由训练目标形成。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-词表只由训练数据建立，训练/部署编号一致；padding 不参与池化损失指标。
+输入索引通常为 long 类型，形状 $[N,L]$ 经 Embedding 后变为 $[N,L,D]$。反向把梯度写回本次使用的行，重复索引的贡献会累计；词表与编号映射必须在训练、验证和部署保持一致。
 
-普通 token Embedding 不含顺序，需 RNN/卷积或位置表示。
+padding_idx 可阻止默认梯度更新该填充行，但不会自动给后续注意力、池化或损失添加 mask。即使填充向量为零，直接平均仍会把分母增大，缩小短序列表示。
+
+普通 token embedding 不包含顺序。若把向量直接无序求和，“猫追狗”与“狗追猫”可能无法区分；需要位置表示、RNN 或其他顺序机制。未登录词也应有事先定义的处理规则，不能临时分配与训练冲突的 ID。
 :::
 
 
@@ -102,7 +102,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-V 词表大小，D 向量维度。
+Embedding 是从离散索引到可学习稠密向量的查表映射。词表大小 V、向量维度 D 对应一个 V×D 参数矩阵，每个索引取出一行。
 :::
 
 ::::
@@ -122,35 +122,42 @@ V 词表大小，D 向量维度。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 参数量
+### 带 padding 的向量平均
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- V=30000,D=128
+- 词表三行向量为 (0,0)、(1,2)、(3,4)
+- 序列编号为 (1,2,0)，0 为 padding
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 30000×128
+1. 查表得到三个二维向量。
+2. 仅对前两个有效向量求平均。
+3. 与对全部三个位置求平均比较。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-3,840,000 参数
+有效平均为 (2,3)；直接平均变成约 (1.3333,2)。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- Embedding 只是表示学习组件，不自动理解语义、位置或 padding 的下游含义。
 :::
+
+### 带 padding 的向量平均
+
+padding_idx 让填充向量为零，却不会告诉 mean 应除以 2 而不是 3。这个错误不会改变输出 shape，因此要从有效位置数量核对数值。
+
+如果一批中存在全 padding 样本，还需明确处理策略。用 clamp_min(1) 可以避免除零，但空序列是否允许、应输出什么，仍是数据契约问题。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 训练建词表
-2. 编码 id
-3. padding/截断
-4. Embedding
-5. mask pooling
-6. 序列模型
+1. 查表得到三个二维向量。
+2. 仅对前两个有效向量求平均。
+3. 与对全部三个位置求平均比较。
 :::
 
 
@@ -158,33 +165,45 @@ V 词表大小，D 向量维度。
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Embedding 与序列数据 · PyTorch 示例
+### 带 padding 的向量平均的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证Embedding 与序列数据的输入、计算和输出。
+使用完整构造输入核对带 padding 的向量平均，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-embedding=nn.Embedding(20000,128,padding_idx=0)
-ids=torch.tensor([[4,8,0],[9,3,5]])
-print(embedding(ids).shape)
+```python
+import torch
+from torch import nn
+embedding = nn.Embedding(3, 2, padding_idx=0)
+with torch.no_grad():
+    embedding.weight.copy_(torch.tensor([[0., 0.], [1., 2.], [3., 4.]]))
+ids = torch.tensor([[1, 2, 0]])
+x = embedding(ids)
+valid = ids.ne(0)
+masked = (x * valid.unsqueeze(-1)).sum(1) / valid.sum(1, keepdim=True).clamp_min(1)
+print("shape:", tuple(x.shape))
+print("masked mean:", masked.detach().tolist())
+print("plain mean:", [[round(v, 4) for v in row] for row in x.mean(1).detach().tolist()])
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 输入 long id
-- 输出多一维 D
-- padding\_idx 行不正常更新
+- 固定整张查表矩阵，可手算每次查询。
+- 有效 mask 独立于 padding_idx 使用。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-torch.Size(\[2,3,128\])。
+```text
+shape: (1, 3, 2)
+masked mean: [[2.0, 3.0]]
+plain mean: [[1.3333, 2.0]]
+```
 :::
 
 ::::
@@ -192,9 +211,8 @@ torch.Size(\[2,3,128\])。
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 文本
-- 推荐 ID
-- 类别特征
+- 文本 token 表示
+- 商品与离散类别的可学习特征
 :::
 
 
@@ -216,18 +234,17 @@ torch.Size(\[2,3,128\])。
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Embedding 含顺序吗？
+### Embedding 是否等价于对 one-hot 做线性变换？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-不含。
+在不含偏置的相同权重约定下，索引查表等价于选取 one-hot 对应行，但查表不必显式构造庞大的 one-hot 张量。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### padding\_idx 后还需 mask？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-需要，后续偏置和池化仍受 padding 影响。
+Embedding 只是表示学习组件，不自动理解语义、位置或 padding 的下游含义。
 :::
-

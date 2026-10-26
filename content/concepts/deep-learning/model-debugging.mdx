@@ -37,18 +37,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释核心机制
-- 手算一个主要形状或公式
-- 运行完整示例并排查错误
+- 同一训练步检查四个诊断信号
+- 损失下降但准确率不变一定是 bug 吗？
+- 说明：小批次拟合成功是必要线索，不能证明完整评估协议和泛化能力正确。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-掌握深度学习模型调试的输入输出与训练边界
-
-能够用 PyTorch 代码验证公式和形状
+模型调试是以可复现的小输入定位数据和计算链错误的过程。检查顺序从输入契约开始，逐步走到损失、梯度、参数变化和小样本拟合。
 :::
 
 
@@ -59,30 +57,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-深度学习模型调试是该文档中连接数据表示、训练目标和工程实现的核心主题。
+模型不学习时，一次更换多个超参数会让原因更难定位。先把任务缩小到一批可检查样本，逐层验证数据、目标、梯度和更新，可以更快区分实现错误与泛化问题。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-调试按数据、shape/dtype、前向损失、梯度、参数更新、极小 batch 和曲线顺序。
+模型调试是以可复现的小输入定位数据和计算链错误的过程。检查顺序从输入契约开始，逐步走到损失、梯度、参数变化和小样本拟合。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把深度学习模型调试理解为数据在模型中的一套明确变换，而不是只记一个类名。
+先确认发动机能在台架上转起来，再去讨论长途油耗。一个连固定小批都无法拟合的模型，不适合立即扩大训练。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-拟合 8–32 个样本是最有价值的综合检查之一。
+首先打印输入范围、shape、dtype、标签集合与样本图像，核对是否缺少归一化、类别映射或目标对齐。对分类可检查初始损失是否与近似均匀预测的 log(C) 同量级，但这只是线索，不是通用断言。
 
-实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+然后检查 loss 是否有限、参数 grad 是否为 None 或异常大、step 前后参数是否改变。detach、错误优化器参数组、忘记 zero_grad 或 step 都能造成不同症状，应该用证据分别排除。
+
+固定 8–32 条样本、关闭不必要增强和正则，尝试过拟合，是综合检查。即使成功，也只说明局部训练链可用；数据泄漏、分布差异和评估错误仍需单独排查。
 :::
 
 
@@ -100,7 +100,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-深度学习模型调试的核心数学表达。
+模型调试是以可复现的小输入定位数据和计算链错误的过程。检查顺序从输入契约开始，逐步走到损失、梯度、参数变化和小样本拟合。
 :::
 
 ::::
@@ -120,37 +120,43 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 深度学习模型调试数值/形状检查
+### 同一训练步检查四个诊断信号
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=8
-- D=64
+- 线性模型初始权重为 0
+- 两条输入 1、2，对应目标 2、4
+- 使用 SGD 做一次更新
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 按公式或模块逐步计算
-2. 核对输出 shape
+1. 确认预测和目标均为 (2,1)。
+2. 检查损失有限且梯度非空。
+3. 比较 step 前后的权重。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出保持 batch 维并符合任务头约定
+初始损失为 10，梯度为 -10，一次更新后权重从 0 变为 1。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 小批次拟合成功是必要线索，不能证明完整评估协议和泛化能力正确。
 :::
+
+### 同一训练步检查四个诊断信号
+
+若梯度为 None，应先检查损失是否依赖该参数，而不是立刻调大学习率；若梯度存在但权重不动，应检查优化器参数组、学习率和是否调用 step。
+
+本例不需要循环训练，因为目标是定位一次更新链是否连通。实际调试可继续固定这两条样本直到拟合，再逐步恢复完整数据与正则。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认输入与目标
-2. 建立最小模块
-3. 随机张量前向
-4. 计算损失
-5. 反向与更新
-6. 验证与错误分析
+1. 确认预测和目标均为 (2,1)。
+2. 检查损失有限且梯度非空。
+3. 比较 step 前后的权重。
 :::
 
 
@@ -158,33 +164,49 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 深度学习模型调试 · PyTorch 示例
+### 同一训练步检查四个诊断信号的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证深度学习模型调试的输入、计算和输出。
+使用完整构造输入核对同一训练步检查四个诊断信号，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-x,y=next(iter(loader));print(x.shape,x.dtype,y.shape,y.dtype)
-logits=model(x);loss=criterion(logits,y);loss.backward()
-for name,p in model.named_parameters():print(name,p.grad is None)
+```python
+import torch
+from torch import nn
+model = nn.Linear(1, 1, bias=False)
+with torch.no_grad():
+    model.weight.zero_()
+x, y = torch.tensor([[1.], [2.]]), torch.tensor([[2.], [4.]])
+opt = torch.optim.SGD(model.parameters(), lr=0.1)
+opt.zero_grad(set_to_none=True)
+pred = model(x)
+assert pred.shape == y.shape
+loss = (pred - y).square().mean()
+loss.backward()
+grad = model.weight.grad.item()
+before = model.weight.item()
+opt.step()
+print(f"finite={bool(torch.isfinite(loss))} loss={loss.item():.1f} grad={grad:.1f}")
+print(f"weight_before={before:.1f} weight_after={model.weight.item():.1f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码显式标注输入和输出
-- 使用框架稳定实现
-- 结果通过 shape 或数值检查
+- 手算梯度为 -10，可直接交叉核对。
+- 只做明确的一步诊断，不虚构训练效果。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印与页面说明一致的张量形状或损失。
+```text
+finite=True loss=10.0 grad=-10.0
+weight_before=0.0 weight_after=1.0
+```
 :::
 
 ::::
@@ -192,8 +214,8 @@ for name,p in model.named_parameters():print(name,p.grad is None)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 深度学习模型调试
-- 教学与项目基线
+- 定位梯度断图与参数遗漏
+- 建立固定小批次调试流程
 :::
 
 
@@ -214,18 +236,17 @@ for name,p in model.named_parameters():print(name,p.grad is None)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 深度学习模型调试最先检查什么？
+### 损失下降但准确率不变一定是 bug 吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-先检查输入输出 shape、dtype 和数据边界。
+不一定。概率可能改善却尚未跨越 argmax 或阈值边界；也可能类别不平衡掩盖进步，应检查概率、混淆矩阵与目标定义。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 何时使用测试集？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-全部设计锁定后最终评估。
+小批次拟合成功是必要线索，不能证明完整评估协议和泛化能力正确。
 :::
-

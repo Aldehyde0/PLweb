@@ -56,18 +56,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Dueling DQN并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 在价值网络结构中区分状态基线与动作相对优势。
+- 独立复核“优势中心化和共同平移不变性”的输入、计算和解释。
+- Dueling 改变表示结构，不是新的探索策略。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Dueling DQN位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+在价值网络结构中区分状态基线与动作相对优势。
 :::
 
 
@@ -78,36 +76,32 @@ Dueling DQN位于“状态—行动—反馈—更新”学习链中的关键位
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+驾驶游戏中，道路前方是否有障碍会影响所有动作的总体价值，左右轻微转向的差异可能很小。每个动作都单独学习这份共同信息效率不高，dueling 架构尝试共享状态层面的价值表示。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Dueling 架构分别估计状态好坏和动作相对优势。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+Dueling 网络在共享表示后分成状态价值 V 分支与动作优势 A 分支，再聚合得到各动作 Q。常见聚合为 V 加 A 减去动作优势均值。它改变网络参数化，不改变“采样转移、构造 TD 目标、拟合动作 Q”的基本训练任务。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-先判断局面总体好不好，再判断各动作比平均好多少。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+先判断“当前位置整体处境好不好”，再判断“各动作相对平均动作好多少”。减去均值让共同偏移不在两个分支之间任意搬动。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-需去除 V/A 分解不可辨识性。
+如果仅写 Q=V+A，给 V 加常数并给所有 A 减同样常数，Q 完全不变，分解不可辨识。均值中心化把动作分支限制为零均值优势，使聚合有明确约定。
 
-常用减去 A 的均值。
+均值聚合下 V 等于各动作 Q 的算术平均，不必等于某个目标策略的 Vπ。网络优势分支是结构上的相对量，不能不加条件地称为已经准确估计的真实 Aπ。
+
+Dueling 可以与 Double DQN、PER 等组合，但并不自动缓解离线分布外高估。动作差异很重要或表示本身不足时，结构改动也未必带来收益，应通过等预算消融判断。
 :::
 
 
@@ -146,30 +140,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Dueling DQN的最小计算
+### 优势中心化和共同平移不变性
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 状态分支 V=2，优势向量为 1、3。
+- 聚合时减去优势均值 2。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. Q0=2+1−2=1，Q1=2+3−2=3。
+2. 把两项优势各加 10，均值也加 10，Q 仍是 1、3。
+3. 该结构只取优势间差异，不取共同偏移。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+原优势与平移后优势均聚合成 Q=[1.000,3.000]。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- Dueling 改变表示结构，不是新的探索策略。
+- Double DQN 改变目标中动作选择与评价的分工。
 :::
 
 
@@ -188,7 +179,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Dueling DQN的本地数值骨架
+### 优势中心化和共同平移不变性
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -196,28 +187,30 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+原优势与平移后优势均聚合成 Q=[1.000,3.000]。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+value = 2.0
+for advantage in [[1.0, 3.0], [11.0, 13.0]]:
+    average = sum(advantage) / len(advantage)
+    q = [value + a - average for a in advantage]
+    print("Q=" + ",".join(f"{x:.3f}" for x in q))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- Q0=2+1−2=1，Q1=2+3−2=3。
+- 把两项优势各加 10，均值也加 10，Q 仍是 1、3。
+- 该结构只取优势间差异，不取共同偏移。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+Q=1.000,3.000
+Q=1.000,3.000
+```
 :::
 
 ::::
@@ -233,9 +226,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 忘记减均值，使 V 与 A 的共同偏移任意。
+- 把聚合的 V 分支一律解释为真实 Vπ。
+- 将 dueling 架构与 Double DQN 的目标改动混为一谈。
 :::
 
 
@@ -246,7 +239,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Wang 等：Dueling Network Architectures for Deep Reinforcement Learning](https://arxiv.org/abs/1511.06581)。
 :::
 
 
@@ -257,9 +250,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 忘记减均值，使 V 与 A 的共同偏移任意。
+- 把聚合的 V 分支一律解释为真实 Vπ。
+- 将 dueling 架构与 Double DQN 的目标改动混为一谈。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -276,11 +269,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Dueling DQN是 on-policy 还是 off-policy？
+### Dueling 就是 Double DQN 吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+不是。Dueling 拆分网络表示，Double DQN 分离目标中的选择与评价；二者可以同时用于同一个 DQN 系统。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -290,4 +283,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

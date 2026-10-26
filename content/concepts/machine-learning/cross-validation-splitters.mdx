@@ -38,7 +38,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-少数类样本太少时折数不能超过可支持数量；折数越多计算越贵且不必然更稳。
+同一个模型换一种划分器，实际上可能在回答另一个泛化问题。随机留出新行、留出患者、按时间向前预测，不能只因为都叫“交叉验证”就互换。
+
+划分器首先匹配数据依赖结构，再考虑类别比例、折数与计算预算。折数更多不自动意味着估计更真实。
 :::
 
 
@@ -59,7 +61,13 @@ KFold 不保证类别比例；StratifiedKFold 近似保持 y 分布；RepeatedSt
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-5/10 折是常见起点，最终由数据量、少数类和计算成本决定。
+KFold 按行分成若干互斥验证块，shuffle 决定是否先打乱。StratifiedKFold 尽量维持各类比例，减少某折缺类造成的计算问题，但不会识别同一实体或时间泄漏。
+
+ShuffleSplit 反复随机抽取训练验证集合，同一样本可能多次验证，也可能从未验证。RepeatedStratifiedKFold 则重复多轮分层 K 折；这些额外分数能观察划分敏感性，但不构成同样数量的独立实验。
+
+GroupKFold 限制组不跨训练验证，TimeSeriesSplit 限制时间方向。若同时存在群组和时间关系，可能需要组合或自定义索引，不能通过增加 shuffle 来解决。
+
+K 受最少类别数量、独立组数与训练预算约束。分层分类时少数类样本过少会使折内支持不足；近似保持比例只是工程约束，不是更可靠置信区间的保证。应保存实际索引并检查每折样本与类别分布。
 :::
 
 
@@ -82,6 +90,12 @@ $$
 
 ::::
 
+### 案例：两轮 3 折不等于 6 份独立数据
+
+构造 18 行，其中负类 12 行、正类 6 行。两轮 3 折分层划分一共生成 6 个训练验证对，每次验证 6 行，包含负类 4 行与正类 2 行。
+
+每轮所有行各验证一次，两轮后每行验证两次，训练数据仍大量重叠。可以用它观察随机划分波动，但不能声称样本量扩成了原来的两倍，也不能把这些索引直接交给要求每行恰好验证一次的 cross_val_predict。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
@@ -98,31 +112,49 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### KFold、StratifiedKFold 与重复交叉验证 示例
+### 检查重复分层划分的数量与类别支持
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+完整构造不平衡类别，检查每行在重复分层划分中被验证的次数。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-cv=RepeatedStratifiedKFold(n_splits=5,n_repeats=3,random_state=42)
-scores=cross_val_score(model,X,y,cv=cv,scoring="f1_macro")
+```Python
+import numpy as np
+from sklearn.model_selection import RepeatedStratifiedKFold
+
+X = np.arange(18).reshape(-1, 1)
+y = np.array([0] * 12 + [1] * 6)
+cv = RepeatedStratifiedKFold(n_splits=3, n_repeats=2, random_state=42)
+splits = list(cv.split(X, y))
+counts = np.zeros(len(y), dtype=int)
+for train, valid in splits:
+    counts[valid] += 1
+    assert np.bincount(y[valid]).tolist() == [4, 2]
+print("split_count:", len(splits))
+print("first_train_valid:", (len(splits[0][0]), len(splits[0][1])))
+print("validations_per_row:", sorted(set(counts.tolist())))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 6 个划分来自两轮 3 折，每行验证两次。
+- 断言检查每折类别数量，避免只看到总行数。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-15 个验证分数及其平均和波动。
+本地 scikit-learn 1.8.0 的核对输出：
+
+```text
+split_count: 6
+first_train_valid: (12, 6)
+validations_per_row: [2]
+```
 :::
 
 ::::
@@ -137,9 +169,9 @@ scores=cross_val_score(model,X,y,cv=cv,scoring="f1_macro")
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 少数类少于折数
-- 折数越多越好
-- 只挑最好种子
+- 默认 shuffle=True 就适合一切任务，忽略组和时间依赖。
+- 少数类不足仍盲目提高折数，或只检查总样本数不检查独立组数。
+- 把重复 CV 的折数当成独立实验数，夸大不确定性估计的精度。
 :::
 
 

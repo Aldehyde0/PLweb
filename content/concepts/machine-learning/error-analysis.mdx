@@ -36,7 +36,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-一个分数不能说明错误是否集中于少数群体、标签问题或训练未覆盖区域。
+整体分数只能说明平均结果，无法直接告诉我们该修标签、补数据还是改变模型。错误分析把独立预测与原始样本、业务切片和错误类型联系起来，形成可以验证的改进假设。
+
+分析对象应来自验证、留出或合规的折外预测。训练集上的错误更少，通常不能代表真实泛化问题。
 :::
 
 
@@ -57,7 +59,13 @@ anchorAliases:
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-在独立预测上建立可重复切片；避免只展示方便解释的个例。结论需转成可验证改进假设。
+先定义错误与分母。二分类的漏报、误报需要分别看，多分类可从混淆对开始，回归则可检查残差与大误差。只展示几个明显失败样本，无法说明问题出现的频率。
+
+切片应与使用条件有关，例如设备、地区、时间、数据缺失或样本难度。报告每个切片的样本数与错误率，避免把小组的偶然波动当成确定差异；反复寻找最差切片也会产生选择偏差。
+
+查看原始记录与标注，可以区分标签错误、输入质量、分布变化和模型容量问题。解释应转成可测假设，例如“移动端图片压缩导致细节丢失”，再用针对性数据或实验检验。
+
+改进后在固定协议下回归总体和相关切片，确认没有牺牲其他群体。若已经根据测试错误调方案，原测试集已参与开发，需要另有独立检查，不能继续把它视为未见数据。
 :::
 
 
@@ -80,6 +88,12 @@ $$
 
 ::::
 
+### 案例：设备切片必须同时看样本数
+
+构造 6 条独立预测，移动端 3 条中错 2 条，桌面端 3 条中错 1 条。这个小样本可以提示进一步检查移动端输入，却不足以证明移动端必然更难。
+
+下一步应核对错误是否集中于模糊图片、特定类别或标签问题，并扩大有代表性的验证样本。若只截图两条移动端失败而不报告分母，很容易把故事当统计结论。下方代码固定行索引，避免真实值与预测错位。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
@@ -96,33 +110,46 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 错误分析 示例
+### 按设备统计独立预测的错误数量
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+固定构造数据演示切片统计与原行定位，不据 6 条记录推断真实设备差异。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-errors=X_test.loc[y_pred!=y_test].copy()
-errors["true"]=y_test[y_pred!=y_test]
-errors["pred"]=y_pred[y_pred!=y_test]
-print(errors.head())
+```Python
+import pandas as pd
+
+data = pd.DataFrame({
+    "device": ["mobile", "desktop", "mobile", "desktop", "mobile", "desktop"],
+    "true": [1, 0, 1, 0, 1, 0],
+    "pred": [0, 0, 1, 1, 0, 0],
+})
+data["error"] = data["true"] != data["pred"]
+for device, group in data.groupby("device", sort=True):
+    print(f"{device}: n={len(group)}, errors={int(group['error'].sum())}, rate={group['error'].mean():.3f}")
+print("error_rows:", data.index[data["error"]].tolist())
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 标签、预测和设备在同一 DataFrame 中按行对齐。
+- 错误率与样本量共同报告，便于识别小切片的不稳定性。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-显示测试集中预测错误样本及真实/预测标签。
+本地 scikit-learn 1.8.0 的核对输出：
+
+```text
+desktop: n=3, errors=1, rate=0.333
+mobile: n=3, errors=2, rate=0.667
+error_rows: [0, 3, 4]
+```
 :::
 
 ::::
@@ -138,9 +165,9 @@ print(errors.head())
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 挑选个例
-- 用测试集反复修模型却仍称最终测试
-- 不检查标签
+- 只挑能讲故事的个例，不报告对应分母和全部错误分布。
+- 混用不同索引的标签与预测，制造并不存在的错误样本。
+- 在最终测试错误上反复迭代，却继续声称最终测试独立。
 :::
 
 

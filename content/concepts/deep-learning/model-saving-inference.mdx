@@ -36,18 +36,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释核心机制
-- 手算一个主要形状或公式
-- 运行完整示例并排查错误
+- 在内存保存并恢复固定线性模型
+- 为什么 eval 和 inference_mode 都需要？
+- 说明：权重数值一致不能单独证明外部预处理、标签顺序和部署输入都一致。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-掌握模型保存、加载、推理与部署的输入输出与训练边界
-
-能够用 PyTorch 代码验证公式和形状
+模型推理资产包含结构配置、state_dict、预处理规则和标签映射；保存与加载后的固定样本一致性检查用来验证恢复契约。
 :::
 
 
@@ -58,30 +56,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-模型保存、加载、推理与部署是该文档中连接数据表示、训练目标和工程实现的核心主题。
+一个可用模型不仅是权重文件，还包含结构、输入加工和类别解释。加载后能得到某个张量，不代表它与训练时具有相同含义。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-模型资产包括结构配置、权重、预处理、类别映射、版本和评估范围。
+模型推理资产包含结构配置、state_dict、预处理规则和标签映射；保存与加载后的固定样本一致性检查用来验证恢复契约。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把模型保存、加载、推理与部署理解为数据在模型中的一套明确变换，而不是只记一个类名。
+权重像一组零件参数，配置是装配图，预处理和类别表则是使用说明，缺少任一项都可能装出不同系统。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-推理同时使用 eval 与 inference\_mode；保存/加载后用固定样本做一致性测试。
+通常保存 state_dict 而非依赖完整 Python 对象序列化，恢复时先创建同一结构再 load_state_dict。state_dict 包含参数和持久 buffer，但不包含 forward 代码、词表或业务阈值。
 
-实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+推理前同时调用 eval 与 inference_mode：前者改变 Dropout、BatchNorm 等行为，后者关闭自动微分开销。map_location 可把原 GPU 权重加载到 CPU，输入与模型仍需在兼容设备和 dtype 上。
+
+weights_only=True 适合限制加载内容，仍应只加载可信来源。结构键匹配不代表输入通道顺序和标签表正确；交付前应比较固定输入的输出并检查输出类别解释。
 :::
 
 
@@ -99,7 +99,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-模型保存、加载、推理与部署的核心数学表达。
+模型推理资产包含结构配置、state_dict、预处理规则和标签映射；保存与加载后的固定样本一致性检查用来验证恢复契约。
 :::
 
 ::::
@@ -119,37 +119,43 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 模型保存、加载、推理与部署数值/形状检查
+### 在内存保存并恢复固定线性模型
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=8
-- D=64
+- 线性层权重为 (2,-1)，偏置为 0.5
+- 输入为 (3,4)
+- 资产附带输入维数和标签名字
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 按公式或模块逐步计算
-2. 核对输出 shape
+1. 推理得到 2×3−4+0.5=2.5。
+2. 保存资产到内存，再重建并加载。
+3. 比较恢复前后输出。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出保持 batch 维并符合任务头约定
+恢复前后均输出 2.5，最大差为 0。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 权重数值一致不能单独证明外部预处理、标签顺序和部署输入都一致。
 :::
+
+### 在内存保存并恢复固定线性模型
+
+示例使用内存缓冲区，避免留下演示文件。真实文件保存可使用同样的资产内容，但还应记录版本和预处理，例如输入是否已标准化。
+
+如果恢复时把两个输入特征交换，即使权重加载零报错，预测仍会改变。固定样本测试最好覆盖一条完整的原始输入到类别输出路径。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认输入与目标
-2. 建立最小模块
-3. 随机张量前向
-4. 计算损失
-5. 反向与更新
-6. 验证与错误分析
+1. 推理得到 2×3−4+0.5=2.5。
+2. 保存资产到内存，再重建并加载。
+3. 比较恢复前后输出。
 :::
 
 
@@ -157,33 +163,52 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 模型保存、加载、推理与部署 · PyTorch 示例
+### 在内存保存并恢复固定线性模型的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证模型保存、加载、推理与部署的输入、计算和输出。
+使用完整构造输入核对在内存保存并恢复固定线性模型，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-artifact={'model_config':config,'model_state_dict':model.state_dict(),'class_names':names,'preprocess':prep}
-torch.save(artifact,'model.pt')
-loaded=torch.load('model.pt',map_location='cpu',weights_only=True)
+```python
+import io
+import torch
+from torch import nn
+model = nn.Linear(2, 1)
+with torch.no_grad():
+    model.weight.copy_(torch.tensor([[2., -1.]]))
+    model.bias.fill_(0.5)
+model.eval()
+x = torch.tensor([[3., 4.]])
+buffer = io.BytesIO()
+torch.save({"in_features": 2, "state": model.state_dict(), "labels": ["score"]}, buffer)
+buffer.seek(0)
+artifact = torch.load(buffer, map_location="cpu", weights_only=True)
+restored = nn.Linear(artifact["in_features"], 1)
+restored.load_state_dict(artifact["state"])
+restored.eval()
+with torch.inference_mode():
+    a, b = model(x), restored(x)
+print(f"prediction={b.item():.1f} max_diff={(a - b).abs().max().item():.1f}")
+print(artifact["labels"])
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码显式标注输入和输出
-- 使用框架稳定实现
-- 结果通过 shape 或数值检查
+- 保存配置与标签，不只保存参数。
+- 使用 weights_only 和 CPU 映射并实际加载核对。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印与页面说明一致的张量形状或损失。
+```text
+prediction=2.5 max_diff=0.0
+['score']
+```
 :::
 
 ::::
@@ -191,8 +216,8 @@ loaded=torch.load('model.pt',map_location='cpu',weights_only=True)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 模型保存、加载、推理与部署
-- 教学与项目基线
+- CPU 推理交付
+- 检查保存加载的一致性
 :::
 
 
@@ -214,18 +239,17 @@ loaded=torch.load('model.pt',map_location='cpu',weights_only=True)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 模型保存、加载、推理与部署最先检查什么？
+### 为什么 eval 和 inference_mode 都需要？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-先检查输入输出 shape、dtype 和数据边界。
+eval 控制模块训练行为，inference_mode 控制自动微分；只用其中一个不能同时完成两项职责。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 何时使用测试集？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-全部设计锁定后最终评估。
+权重数值一致不能单独证明外部预处理、标签顺序和部署输入都一致。
 :::
-

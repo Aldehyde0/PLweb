@@ -35,7 +35,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-类别不平衡时 99% Accuracy 仍可能完全漏掉少数类。ROC-AUC 看排序，PR-AUC 更关注少数正类区域。
+分类指标反映不同的错误关注点。准确率适合看总体正确比例，但类别不平衡时可能掩盖少数类失败；精确率、召回率和排序指标则分别回答不同问题。
+
+先明确正类、使用阈值和业务代价，再选择主指标。不能在看到结果后，挑一个最漂亮的数字代表模型质量。
 :::
 
 
@@ -56,7 +58,13 @@ Accuracy 适合类别平衡且错误成本相近；Precision 关注预测正类�
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-多分类需区分 macro、weighted、micro；阈值指标与排序指标共同报告。
+Precision 的分母是预测正例，衡量触发动作时有多少是真的；Recall 的分母是真实正例，衡量需要找到的对象有多少被覆盖。F1 是二者的调和平均，不显式包含真负例，也不直接代表业务总成本。
+
+阈值把概率或分数转换为类别，因此准确率、精确率与召回率都依赖当前阈值。ROC-AUC 衡量排序，PR 曲线关注正例检出与误报的关系；排序好不意味着概率经过校准，也不自动给出最佳业务阈值。
+
+多分类的 macro 对类别等权平均，weighted 按真实类别数量加权，micro 先汇总计数。它们对少数类的敏感程度不同；在普通单标签多分类、包含全部类别的设置中，micro F1 与准确率相同。
+
+评估时应报告类别 support、阈值与数据范围，分清 predict 产生的标签和 predict_proba 产生的概率。阈值应在独立开发数据上选择，不能用最终测试集反复找最优门槛。
 :::
 
 
@@ -79,6 +87,12 @@ $$
 
 ::::
 
+### 案例：排序指标与当前阈值可以给出不同印象
+
+沿用 8 个构造样本：在 0.5 阈值下，TP 为 2、FP 为 1、FN 为 2，Precision 为 2 / 3，Recall 为 1 / 2，F1 为 4 / 7。总体准确率是 5 / 8。
+
+下方同时提供每个样本的正类概率，计算 ROC-AUC。AUC 使用分数排序，不能拿标签替代概率，也不能用较高 AUC 掩盖当前阈值的漏报。若降低阈值，需要重新检查混淆矩阵和实际审核容量。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
@@ -95,32 +109,48 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 分类指标：Accuracy、Precision、Recall、F1 与 AUC 示例
+### 同一组概率核对阈值指标与 ROC-AUC
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+概率与标签均为明确构造值，展示指标含义而非真实模型性能。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-from sklearn.metrics import classification_report,roc_auc_score
-print(classification_report(y_test,y_pred))
-print(roc_auc_score(y_test,y_prob))
+```Python
+import numpy as np
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+
+y = np.array([0, 0, 0, 0, 1, 1, 1, 1])
+probability = np.array([0.1, 0.2, 0.3, 0.8, 0.2, 0.4, 0.7, 0.9])
+prediction = (probability >= 0.5).astype(int)
+print(f"accuracy={accuracy_score(y, prediction):.3f}")
+print(f"precision={precision_score(y, prediction):.3f}")
+print(f"recall={recall_score(y, prediction):.3f}")
+print(f"f1={f1_score(y, prediction):.3f}")
+print(f"roc_auc={roc_auc_score(y, probability):.3f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 阈值生成 prediction，ROC-AUC 始终使用 probability。
+- 固定正类为 1；本例分母均非零，真实任务还需约定未定义指标的处理。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-逐类 Precision/Recall/F1 和 ROC-AUC。
+本地 scikit-learn 1.8.0 的核对输出：
+
+```text
+accuracy=0.625
+precision=0.667
+recall=0.500
+f1=0.571
+roc_auc=0.719
+```
 :::
 
 ::::
@@ -136,9 +166,9 @@ print(roc_auc_score(y_test,y_prob))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只看 Accuracy
-- macro/weighted 混用
-- AUC 当固定阈值表现
+- 用类别标签计算本应输入概率或决策分数的排序指标。
+- 只报 weighted 平均，掩盖小类别表现；或把 F1 当作全部业务成本。
+- 在测试集上选阈值、选指标，然后把同一批结果当成无偏评估。
 :::
 
 

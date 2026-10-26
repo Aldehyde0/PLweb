@@ -69,7 +69,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-MCP 早期 HTTP+SSE 方案已被 Streamable HTTP 替代，旧教程若不标日期会误导新实现。
+同样的 MCP 能力可以由本地进程提供，也可以由远程服务提供。传输决定消息如何到达、如何取消与如何管理连接，部署方式不同，认证、生命周期和故障处理也不同。
+
+旧教程常把 SSE 当成某一种协议的全部名称。需要区分“用 SSE 承载某次响应”与已被替代的旧 HTTP+SSE 传输设计，不能只按是否出现事件流判断版本。
 :::
 
 
@@ -90,15 +92,23 @@ MCP 早期 HTTP+SSE 方案已被 Streamable HTTP 替代，旧教程若不标日�
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-stdio 由 Client 启动本地 Server 子进程，通过标准输入输出交换消息。
+stdio 由 Client 启动本地子进程，通过标准输入输出交换换行分隔的 JSON-RPC 消息。stdout 是协议通道，调试日志应写 stderr；进程退出、阻塞和缓冲问题都会影响调用。
 
-Streamable HTTP 是当前远程标准；2026-07-28 规范进一步转向无状态核心和基于请求的交互。
+Streamable HTTP 使用一个 MCP HTTP 端点发送请求，响应可以是 JSON，也可以是请求范围内的 SSE 流。SSE 是响应承载形式之一，所以使用 SSE 并不意味着仍在采用旧双端点传输。
 
-旧 HTTP+SSE 自 2025-03-26 被 Streamable HTTP 替代，2026-07-28 官方说明其正式弃用并提供一年迁移窗口。
+2026-07-28 规范强调每个请求自带协议版本与客户端能力，传输负责承载这些消息，不能改变 Tool 等能力的语义。旧版本存在连接级初始化与其他消息模式，迁移时要同时检查协议版本与传输绑定。
 
-OpenAI Responses API 当前 Remote MCP 文档仍说明兼容 Streamable HTTP 或 HTTP/SSE；新实现应优先 Streamable HTTP，兼容不等于推荐。
+旧 HTTP+SSE 已被 Streamable HTTP 替代，弃用与最早移除时间应查官方生命周期记录，不能自行假定统一的一年期限。新接入优先评估当前传输，兼容旧服务时明确维护边界、认证方式与迁移计划。
+
+这些区别见 [传输规范](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports) 与 [弃用登记](https://modelcontextprotocol.io/specification/2026-07-28/deprecated)。
 :::
 
+
+### 案例：本地笔记服务迁移为团队服务
+
+个人电脑上的笔记工具可以由宿主启动 stdio 子进程，不需要开放网络端口，但必须管理工作目录、环境变量和进程关闭。多人共享时，服务可以部署为受认证的 Streamable HTTP 端点，每次请求核对调用者的访问范围。
+
+远程方案出现流式进度不代表应该退回旧 HTTP+SSE 的双端点设计。网络中断后还要区分读取是否可重试、写入结果是否未知；更换传输不会自动让业务操作幂等。选择路线时应一起考虑生命周期、权限与失败恢复。
 
 ## 理解与实践步骤 {#algorithm-steps}
 
@@ -122,8 +132,9 @@ OpenAI Responses API 当前 Remote MCP 文档仍说明兼容 Streamable HTTP 或
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 把 SSE 事件流等同于旧 HTTP+SSE 传输
-- 新项目继续采用旧双端点设计
+- 把所有 SSE 流都称为旧 HTTP+SSE，或者因为 SDK 兼容旧方式就把它当新项目首选。
+- 在 stdio 的 stdout 输出调试信息，破坏协议消息边界。
+- 只替换连接地址，不核对协议版本、认证、取消语义和有副作用请求的恢复策略。
 :::
 
 
@@ -153,8 +164,7 @@ OpenAI Responses API 当前 Remote MCP 文档仍说明兼容 Streamable HTTP 或
 
 ## 安全风险与信任边界 {#security-risks}
 
-
-
+stdio 通常依赖本机进程边界，子进程可能继承环境变量与文件能力；远程 HTTP 还需检查连接保护和服务身份。无论哪种传输，消息能送达都不证明返回内容可信，也不表示请求中的路径和目标对象符合业务范围。
 
 ## 性能与失败模式 {#performance-notes}
 
@@ -162,5 +172,3 @@ OpenAI Responses API 当前 Remote MCP 文档仍说明兼容 Streamable HTTP 或
 - stdio 启动简单但受本机进程生命周期影响。
 - 远程 HTTP 需要处理网络延迟、认证、重试与速率限制。
 :::
-
-

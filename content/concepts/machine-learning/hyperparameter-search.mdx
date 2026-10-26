@@ -37,7 +37,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-搜索次数越多越容易对验证过程乐观，且预处理必须与模型共同被搜索。
+模型参数由训练估计，超参数则规定训练过程或模型容量，例如正则化强度和树深。反复凭测试分数调整超参数，会让测试集变成开发数据，产生乐观评价。
+
+搜索要把候选空间、划分器、主指标和预算写清楚，确保每个方案都经过同样边界内的训练与验证。
 :::
 
 
@@ -58,7 +60,13 @@ anchorAliases:
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-先基于参数含义设置对数尺度范围，固定主 scoring 和 refit；锁定最佳方案后只测试一次。
+GridSearchCV 枚举给定参数组合，RandomizedSearchCV 在分布中抽样。参数尺度应依据含义选择，例如正则化强度常用跨数量级候选；更大空间意味着更多训练，也增加偶然选中高分方案的机会。
+
+预处理与模型应封装在 Pipeline 中，搜索每一折时从训练折重新拟合。参数名称通过步骤名连接到估计器，例如 model__C；搜索对象不能引用在全数据上提前学好的缩放或特征选择结果。
+
+scoring 决定候选排名，refit 决定选择后是否在传给 fit 的完整开发集上重新训练。best_score_ 是用于选择的验证均值，不是独立最终测试表现；refit 也不会自动使用从未传入的测试数据。
+
+多指标搜索需要预先指定用于选择的主规则。若想评价“整套调参过程”的泛化，可以使用嵌套交叉验证；最终固定流程后，再使用保留测试集做约定的最终检查。
 :::
 
 
@@ -81,6 +89,12 @@ $$
 
 ::::
 
+### 案例：只比较两个正则化强度
+
+在内置 Iris 数据上，先标准化再训练逻辑回归，候选 C 为 0.1 与 1.0，使用 3 折分层验证。每个候选需要 3 次拟合，选择后 refit 再拟合 1 次，共 7 次训练。
+
+下方输出的最佳均值来自这个教学数据与固定划分，只用于展示搜索结果读取，不能作为独立测试分数。若看完结果再扩展候选，也仍属于开发过程；应另留独立数据验证最终选择。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
@@ -98,32 +112,52 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 网格搜索与随机搜索 示例
+### 完整 Pipeline 的小型网格搜索
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+在固定内置数据上演示搜索、候选统计与 refit；没有保留独立测试集，不声称最终性能。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-search=GridSearchCV(pipeline,{"model__C":[0.1,1,10]},cv=5,scoring="f1_macro",return_train_score=True)
-search.fit(X_train,y_train)
-print(search.best_params_,search.best_score_)
+```Python
+from sklearn.datasets import load_iris
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+
+X, y = load_iris(return_X_y=True)
+pipeline = Pipeline([("scale", StandardScaler()), ("model", LogisticRegression(max_iter=1000))])
+cv = StratifiedKFold(3, shuffle=True, random_state=42)
+search = GridSearchCV(pipeline, {"model__C": [0.1, 1.0]}, cv=cv, scoring="f1_macro", refit=True)
+search.fit(X, y)
+assert search.best_estimator_.n_features_in_ == 4
+print("candidates:", len(search.cv_results_["params"]))
+print("folds:", search.n_splits_)
+print("best_C:", search.best_params_["model__C"])
+print(f"selection_mean_f1={search.best_score_:.3f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- Pipeline 参数使用 model__C，缩放在各训练折内拟合。
+- best_score_ 是选择分数；best_estimator_ 已在传入开发数据上 refit。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-最佳参数与训练部分交叉验证分数。
+本地 scikit-learn 1.8.0 的核对输出：
+
+```text
+candidates: 2
+folds: 3
+best_C: 1.0
+selection_mean_f1=0.953
+```
 :::
 
 ::::
@@ -139,9 +173,9 @@ print(search.best_params_,search.best_score_)
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 测试集搜索
-- 无限扩大网格
-- 只报告 best\_score\_
+- 搜索前在全部样本上拟合预处理，导致每个候选的验证折都泄漏信息。
+- 读取 best_score_ 后称其为最终泛化分数，或以测试集决定候选范围。
+- 多指标搜索没有明确选择规则，事后挑最有利的指标宣布获胜。
 :::
 
 

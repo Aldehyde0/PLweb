@@ -34,18 +34,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 判断矩阵形状
-- 手算梯度
-- 解释交叉熵/KL
+- 同时核对链式法则与稳定 softmax
+- 为什么要先确认 softmax 的维度？
+- 说明：平移技巧解决指数溢出，不能修复输入本身含 NaN 或错误的概率建模。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-理解公式与代码
-
-培养形状和数值稳定性意识
+深度学习的数学基础包括张量与线性代数、复合函数求导、概率分布和数值稳定计算。每条公式都应能对应到输入形状、输出形状及可执行操作。
 :::
 
 
@@ -56,30 +54,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-前向由线性代数描述，反向由链式法则描述，分类和生成由概率信息量描述。
+神经网络同时涉及矩阵运算、链式法则和概率目标。学习这些数学工具时，最容易出错的往往是计算轴和数值范围，而不是复杂证明。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-深度学习数学重点是形状、局部变化和概率目标，而非先完成全部证明。
+深度学习的数学基础包括张量与线性代数、复合函数求导、概率分布和数值稳定计算。每条公式都应能对应到输入形状、输出形状及可执行操作。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-矩阵描述数据流，梯度描述如何改参数，概率描述不确定性。
+shape 是公式的单位检查。就像不能把米和秒直接相加，也不能把“每个样本的损失”与“每个类别的分数”当成同一个维度。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-每个公式都应对应张量形状、计算轴和稳定实现。
+矩阵 $X\in\mathbb R^{N\times D}$ 的行通常表示样本、列表示特征，$XW^T$ 把 D 维表示变为 H 维。求和、均值和广播都要明确轴；对类别求 softmax 和对样本求 softmax 对应完全不同的概率解释。
 
-框架组合损失用 log-sum-exp 等技巧避免直接 exp/log 溢出。
+链式法则把损失对输出的变化率，沿各层局部导数传回参数。若 $\hat y=wx$、$L=(\hat y-y)^2$，则 $\partial L/\partial w=2(wx-y)x$。梯度与参数形状相同，标量损失不会意味着只有一个参数梯度。
+
+概率目标常含指数和对数。softmax 的分子分母可同时减去最大 logit，避免 exp 溢出；logsumexp 直接在对数域完成归一化。交叉熵分解为熵与 KL 时，两个分布及其支持也必须明确。
 :::
 
 
@@ -97,7 +97,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-真实分布固定时，最小化交叉熵等价于最小化 KL。
+深度学习的数学基础包括张量与线性代数、复合函数求导、概率分布和数值稳定计算。每条公式都应能对应到输入形状、输出形状及可执行操作。
 :::
 
 ::::
@@ -117,37 +117,42 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 链式梯度
+### 同时核对链式法则与稳定 softmax
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- ŷ=wx
-- L=(ŷ-y)^2
-- x=2,y=6,w=1
+- w=1，x=2，目标 y=6
+- 分类 logits 为 1000 和 1001
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. ŷ=2
-2. dL/dw=2(2-6)×2
+1. 预测为 2，平方损失为 16。
+2. 梯度为 2×(2−6)×2=-16。
+3. 对 logits 减去 1001，再求 softmax。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-梯度 -16
+梯度为 -16；两个概率约为 0.268941 与 0.731059，和为 1。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 平移技巧解决指数溢出，不能修复输入本身含 NaN 或错误的概率建模。
 :::
+
+### 案例推演与判断
+
+如果只用损失对预测的导数 -8 更新 w，就漏掉了乘数 x=2。自动微分能避免手写每条链，但仍需要手算小例子确认目标和路径没有接错。
+
+直接计算 exp(1001) 会超出常见浮点范围，而减去最大值后只需 exp(-1) 与 exp(0)。这种平移不改变 softmax 概率，因为分子分母拥有相同缩放。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 标注形状
-2. 前向计算
-3. 损失
-4. 链式求导
-5. 稳定实现
+1. 预测为 2，平方损失为 16。
+2. 梯度为 2×(2−6)×2=-16。
+3. 对 logits 减去 1001，再求 softmax。
 :::
 
 
@@ -155,33 +160,39 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 深度学习数学基础 · PyTorch 示例
+### 同时核对链式法则与稳定 softmax的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证深度学习数学基础的输入、计算和输出。
+使用完整构造输入核对同时核对链式法则与稳定 softmax，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-w=torch.tensor(1.,requires_grad=True)
-x=torch.tensor(2.);target=torch.tensor(6.)
-loss=(w*x-target)**2
-loss.backward();print(w.grad)
+```python
+import torch
+w = torch.tensor(1., requires_grad=True)
+loss = (w * 2 - 6) ** 2
+loss.backward()
+prob = torch.softmax(torch.tensor([1000., 1001.]), dim=0)
+print(f"loss={loss.item():.1f} grad={w.grad.item():.1f}")
+print([round(v, 6) for v in prob.tolist()])
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 标量 loss 可直接 backward
-- Autograd 得到手算梯度
+- 标量例子对应显式链式求导。
+- softmax 使用稳定实现，未直接计算大指数。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-tensor(-16.)。
+```text
+loss=16.0 grad=-16.0
+[0.268941, 0.731059]
+```
 :::
 
 ::::
@@ -189,7 +200,8 @@ tensor(-16.)。
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 所有深度模型
+- 推导损失梯度
+- 排查广播错误和数值溢出
 :::
 
 
@@ -209,18 +221,17 @@ tensor(-16.)。
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 必须先学完高数吗？
+### 为什么要先确认 softmax 的维度？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-不必，但要理解当前公式、形状和用途。
+归一化轴决定哪些元素相互竞争。多分类通常按类别归一化；若沿 batch 轴归一化，一条样本的概率会依赖同批其他样本。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### KL 是距离吗？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-通常不对称，严格说不是普通距离。
+平移技巧解决指数溢出，不能修复输入本身含 NaN 或错误的概率建模。
 :::
-

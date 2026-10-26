@@ -57,18 +57,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义PPO、GRPO 与 DPO 的区别并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 对齐输入数据、在线生成与价值模型需求，再比较三种优化路线。
+- 独立复核“相同 prompt 数量不代表相同采样成本”的输入、计算和解释。
+- 三者的反馈格式与采样流程不同。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-PPO、GRPO 与 DPO 的区别位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+对齐输入数据、在线生成与价值模型需求，再比较三种优化路线。
 :::
 
 
@@ -79,38 +77,32 @@ PPO、GRPO 与 DPO 的区别位于“状态—行动—反馈—更新”学习�
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+PPO、GRPO、DPO 都用于语言模型后训练，却不要求相同数据。把三者放进同一个名称列表而不写数据流程，会误以为只改一个损失函数就能互换，实际需要的采样、评分和模型组件明显不同。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-PPO 是传统策略优化；GRPO 用组相对奖励进行策略优化；DPO 是离线偏好优化目标。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+PPO 是通用策略优化方法，语言 RLHF 中通常配价值模型与生成评分。GRPO 用同 prompt 的多响应相对奖励替代独立价值基线，并保留 PPO 风格更新。DPO 直接用离线偏好对和参考策略构造损失，不要求传统在线环境交互。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-PPO 用 rollout+critic，GRPO 用同题多答案相对评分，DPO 用已有 chosen/rejected 对。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+PPO 像教练给每次表现一个相对预期评价；GRPO 像同题多份答卷互相比较；DPO 像根据已有的两两胜负记录调整偏好。三种记录格式不能不经转换就互相代替。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-三者数据生成方式不同。
+PPO 的优势可由 critic 与 GAE 构造，GRPO 原始设计用组均值与标准差构造相对优势。两者都要正确保存旧策略概率，裁剪目标也都不是硬性 KL 保证；评分可来自模型或可验证规则。
 
-是否需要 Value Model、Reward Model 和在线采样不同。
+DPO 的核心输入是相同 prompt 的优选和拒绝响应，参考策略用于相对 log 概率。它没有与环境转移一一对应的 TD 目标，也不应只因为理论联系就称为在线 RL。
 
-不能仅因都用于对齐就视为同一算法。
+比较资源需计算生成 token、评分、参考推断、价值模型和训练更新，而非只数网络个数。GRPO 省 critic 可能增加每 prompt 采样数；DPO 省在线生成但需要先获得有代表性的偏好数据。
 :::
 
 
@@ -118,17 +110,17 @@ PPO 用 rollout+critic，GRPO 用同题多答案相对评分，DPO 用已有 cho
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### 在线概率比率与离线偏好 logit
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+\rho_t=\frac{\pi_\theta(a_t\mid s_t)}{\pi_{old}(a_t\mid s_t)},\qquad z_{DPO}=\beta\left[\log\frac{\pi_\theta(y_w\mid x)}{\pi_{ref}(y_w\mid x)}-\log\frac{\pi_\theta(y_l\mid x)}{\pi_{ref}(y_l\mid x)}\right]
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+PPO 与 GRPO 使用近期采样的概率比率但优势构造不同；DPO 用偏好对的相对 logit，输入不能直接互换。
 :::
 
 ::::
@@ -139,9 +131,10 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| π_old | 生成近期 rollout 的旧策略 |
+| π_ref | DPO 的固定参考策略 |
+| y_w、y_l | 同题优选与拒绝回答 |
+| β | DPO 目标尺度参数 |
 :::
 
 ::::
@@ -149,30 +142,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### PPO、GRPO 与 DPO 的区别的最小计算
+### 相同 prompt 数量不代表相同采样成本
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 构造一个最小数据清单：3 个 prompt。
+- PPO 每题新采 1 个响应；GRPO 每题新采 4 个；DPO 每题已有 1 对偏好。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. PPO 本轮生成 3 个响应，GRPO 生成 12 个。
+2. DPO 读取 3 对、共 6 个已存响应，本轮目标不要求新生成。
+3. 只数响应仍未包含长度、评分和反向传播成本，不能据此给性能排名。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+示例清单为 3 个 PPO 新响应、12 个 GRPO 新响应、6 个 DPO 存储响应。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 三者的反馈格式与采样流程不同。
+- 响应数是配置算术，不是真实吞吐或模型质量基准。
 :::
 
 
@@ -191,7 +181,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### PPO、GRPO 与 DPO 的区别的本地数值骨架
+### 相同 prompt 数量不代表相同采样成本
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -199,28 +189,33 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+示例清单为 3 个 PPO 新响应、12 个 GRPO 新响应、6 个 DPO 存储响应。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+prompts = 3
+ppo_generated = prompts * 1
+grpo_generated = prompts * 4
+dpo_stored = prompts * 2
+print(f"PPO generated={ppo_generated}")
+print(f"GRPO generated={grpo_generated}")
+print(f"DPO stored={dpo_stored}, required_online_generation=0")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- PPO 本轮生成 3 个响应，GRPO 生成 12 个。
+- DPO 读取 3 对、共 6 个已存响应，本轮目标不要求新生成。
+- 只数响应仍未包含长度、评分和反向传播成本，不能据此给性能排名。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+PPO generated=3
+GRPO generated=12
+DPO stored=6, required_online_generation=0
+```
 :::
 
 ::::
@@ -236,9 +231,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 以为三种方法只要相同 batch 就能直接换损失。
+- 把 GRPO 省 critic 解读成总成本必然更低。
+- 把 DPO 的静态偏好训练描述成环境探索。
 :::
 
 
@@ -249,7 +244,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Rafailov 等：Direct Preference Optimization](https://arxiv.org/abs/2305.18290)。
 :::
 
 
@@ -260,9 +255,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 以为三种方法只要相同 batch 就能直接换损失。
+- 把 GRPO 省 critic 解读成总成本必然更低。
+- 把 DPO 的静态偏好训练描述成环境探索。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -279,11 +274,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### PPO、GRPO 与 DPO 的区别是 on-policy 还是 off-policy？
+### 只有偏好对时应直接使用 PPO 吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+PPO 需要可用于其 rollout 的奖励与优势流程；仅有静态偏好对时，DPO 或奖励建模是更直接的数据接口，仍要按任务验证。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -293,4 +288,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

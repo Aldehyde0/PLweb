@@ -40,28 +40,44 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-验证差也可能是标签错、特征不足、时间漂移或划分不代表真实使用，不能立刻加正则。
+训练结果远好于验证结果时，很容易直接选择更强正则或更小模型。但差距也可能来自划分不合理、标签口径、分布变化、特征时间或实现模式，调参未必触及病因。
+
+诊断顺序的价值在于先确认实验在评价什么，再把观察转成可验证假设，而不是看到一个间隙就套固定处方。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-过拟合是学到无法推广的训练细节；泛化差距是信号而非跨任务固定阈值。
+过拟合诊断结合训练与独立验证表现、学习曲线、误差切片和数据审计，判断模型是否过度适应训练特有细节。它是证据分析过程，不是只比较两个数字的机械规则。
+
+“训练高、验证低”需要先说明指标方向和样本范围；如果两者来自不同人群、权重或标签质量，差距还混合了其他因素。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-先排除考试流程作弊和题型变化，再判断是不是背题。
+像检查考试失利：先确认练习题与测验是否同一知识范围、评分是否一致、有没有提前见答案，再讨论学习方法是否过度记忆。顺序错了，增加练习次数也可能无效。
 :::
+
+### 在“预测新用户”任务中先检查分组
+
+构造训练用户编号 [u1,u2,u1]，验证编号 [u2,u3]。虽然行号可以完全不同，u2 已同时出现；如果部署目标是新用户，这份验证不能完整模拟目标场景。
+
+先修正分组并重新建立可信比较，再判断模型容量是否过大。若实际目标是同一用户的未来行为，还需考虑时间边界，不能把“一律按用户隔离”当成所有任务的通用答案。
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-通用顺序：审计划分→检查分布/标签→同折比较→清理噪声→降低复杂度/增强正则→增加代表性数据。
+首先审查划分与特征可用性，包括重复样本、同实体跨折、未来信息和预处理边界。验证泄漏有时会让分数异常高，而不只制造训练验证差距。
+
+随后检查标签与数据分布，再在相同折和指标下比较简单基线、当前模型与合理容量变化。不要让换一份更容易的验证集冒充算法改进。
+
+确认基础过程可靠后，再逐项尝试正则、降低容量、早停、清理有依据的噪声或增加代表性数据。每项改动应保留理由与结果，避免同时改变所有因素后无法解释收益。
+
+最后在锁定方案后使用测试集，并记录仍然薄弱的群体与条件。对已反复查看的验证样本，还需要防止人工分析逐渐过拟合这份验证集。
 :::
 
 
@@ -100,32 +116,37 @@ $$
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 过拟合诊断与解决顺序 示例
+### 在解释分数前核对重复实体
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+演示一个不会被行号不重叠检查发现的边界问题。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-r=cross_validate(model,X,y,cv=5,return_train_score=True)
-print(r["train_score"].mean()-r["test_score"].mean())
+```Python
+train_users = ["u1", "u2", "u1"]
+validation_users = ["u2", "u3"]
+overlap = sorted(set(train_users) & set(validation_users))
+print("overlap:", overlap)
+print("new_user_validation:", not bool(overlap))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 该检查针对“泛化到新用户”的设定，不自动替代时间划分。
+- 代码没有训练模型，也没有把发现重叠直接等同于某个模型已经过拟合。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-输出平均训练与验证分数差距。
+overlap: ['u2']
+new_user_validation: False
 :::
 
 ::::

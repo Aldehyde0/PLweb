@@ -57,18 +57,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Agent 与 Environment并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 正确划定智能体可见信息与环境反馈，避免终止掩码造成价值目标错误。
+- 独立复核“同一奖励在真正终止和时间截断下的不同目标”的输入、计算和解释。
+- 采样何时停止与价值是否继续是两个问题。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Agent 与 Environment位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+正确划定智能体可见信息与环境反馈，避免终止掩码造成价值目标错误。
 :::
 
 
@@ -79,38 +77,32 @@ Agent 与 Environment位于“状态—行动—反馈—更新”学习链中�
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+在游戏里，环境知道敌人的完整位置，玩家却可能只看到屏幕。训练时如果把敌人内部坐标直接给策略，得到的是更容易的任务。首先要定义观察、动作和 step 反馈，才能讨论算法有没有解决原问题。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Agent 持有策略；Environment 定义状态转移、奖励和 episode 边界。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+智能体持有策略并发出动作；环境根据内部状态和动作产生转移、奖励与观察。环境状态可以包含智能体看不到的信息。episode 的结束还应区分任务真正终止与采样因外部限制停止，这两种边界对价值学习的含义不同。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-玩家是 Agent，游戏规则和世界是 Environment。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+驾驶员控制方向盘和油门，却不能控制下雨；仪表盘读数也不包含道路上所有物理状态。传感器接口是观察，不是环境全部真相。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-训练代码不能让 Agent 偷看环境内部状态。
+常见交互接口返回 observation、reward、terminated、truncated 和 info。达到目标或进入吸收失败状态通常是 terminated；为了限制采样长度而中断通常是 truncated，两者都会结束本次采样循环。
 
-step 接口应区分 terminated 与 truncated。
+对原本持续的任务，纯时间截断通常仍从最后观察 bootstrap；真正终止则将未来价值置零。若有限时长本身属于任务，剩余时间应进入状态，此时到达时限也可以是任务定义的真正终点。
 
-随机性和 seed 属于实验协议。
+自动重置封装可能在结束时返回下一局初始观察。构造 TD 目标时需要上一局的 final observation，不能把新一局起点误当上一局后继状态。种子、环境版本和包装器同样属于实验定义。
 :::
 
 
@@ -118,17 +110,17 @@ step 接口应区分 terminated 与 truncated。
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### 真正终止与目标掩码
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+y=r+\gamma(1-d)V(o_{\mathrm{final}})
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+d 表示任务真正终止；纯采样时间截断不自动使 d 为 1，后继必须是上一局的 final observation。
 :::
 
 ::::
@@ -139,9 +131,10 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| r | 本步奖励 |
+| d | 真正终止标记 |
+| o_final | 重置前最后观察 |
+| γ | 任务折扣因子 |
 :::
 
 ::::
@@ -149,30 +142,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Agent 与 Environment的最小计算
+### 同一奖励在真正终止和时间截断下的不同目标
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 当前奖励 2，最后观察价值估计 5，折扣 0.9。
+- 比较真正终止与仅因采样时限截断的持续任务。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 真正终止后无未来回报，目标为 2。
+2. 纯时间截断保留后继估计，目标为 2+0.9×5=6.5。
+3. 两种情况都停止当前采样循环，但价值掩码不同。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+terminated 目标是 2.0；仅 truncated 的目标是 6.5。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 采样何时停止与价值是否继续是两个问题。
+- 有限期限任务必须结合剩余时间与任务定义判断。
 :::
 
 
@@ -192,7 +182,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Agent 与 Environment的本地数值骨架
+### 同一奖励在真正终止和时间截断下的不同目标
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -200,28 +190,29 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+terminated 目标是 2.0；仅 truncated 的目标是 6.5。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+reward, gamma, next_value = 2.0, 0.9, 5.0
+for name, terminated in [("terminal", True), ("time_limit", False)]:
+    target = reward + gamma * (not terminated) * next_value
+    print(f"{name} target={target:.1f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 真正终止后无未来回报，目标为 2。
+- 纯时间截断保留后继估计，目标为 2+0.9×5=6.5。
+- 两种情况都停止当前采样循环，但价值掩码不同。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+terminal target=2.0
+time_limit target=6.5
+```
 :::
 
 ::::
@@ -237,9 +228,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 将 observation 当作完整物理状态，意外泄露训练信息。
+- 用 terminated 或 truncated 的合取结果统一清零 bootstrap。
+- 自动重置后使用新一局观察计算上一局目标。
 :::
 
 
@@ -250,7 +241,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Gymnasium：Handling Time Limits](https://gymnasium.farama.org/tutorials/gymnasium_basics/handling_time_limits/)。
 :::
 
 
@@ -261,9 +252,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 将 observation 当作完整物理状态，意外泄露训练信息。
+- 用 terminated 或 truncated 的合取结果统一清零 bootstrap。
+- 自动重置后使用新一局观察计算上一局目标。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -280,11 +271,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Agent 与 Environment是 on-policy 还是 off-policy？
+### truncated 一定要清零后续价值吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+不一定。对仅因外部采样限制停止的持续任务通常保留 bootstrap；如果时间本身是任务终止条件，应按有限期限任务建模。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -294,4 +285,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

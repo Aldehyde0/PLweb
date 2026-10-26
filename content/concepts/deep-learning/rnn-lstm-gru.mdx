@@ -37,18 +37,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释核心机制
-- 手算一个主要形状或公式
-- 运行完整示例并排查错误
+- 同输入维度与隐藏维度的参数账本
+- batch_first 会改变 h_n 的维度顺序吗？
+- 说明：同 hidden size 不是同参数预算；双向模型也不能用于依赖未来不可见信息的部署场景。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-掌握RNN、LSTM 与 GRU 总览的输入输出与训练边界
-
-能够用 PyTorch 代码验证公式和形状
+普通 RNN 用单一非线性状态更新，GRU 用两个主要门和单状态，LSTM 用多门及 h、c 双状态。三者都在时间维共享参数。
 :::
 
 
@@ -59,30 +57,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-RNN、LSTM 与 GRU 总览是该文档中连接数据表示、训练目标和工程实现的核心主题。
+RNN、LSTM、GRU 都能逐步处理序列，差异主要在状态与门控机制。选型需要结合上下文长度、在线延迟和验证结果，而不是只记一个优劣排名。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-三类循环网络共享时间参数，但状态结构和长依赖能力不同。
+普通 RNN 用单一非线性状态更新，GRU 用两个主要门和单状态，LSTM 用多门及 h、c 双状态。三者都在时间维共享参数。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把RNN、LSTM 与 GRU 总览理解为数据在模型中的一套明确变换，而不是只记一个类名。
+三种方法都维护笔记，区别在于笔记的结构和擦写控制，而不是只有某一种才具有历史依赖。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-选择取决于序列长度、速度、在线约束和验证结果。
+普通 RNN 计算最简，但长路径梯度容易衰减或放大；LSTM 通过细胞状态加法路径控制记忆；GRU 把旧状态与候选直接混合。门控增加参数，可能改善长期依赖，却同时增加运算与调参成本。
 
-实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+对 batch_first 输入 $[N,L,D]$，单向 output 为 $[N,L,H]$。h_n 为 $[layers×directions,N,H]$，LSTM 还返回同类形状的 c_n。双向网络的输出末维是 2H，但它需要未来上下文，不适合直接用于严格在线因果预测。
+
+比较时应控制数据划分和训练预算，并记录参数量、耗时及任务指标。同 hidden size 的模型参数量不相同，不能把这种比较误说成完全等容量比较。
 :::
 
 
@@ -100,7 +100,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-RNN、LSTM 与 GRU 总览的核心数学表达。
+普通 RNN 用单一非线性状态更新，GRU 用两个主要门和单状态，LSTM 用多门及 h、c 双状态。三者都在时间维共享参数。
 :::
 
 ::::
@@ -120,37 +120,42 @@ RNN、LSTM 与 GRU 总览的核心数学表达。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### RNN、LSTM 与 GRU 总览数值/形状检查
+### 同输入维度与隐藏维度的参数账本
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=8
-- D=64
+- input_size=3，hidden_size=4，单层单向，有偏置
+- 输入 shape 为 (2,5,3)
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 按公式或模块逐步计算
-2. 核对输出 shape
+1. 普通 RNN 参数为 4×3+4×4+2×4=36。
+2. GRU 有三组门相关变换，共 108。
+3. LSTM 有四组，共 144。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出保持 batch 维并符合任务头约定
+三者 output 都为 (2,5,4)，参数量分别为 36、108、144。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 同 hidden size 不是同参数预算；双向模型也不能用于依赖未来不可见信息的部署场景。
 :::
+
+### 同输入维度与隐藏维度的参数账本
+
+PyTorch 为输入和隐藏线性变换分别设置偏置，因此有 2H 个偏置，而非只算 H。门数的差异直接乘到这套账本上。
+
+相同输出 shape 便于替换模块，却不意味着优化行为相同。若需要公平资源比较，可以进一步调整 H 使参数或推理延迟接近，再用同样验证协议比较。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认输入与目标
-2. 建立最小模块
-3. 随机张量前向
-4. 计算损失
-5. 反向与更新
-6. 验证与错误分析
+1. 普通 RNN 参数为 4×3+4×4+2×4=36。
+2. GRU 有三组门相关变换，共 108。
+3. LSTM 有四组，共 144。
 :::
 
 
@@ -158,34 +163,41 @@ RNN、LSTM 与 GRU 总览的核心数学表达。
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### RNN、LSTM 与 GRU 总览 · PyTorch 示例
+### 同输入维度与隐藏维度的参数账本的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证RNN、LSTM 与 GRU 总览的输入、计算和输出。
+使用完整构造输入核对同输入维度与隐藏维度的参数账本，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-x=torch.randn(8,20,64)
-for cls in (nn.RNN,nn.GRU,nn.LSTM):
-    model=cls(64,128,batch_first=True)
-    result=model(x);print(cls.__name__,result[0].shape)
+```python
+import torch
+from torch import nn
+x = torch.zeros(2, 5, 3)
+for cls in [nn.RNN, nn.GRU, nn.LSTM]:
+    model = cls(3, 4, batch_first=True)
+    out, state = model(x)
+    params = sum(p.numel() for p in model.parameters())
+    print(f"{cls.__name__}: output={tuple(out.shape)} parameters={params}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码显式标注输入和输出
-- 使用框架稳定实现
-- 结果通过 shape 或数值检查
+- 相同 D、H、层数与方向进行结构比较。
+- 只比较参数与接口，不推断准确率。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印与页面说明一致的张量形状或损失。
+```text
+RNN: output=(2, 5, 4) parameters=36
+GRU: output=(2, 5, 4) parameters=108
+LSTM: output=(2, 5, 4) parameters=144
+```
 :::
 
 ::::
@@ -193,8 +205,8 @@ for cls in (nn.RNN,nn.GRU,nn.LSTM):
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- RNN、LSTM 与 GRU 总览
-- 教学与项目基线
+- 建立循环模型对照实验
+- 检查多层与双向状态形状
 :::
 
 
@@ -214,18 +226,17 @@ for cls in (nn.RNN,nn.GRU,nn.LSTM):
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### RNN、LSTM 与 GRU 总览最先检查什么？
+### batch_first 会改变 h_n 的维度顺序吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-先检查输入输出 shape、dtype 和数据边界。
+不会，它只改变输入和 output 的 batch/time 排列；h_n 的首轴仍组合层数与方向。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 何时使用测试集？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-全部设计锁定后最终评估。
+同 hidden size 不是同参数预算；双向模型也不能用于依赖未来不可见信息的部署场景。
 :::
-

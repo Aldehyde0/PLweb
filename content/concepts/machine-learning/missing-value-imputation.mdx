@@ -42,30 +42,44 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-直接删除缺失样本会减少数据并可能改变分布。均值对极端值敏感，中位数通常更稳健。某些缺失不是随机的，例如“未填写收入”可能本身与目标相关。
+缺失值不只是一个需要填成数字的空位。它可能来自设备故障、问卷跳题、不适用或信息尚未产生，不同原因可能与标签和使用环境有关系。
+
+填补让估计器能接收统一结构，却不会恢复未观察到的真实数值，也不能消除缺失机制带来的偏差。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-缺失值处理是把不可直接供模型使用的空值转换为一致输入，同时尽量保留“为什么缺失”这一可能有用的信息。
+缺失值填补依据既定规则为未观测位置提供替代值，例如数值中位数、类别众数、常量或由其他信息估计的值。数据驱动的规则属于已学状态，应仅从训练范围估计。
 
-数值列可用中位数、均值或业务规则填补；类别列可用众数或专门的“缺失”类别。
+缺失指示列记录原始位置是否缺失，它与填补后的数值承担不同信息；是否加入指示列应通过合适验证判断，不能默认必然提高效果。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-填补不是猜出真实值，而是为模型建立一致的缺失处理约定；必要时再增加一列告诉模型“这里原本缺失”。
+中位数填补相当于给缺失位置放一个训练集的典型值。填入 15 只表示采用了这个约定，不意味着该记录的真实值恰好是 15。
 :::
+
+### 同一个填补值用于两条未来记录
+
+训练列为 [10,缺失,20]，非缺失部分的中位数是 15。未来列 [100,缺失] 应变为 [100,15]，而不是根据未来的 100 再估计一个新填补值。
+
+若保留缺失指示，则两行分别附上 0 与 1。这样模型能区分真实观测到的 15 与由规则填成的 15，但不能据此认定缺失一定代表某种类别。
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-填补统计量与标准化参数一样，只能由训练数据学习。交叉验证中应放在 Pipeline 内。选择策略需要结合缺失比例、分布、模型能力与业务含义。
+先判断缺失含义与可用信息，再选择策略。全部删除可能改变样本分布，简单平均可能压缩方差，复杂估计也可能引入额外假设和计算成本。
+
+填补统计量只能由训练数据学习，交叉验证时也必须折内拟合。未来大数值若参与计算，会提前改变训练规则，即使没有直接使用测试标签也可能泄漏。
+
+数值与类别列一般采用不同处理，类别常量还要避免与真实类别混淆。整列缺失、训练没有缺失而未来出现缺失等情况，需要核对变换器的输出列规则与版本。
+
+保留缺失率监控和原始标识有助于发现采集变化。预测时缺失模式大量变化，不能只靠继续填补就认为输入仍处于已验证范围。
 :::
 
 
@@ -84,40 +98,39 @@ anchorAliases:
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 数值与类别列分别填补
+### 核对训练中位数与缺失指示
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-使用 ColumnTransformer 为不同类型列建立独立规则。
+完整演示 fit 与 transform 的填补边界。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-from sklearn.compose import ColumnTransformer
+```Python
+import numpy as np
 from sklearn.impute import SimpleImputer
-
-preprocessor = ColumnTransformer([
-    ("num", SimpleImputer(strategy="median", add_indicator=True), numeric_columns),
-    ("cat", SimpleImputer(strategy="most_frequent"), categorical_columns),
-])
-X_train_ready = preprocessor.fit_transform(X_train)
-X_test_ready = preprocessor.transform(X_test)
+train = np.array([[10.0], [np.nan], [20.0]])
+future = np.array([[100.0], [np.nan]])
+imputer = SimpleImputer(strategy="median", add_indicator=True).fit(train)
+print("median:", imputer.statistics_.tolist())
+print("future:", imputer.transform(future).tolist())
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- median 对极端值通常比 mean 稳健。
-- add\_indicator 保留哪些数值原本缺失。
-- 测试集只 transform。
+- 训练中的缺失不参与中位数，学到的统计量为 15。
+- 该列在训练时有缺失，因此本例附加一个指示列；其他输入情形应核对具体列生成规则。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-得到无缺失的数值矩阵；若训练列出现缺失，附加相应缺失指示列。
+median: [15.0]
+future: [[100.0, 0.0], [15.0, 1.0]]
 :::
 
 ::::

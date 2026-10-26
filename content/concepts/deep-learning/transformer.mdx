@@ -39,18 +39,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释核心机制
-- 手算一个主要形状或公式
-- 运行完整示例并排查错误
+- 一个 Encoder 层保持序列长度与表示维度
+- Transformer 不加位置表示能知道词序吗？
+- 说明：EncoderLayer 本身不包含词表、位置编码、任务头或完整生成训练协议。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-掌握Transformer的输入输出与训练边界
-
-能够用 PyTorch 代码验证公式和形状
+Transformer 由注意力、逐位置前馈网络、残差、归一化和位置信息组成。Encoder、因果 Decoder 与 Encoder-Decoder 的可见范围和任务接口不同。
 :::
 
 
@@ -61,30 +59,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-Transformer是该文档中连接数据表示、训练目标和工程实现的核心主题。
+序列模型需要让远处位置直接交换信息，又要能在训练中并行处理位置。Transformer 用注意力实现位置通信，再用逐位置前馈层变换特征。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Transformer 由注意力、前馈网络、残差、归一化和位置表示组成。
+Transformer 由注意力、逐位置前馈网络、残差、归一化和位置信息组成。Encoder、因果 Decoder 与 Encoder-Decoder 的可见范围和任务接口不同。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把Transformer理解为数据在模型中的一套明确变换，而不是只记一个类名。
+注意力负责把各位置需要的上下文取来，前馈层负责消化每个位置的新表示；残差路径让已有表示能够保留。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-注意力负责位置间通信，FFN 逐位置变换，全局注意力长度成本为二次。
+自注意力令同一序列提供 Q、K、V，交叉注意力则由一侧提供 query、另一侧提供 key/value。Encoder 通常能看全部输入，生成式 Decoder 使用因果约束，避免训练时读取未来 token。
 
-实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+FFN 独立应用于每个位置，常先把 D 维扩到较大隐藏维，再投回 D。残差要求子层输出维度对齐，LayerNorm 放置位置形成 Pre-LN 或 Post-LN 配方；这些结构不能只用“有注意力”概括。
+
+标准稠密全局注意力的分数数目随长度平方增长，计算还受特征维度影响；长上下文会显著增加内存。没有任何位置信息的自注意力本身不能区分一般的排列顺序。框架 EncoderLayer 也不会自动替你添加位置编码。
 :::
 
 
@@ -97,12 +97,12 @@ Transformer 由注意力、前馈网络、残差、归一化和位置表示组�
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-FFN(x)=W_2\phi(W_1x+b_1)+b_2,\quad cost=O(L^2)
+FFN(x)=W_2\phi(W_1x+b_1)+b_2,\qquad \text{attention score count}=NHL^2
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-Transformer的核心数学表达。
+FFN 对每个位置独立应用；分数项数量表示稠密自注意力的一个内存来源，完整计算成本还依赖特征维度。
 :::
 
 ::::
@@ -122,37 +122,42 @@ Transformer的核心数学表达。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Transformer数值/形状检查
+### 一个 Encoder 层保持序列长度与表示维度
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=8
-- D=64
+- 输入 N=2，L=4，D=8
+- 两头注意力，每头 4 维，FFN 隐藏维度 16
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 按公式或模块逐步计算
-2. 核对输出 shape
+1. 在输入加入一个明确的演示位置项。
+2. 注意力输出仍为 (2,4,8)。
+3. FFN 逐位置经 8→16→8，残差后 shape 不变。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出保持 batch 维并符合任务头约定
+Encoder 层输出为 (2,4,8)，输入无需变成单一向量。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- EncoderLayer 本身不包含词表、位置编码、任务头或完整生成训练协议。
 :::
+
+### 一个 Encoder 层保持序列长度与表示维度
+
+本例位置项仅用位置编号除以 10，目的是显式提醒位置来源，不是推荐替代成熟正弦、学习式或旋转位置方案。nn.TransformerEncoderLayer 接收的已经是隐藏表示，Embedding 与位置处理在外部完成。
+
+若任务是整句分类，还需添加带 mask 的池化或特定分类 token；若是语言建模，还需因果 mask、目标移位和词表输出头。一个层的前向形状正确不等于完整任务已经建好。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认输入与目标
-2. 建立最小模块
-3. 随机张量前向
-4. 计算损失
-5. 反向与更新
-6. 验证与错误分析
+1. 在输入加入一个明确的演示位置项。
+2. 注意力输出仍为 (2,4,8)。
+3. FFN 逐位置经 8→16→8，残差后 shape 不变。
 :::
 
 
@@ -160,34 +165,43 @@ Transformer的核心数学表达。
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Transformer · PyTorch 示例
+### 一个 Encoder 层保持序列长度与表示维度的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证Transformer的输入、计算和输出。
+使用完整构造输入核对一个 Encoder 层保持序列长度与表示维度，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-layer=nn.TransformerEncoderLayer(256,8,1024,batch_first=True,norm_first=True)
-x=torch.randn(4,20,256)
-y=layer(x)
-print(y.shape)
+```python
+import torch
+from torch import nn
+torch.manual_seed(7)
+layer = nn.TransformerEncoderLayer(8, 2, dim_feedforward=16, dropout=0., batch_first=True, norm_first=True)
+layer.eval()
+x = torch.zeros(2, 4, 8)
+demo_position = torch.arange(4, dtype=torch.float32)[None, :, None] / 10
+with torch.inference_mode():
+    y = layer(x + demo_position)
+print("input:", tuple(x.shape), "output:", tuple(y.shape))
+print("finite:", bool(torch.isfinite(y).all()))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码显式标注输入和输出
-- 使用框架稳定实现
-- 结果通过 shape 或数值检查
+- 显式添加演示位置项，模块不会自动生成位置。
+- 只检查一层结构，不虚构端到端任务结果。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印与页面说明一致的张量形状或损失。
+```text
+input: (2, 4, 8) output: (2, 4, 8)
+finite: True
+```
 :::
 
 ::::
@@ -195,8 +209,8 @@ print(y.shape)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- Transformer
-- 教学与项目基线
+- 文本编码与因果语言建模
+- 视觉 patch 或跨模态序列融合
 :::
 
 
@@ -216,18 +230,17 @@ print(y.shape)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Transformer最先检查什么？
+### Transformer 不加位置表示能知道词序吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-先检查输入输出 shape、dtype 和数据边界。
+一般自注意力只根据内容混合，缺少区分排列的充分位置信息；因果可见性有部分顺序约束，但通常仍需按架构配方提供位置机制。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 何时使用测试集？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-全部设计锁定后最终评估。
+EncoderLayer 本身不包含词表、位置编码、任务头或完整生成训练协议。
 :::
-

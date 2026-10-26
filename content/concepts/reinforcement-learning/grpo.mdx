@@ -60,18 +60,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义GRPO：Group Relative Policy Optimization并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 用同一 prompt 的组内相对奖励构造信号，说明归一化和零方差的边界。
+- 独立复核“有区分奖励与全相同奖励的组优势”的输入、计算和解释。
+- 相对优势来自同问题回答之间的差异。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-GRPO：Group Relative Policy Optimization位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+用同一 prompt 的组内相对奖励构造信号，说明归一化和零方差的边界。
 :::
 
 
@@ -82,40 +80,32 @@ GRPO：Group Relative Policy Optimization位于“状态—行动—反馈—更
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+为语言回答训练独立 value model 会增加资源与工程成本。GRPO 对同一问题采样多个回答，用它们之间的奖励差形成相对优势，减少对独立 critic 的需求；这并不意味着可以不采样或不提供评分。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-DeepSeekMath 提出的 GRPO 是 PPO 的变体，以组内奖励标准化替代独立 Value Model 的 advantage 估计。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+DeepSeekMath 的 GRPO 是 PPO 风格策略优化变体：同 prompt 的一组响应共享组均值与尺度形成相对优势，再用于概率比率裁剪目标，配合参考策略 KL。原始设计不训练独立 value model；不同后续实现的归一化、长度处理与 KL 方式可能不同。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-同一道题生成多份答案，不问绝对难度，而比较同组中谁明显更好。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+同一道题里比较多份答卷，比把不同难度题的原始得分混在一起更有针对性。但如果这题的所有答案都错或都对且奖励相同，组内比较本身就没有方向。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-Group 是同一 prompt 的多条采样输出。
+组的单位是同一个 prompt，不能把不同问题的奖励混合标准化。标准差的总体或样本约定、ε 处理与组大小都会改变数值；记录这些细节，才能解释优势尺度和复现梯度。
 
-组均值与标准差形成 relative advantage。
+所有奖励相同时，中心化优势为零；分母加 ε 只能避免除零，不能创造区分信号。极小方差会放大微小评分噪声，稀疏奖励还可能导致大量全错组没有有效改进方向。
 
-原始 GRPO 设计避免独立 Critic/Value Model。
-
-仍需 reference policy/KL 与概率比率裁剪控制更新。
+组内标准化可能抹去不同题目的绝对收益尺度，并影响任务加权。省掉 value model 也不等于整体计算必然更低，因为每个 prompt 需多次生成和评分；实际 token 成本应独立计算。
 :::
 
 
@@ -155,30 +145,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### GRPO：Group Relative Policy Optimization的最小计算
+### 有区分奖励与全相同奖励的组优势
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 同 prompt 第一组奖励为 [1,0,1,0]，第二组均为 1。
+- 用总体标准差，分母加 1e−8。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 第一组均值 0.5、标准差 0.5，优势近似 [1,−1,1,−1]。
+2. 第二组均值 1、标准差 0，中心化奖励全为 0。
+3. ε 防止除零，第二组优势仍全部为 0。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+一组产生正负方向，等分组没有组内优势信号；示例只核对归一化，不实现完整 GRPO。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 相对优势来自同问题回答之间的差异。
+- 完整优化还需要旧概率、裁剪、参考策略与正确 token/序列约定。
 :::
 
 
@@ -199,48 +186,40 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### GRPO：组内奖励标准化与 clipped objective
+### 有区分奖励与全相同奖励的组优势
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-按 DeepSeekMath 的组相对思想，展示同一 prompt 多个输出如何形成相对 advantage。
+一组产生正负方向，等分组没有组内优势信号；示例只核对归一化，不实现完整 GRPO。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-import torch
-
-rewards = torch.tensor([1.0, 0.2, 0.8, -0.2])
-old_log_prob = torch.log(torch.tensor([0.25, 0.25, 0.25, 0.25]))
-new_log_prob = torch.log(torch.tensor([0.30, 0.20, 0.28, 0.22], requires_grad=True))
-clip_range = 0.2
-
-mean = rewards.mean()
-std = rewards.std(unbiased=False).clamp_min(1e-6)
-advantage = (rewards - mean) / std
-ratio = torch.exp(new_log_prob - old_log_prob)
-clipped_ratio = torch.clamp(ratio, 1 - clip_range, 1 + clip_range)
-surrogate = torch.minimum(ratio * advantage, clipped_ratio * advantage)
-kl_penalty = 0.01 * (new_log_prob - old_log_prob).square()
-loss = -(surrogate - kl_penalty).mean()
-loss.backward()
-print('group advantage:', advantage)
-print('loss:', round(loss.item(), 4))
+```Python
+import math
+groups = [[1.0, 0.0, 1.0, 0.0], [1.0, 1.0, 1.0, 1.0]]
+for rewards in groups:
+    average = sum(rewards) / len(rewards)
+    std = math.sqrt(sum((r-average)**2 for r in rewards) / len(rewards))
+    advantage = [(r-average)/(std+1e-8) for r in rewards]
+    print(f"mean={average:.3f} std={std:.3f} advantages=" + ",".join(f"{a:.3f}" for a in advantage))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 四个 rewards 属于同一 prompt 的输出组。
-- 每个奖励减组均值并除组标准差，得到 group-relative advantage。
-- 策略比率使用 PPO 式裁剪，并加入教学化 KL penalty；生产公式与估计细节应按具体 GRPO 实现核对。
+- 第一组均值 0.5、标准差 0.5，优势近似 [1,−1,1,−1]。
+- 第二组均值 1、标准差 0，中心化奖励全为 0。
+- ε 防止除零，第二组优势仍全部为 0。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-组内高奖励样本 advantage 为正，低奖励样本为负；打印有限的代理损失。
+```text
+mean=0.500 std=0.500 advantages=1.000,-1.000,1.000,-1.000
+mean=1.000 std=0.000 advantages=0.000,0.000,0.000,0.000
+```
 :::
 
 ::::
@@ -256,9 +235,9 @@ print('loss:', round(loss.item(), 4))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 跨 prompt 混合奖励后仍称组相对优势。
+- 零方差时除零，或把 ε 误当能产生新学习信号。
+- 用新旧策略差的平方冒充完整参考策略 KL。
 :::
 
 
@@ -269,7 +248,7 @@ print('loss:', round(loss.item(), 4))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Shao 等：DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models](https://arxiv.org/abs/2402.03300)。
 :::
 
 
@@ -310,9 +289,9 @@ PPO 风格 ratio clipping
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 跨 prompt 混合奖励后仍称组相对优势。
+- 零方差时除零，或把 ε 误当能产生新学习信号。
+- 用新旧策略差的平方冒充完整参考策略 KL。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -329,11 +308,11 @@ PPO 风格 ratio clipping
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### GRPO：Group Relative Policy Optimization是 on-policy 还是 off-policy？
+### GRPO 不要 critic 就不需要奖励了吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-本页算法/方法按 on-policy 组织。
+仍需要组内各响应的可比较评分，可来自规则、可验证结果或奖励模型；省掉的是独立 value model，而不是反馈来源。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -343,4 +322,3 @@ PPO 风格 ratio clipping
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

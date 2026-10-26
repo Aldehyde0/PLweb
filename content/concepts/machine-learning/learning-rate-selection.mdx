@@ -38,28 +38,44 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-量纲差异会让不同参数方向的梯度尺度悬殊，迫使统一学习率变小。标准化通常能让损失地形更均衡，从而允许更稳定的步长。
+梯度方向提供局部信息，学习率决定使用多大幅度。相同模型与初始参数，只改变步长，就可能出现缓慢下降、跨谷震荡或损失放大的轨迹。
+
+选择学习率需要区分优化是否稳定与泛化是否更好。某个步长第一步下降最多，不代表在固定预算下验证结果一定最佳。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-学习率 α 是梯度更新的步长超参数。它不由普通 fit 自动学习，需要通过训练曲线与验证过程选择。
+学习率控制参数更新中梯度项的系数。它与损失尺度、批次大小、预处理和优化器有关，数值脱离这些条件就很难比较。
+
+固定步长、预热和衰减是不同策略；自适应优化器也仍存在全局学习率等设置，不能因此认为不再需要观察训练行为。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-学习率像下山步幅：过大跨过谷底并震荡，过小移动缓慢，合适时损失快速平滑下降。
+沿正确下坡方向迈步，太小会走得慢，太大可能跨到另一边。跨过谷底也不必然失败：关键是误差是否持续缩小，以及整个过程是否满足目标与预算。
 :::
+
+### 同一起点的一步更新已经可能反向放大误差
+
+构造 J(w)=(w−3)²，起点 -4，梯度为 -14，初始损失 49。学习率 0.1 更新到 -2.6，损失 31.36；0.8 更新到 7.2，虽然跨过最低点，损失仍减为 17.64；1.1 更新到 11.4，损失增为 70.56。
+
+这是单步、单变量构造例，不是网络选型实验。它说明应观察轨迹与稳定性，而不是只用“参数是否跨过最优点”判断好坏；真实选择还需同预算验证。
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-候选值通常按 10 倍尺度尝试；训练损失用于判断优化状态，验证集用于选择泛化更好的设置，测试集不能用于调参。
+通常先按数量级搜索候选，再在有希望的区间细化。比较时固定数据边界、初始化、训练预算和其他关键设置，避免把不同条件造成的差异归给学习率。
+
+训练曲线用于观察有限性、震荡和优化速度，验证集用于比较所选设置的泛化表现。测试集不应成为反复调步长的反馈来源。
+
+目标函数的曲率影响稳定步长。对某个二次函数推导的临界值，不能推广到所有网络；换损失归约、特征尺度或优化器后也要重新检查。
+
+遇到非有限值应排查输入、梯度和数值稳定性，而不是仅仅增加轮数。记录候选失败同样重要，不能只保留最后一次幸运运行。
 :::
 
 
@@ -111,34 +127,38 @@ $$
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 按对数尺度比较学习率
+### 在相同初值上核对三种步长的第一步
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-NumPy
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-记录不同 α 的损失轨迹。
+把方向、步长与损失变化直接算出来。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```NumPy
-candidate_rates = [0.0001, 0.001, 0.01, 0.1, 1.0]
-for alpha in candidate_rates:
-    _, _, losses = gradient_descent(X_scaled, y_train, alpha)
-    print(alpha, losses[-1], np.isfinite(losses).all())
+```Python
+for rate in [0.1, 0.8, 1.1]:
+    w = -4.0
+    gradient = 2 * (w - 3)
+    w -= rate * gradient
+    print(f"rate={rate:.1f} w={w:.1f} loss={(w-3)**2:.2f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 使用相同的已标准化训练数据。
-- 有限性检查可发现 inf/nan 发散。
+- 三次计算都从 -4 开始，使用同一个目标与梯度。
+- 一步的损失变化只证明这个构造目标上的结果，不能直接代替验证集选择。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-每个学习率的最终损失和是否保持有限；过大 α 可能发散，过小 α 收敛慢。
+rate=0.1 w=-2.6 loss=31.36
+rate=0.8 w=7.2 loss=17.64
+rate=1.1 w=11.4 loss=70.56
 :::
 
 ::::

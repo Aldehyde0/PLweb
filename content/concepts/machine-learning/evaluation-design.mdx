@@ -37,7 +37,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-随机划分并不总可靠。同一患者跨分块会泄漏身份，过去预测未来却打乱时间会让训练看到未来。
+模型分数回答的其实是某一种预测情境下的表现。随机留下几行数据，可能测到同一用户的新记录；按用户留出，才更接近对新用户的表现。划分设计不同，得到的结论也不同。
+
+在选算法前，应先定义预测对象、预测时点、可获得的特征与错误代价，再决定验证样本如何模拟未来使用。
 :::
 
 
@@ -58,7 +60,13 @@ anchorAliases:
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-划分设计优先于算法选择；特征可用性、重复实体、时间顺序和地区/设备变化都要进入协议。
+评估单位不一定是数据表的一行。一个患者有多次检查、同一图片有增强副本时，行与行之间并不独立；随机按行划分可能让训练和验证共享同一对象的信息。
+
+时间边界决定特征是否可用。预测时点之后才产生的结算金额、处理结果或人工结论，不能作为当时的输入。即使列名没有标签字样，也可能携带未来信息。
+
+协议还应规定主指标、次指标、基线、调参预算与最终测试的使用方式。模型选择阶段可以使用验证或交叉验证，但一旦根据测试结果改方案，测试集就参与了开发，不能继续作为独立证明。
+
+应把划分逻辑和索引保存下来，检查训练验证之间的实体、时间与数据版本关系。没有一种划分器能自动解决全部问题：分组、时间与地区变化可能需要组合规则或自定义评估。
 :::
 
 
@@ -81,6 +89,12 @@ $$
 
 ::::
 
+### 案例：预测未见患者的检查结果
+
+构造 6 名患者，每人 2 条记录。如果目标是服务新患者，必须让一个患者的全部记录进入同一个验证折。下方代码用 GroupKFold 留出患者，并直接检查训练与验证患者集合没有交集。
+
+若部署目标其实是预测已知患者的下一次检查，还应按时间模拟可用历史。患者隔离回答“能否推广到新患者”，时间隔离回答“能否预测未来记录”，两者不能仅凭分数高低互相替代。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
@@ -97,32 +111,48 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 面向真实使用的评价设计 示例
+### 用患者标识验证分组隔离
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+完整构造患者数据并检查划分契约；这里只验证评估设计，不训练模型或声称业务准确率。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
+```Python
+import numpy as np
 from sklearn.model_selection import GroupKFold
-cv=GroupKFold(n_splits=5)
-results=cross_validate(model,X,y,groups=user_ids,cv=cv)
+
+X = np.arange(12).reshape(-1, 1)
+y = np.tile([0, 1], 6)
+patients = np.repeat(np.arange(6), 2)
+overlap = []
+sizes = []
+for train, valid in GroupKFold(3).split(X, y, groups=patients):
+    overlap.append(len(set(patients[train]) & set(patients[valid])))
+    sizes.append((len(train), len(valid)))
+assert overlap == [0, 0, 0]
+print("overlap:", overlap)
+print("train_valid_sizes:", sizes)
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 每名患者两行记录，groups 使用患者标识而不是行号。
+- 每折验证 2 名患者共 4 行，训练 8 行；集合交集检查直接验证隔离。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-每折验证用户与训练用户不重叠。
+本地 scikit-learn 1.8.0 的核对输出：
+
+```text
+overlap: [0, 0, 0]
+train_valid_sizes: [(8, 4), (8, 4), (8, 4)]
+```
 :::
 
 ::::
@@ -139,9 +169,9 @@ results=cross_validate(model,X,y,groups=user_ids,cv=cv)
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 默认随机切分
-- 同一实体跨折
-- 预测时不可用特征
+- 先挑让分数最高的划分，再把它描述为真实部署情境。
+- 同一实体、重复样本或未来字段跨越训练验证边界。
+- 反复查看测试结果后调参，却继续称该分数为独立测试表现。
 :::
 
 

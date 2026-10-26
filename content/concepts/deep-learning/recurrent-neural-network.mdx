@@ -38,18 +38,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释核心机制
-- 手算一个主要形状或公式
-- 运行完整示例并排查错误
+- 标量 RNN 记住上一步
+- RNN 的参数量会随序列长度增加吗？
+- 说明：有限隐藏状态不是完整历史副本，普通 RNN 的长依赖与状态重置都需要特别检查。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-掌握循环神经网络 RNN的输入输出与训练边界
-
-能够用 PyTorch 代码验证公式和形状
+循环神经网络在时间上重复使用同一组参数，通过隐藏状态连接相邻时刻。普通 RNN 常以线性组合加 tanh 更新状态。
 :::
 
 
@@ -60,30 +58,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-循环神经网络 RNN是该文档中连接数据表示、训练目标和工程实现的核心主题。
+序列的当前含义往往依赖先前内容。RNN 将过去压缩进隐藏状态，再与当前输入共同更新，使同一单元可以逐步处理不同长度的数据。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-RNN 用共享循环单元和隐藏状态把历史信息传向后续时间步。
+循环神经网络在时间上重复使用同一组参数，通过隐藏状态连接相邻时刻。普通 RNN 常以线性组合加 tanh 更新状态。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把循环神经网络 RNN理解为数据在模型中的一套明确变换，而不是只记一个类名。
+边读句子边维护一份会更新的笔记；每个新词既参考自身，也参考之前的笔记。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-同一参数跨时间共享，BPTT 沿状态链反向传播。
+状态更新可写为 h_t=tanh(W_x x_t+W_h h_prev+b)。输入、循环权重在所有时间步共享，所以增加序列长度增加计算步数，不自动增加模型参数。初始状态通常为零，也可由任务另行指定。
 
-实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+训练按时间展开后执行 BPTT，梯度沿循环链相乘。反复乘较小或较大局部导数会造成梯度消失或爆炸，这也是长依赖较难学习的原因；裁剪只能限制爆炸，不能直接恢复已经消失的信息。
+
+PyTorch batch_first 只控制输入与 output 的轴，最终状态仍按层数×方向数、batch、hidden 排列。变长输入应使用 packed sequence 或明确 mask，直接取 out[:, -1] 可能取到 padding 后的状态。
 :::
 
 
@@ -101,7 +101,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-循环神经网络 RNN的核心数学表达。
+循环神经网络在时间上重复使用同一组参数，通过隐藏状态连接相邻时刻。普通 RNN 常以线性组合加 tanh 更新状态。
 :::
 
 ::::
@@ -121,37 +121,40 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 循环神经网络 RNN数值/形状检查
+### 标量 RNN 记住上一步
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=8
-- D=64
+- h0=0，输入为 1、0
+- 输入权重与循环权重均为 1，无偏置
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 按公式或模块逐步计算
-2. 核对输出 shape
+1. h1=tanh(1)，约 0.761594。
+2. h2=tanh(h1)，约 0.642015。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出保持 batch 维并符合任务头约定
+第二步输入为零，状态仍保留第一步影响。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 有限隐藏状态不是完整历史副本，普通 RNN 的长依赖与状态重置都需要特别检查。
 :::
+
+### 标量 RNN 记住上一步
+
+如果没有循环项，第二步输出就是 tanh(0)=0。保留下来的 0.642 显示状态依赖过去，但每次 tanh 也会改变幅度，不能把隐藏状态当作无损历史存储。
+
+同一权重被用两次，反向的贡献会汇总到这组共享参数。在线推理中可以携带状态；跨独立样本则必须重置，避免串入上一条序列的信息。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认输入与目标
-2. 建立最小模块
-3. 随机张量前向
-4. 计算损失
-5. 反向与更新
-6. 验证与错误分析
+1. h1=tanh(1)，约 0.761594。
+2. h2=tanh(h1)，约 0.642015。
 :::
 
 
@@ -159,34 +162,41 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 循环神经网络 RNN · PyTorch 示例
+### 标量 RNN 记住上一步的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证循环神经网络 RNN的输入、计算和输出。
+使用完整构造输入核对标量 RNN 记住上一步，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-rnn=nn.RNN(64,128,batch_first=True)
-x=torch.randn(8,20,64)
-out,h=rnn(x)
-print(out.shape,h.shape)
+```python
+import torch
+from torch import nn
+rnn = nn.RNN(1, 1, bias=False, batch_first=True)
+with torch.no_grad():
+    rnn.weight_ih_l0.fill_(1.)
+    rnn.weight_hh_l0.fill_(1.)
+out, h = rnn(torch.tensor([[[1.], [0.]]]))
+print([round(v, 6) for v in out.detach().flatten().tolist()])
+print("output:", tuple(out.shape), "hidden:", tuple(h.shape))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码显式标注输入和输出
-- 使用框架稳定实现
-- 结果通过 shape 或数值检查
+- 固定循环权重，与手算更新完全对应。
+- batch_first 不改变 h 的轴约定。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印与页面说明一致的张量形状或损失。
+```text
+[0.761594, 0.642015]
+output: (1, 2, 1) hidden: (1, 1, 1)
+```
 :::
 
 ::::
@@ -194,8 +204,8 @@ print(out.shape,h.shape)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 循环神经网络 RNN
-- 教学与项目基线
+- 在线传感器序列处理
+- 小规模文本和时间序列基线
 :::
 
 
@@ -215,18 +225,17 @@ print(out.shape,h.shape)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 循环神经网络 RNN最先检查什么？
+### RNN 的参数量会随序列长度增加吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-先检查输入输出 shape、dtype 和数据边界。
+同一层的参数在时间上共享，因此不随长度增加；计算量和反向保存的激活通常会随长度增加。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 何时使用测试集？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-全部设计锁定后最终评估。
+有限隐藏状态不是完整历史副本，普通 RNN 的长依赖与状态重置都需要特别检查。
 :::
-

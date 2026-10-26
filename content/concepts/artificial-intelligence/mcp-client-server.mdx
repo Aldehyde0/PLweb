@@ -66,7 +66,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-把所有 MCP 能力都叫“工具”会忽略资源读取、用户选择 Prompt 和不同权限模型。
+“连上一个 MCP”容易让人忽略到底是谁在连接、谁持有权限、谁决定调用。把 Host、Client、Server 与能力原语分清，可以在报错或越权风险出现时找到真实责任边界。
+
+这些角色是协议职责，并不一定对应三台机器。同一桌面应用可以作为 Host 管理多个 Client，而每个 Server 可以运行在本地或远程。
 :::
 
 
@@ -87,13 +89,23 @@ Client 像前台，Server 像服务柜台；Tool 是办理业务，Resource 是�
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-当前 MCP 规范把 Tools 描述为模型控制、Resources 为应用控制、Prompts 为用户控制的教学性控制层次。
+Host 协调用户界面、模型、授权与上下文聚合，并创建和管理 Client。Client 负责与特定 Server 交互，处理协议消息和版本兼容；不能把所有用户授权责任都推给连接适配层。
 
-能力发现先于调用，Client 可以过滤 Server 宣告的集合。
+Server 对外声明工具、资源与 Prompt，并执行相应业务能力。一个 Server 不应因此获得完整对话历史或其他 Server 的数据；宿主应只传完成请求所必需的上下文。
 
-Server 宣告能力不等于用户已授权每次调用。
+Tools 通常称为模型控制，Resources 为应用控制，Prompts 为用户控制。这是帮助理解使用方式的设计视角，协议并不强制唯一界面，也不是授权等级；模型可选择工具不等于它能批准任意调用。
+
+能力发现说明对方声称支持什么，调用阶段还要核对身份、对象范围和参数。2026-07-28 规范按请求携带能力与版本，旧实现可能采用连接级协商；Client 必须按实际版本工作，而不是只看 Server 名称就猜协议行为。
+
+详细职责见 [官方架构说明](https://modelcontextprotocol.io/specification/2026-07-28/architecture)。
 :::
 
+
+### 案例：一份政策同时以 Resource 与 Tool 方式使用
+
+宿主连接企业知识 Server。用户选择某份政策文档时，应用可以读取对应 Resource；当用户提出模糊问题时，模型可以请求检索 Tool 找到相关文档；用户选择“政策差异审阅”Prompt 时，宿主按模板收集比较条件。
+
+三者可以协作，却不是同一个动作。检索命中只返回候选资料，不等于已读取完整政策；选择 Prompt 也不等于已执行其中涉及的写入操作。Client 运送请求，Host 控制上下文和用户确认，Server 则负责真实的数据访问与服务端权限。
 
 ## 理解与实践步骤 {#algorithm-steps}
 
@@ -117,8 +129,9 @@ Server 宣告能力不等于用户已授权每次调用。
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- Server 宣告即自动授权
-- 工具、资源和 Prompt 混用
+- 把 Host 与 Client 混成同一个职责，无法说明授权和模型上下文由谁管理。
+- 认为 Server 声明工具后，Client 就必须向所有用户暴露并允许调用。
+- 把 Tool、Resource 与 Prompt 的控制视角误读成强制界面或自动授权规则。
 :::
 
 
@@ -148,10 +161,9 @@ Server 宣告能力不等于用户已授权每次调用。
 
 ## 安全风险与信任边界 {#security-risks}
 
-
-
+服务端公布工具与资源，客户端仍需判断它们是否适合当前任务和数据范围。连接认证不代表所有资源都应向该客户端开放，服务端说明与返回资料也不能越过原有指令边界；凭据不应夹带到不需要它的模型上下文。
 
 ## 性能与失败模式 {#performance-notes}
 
-
+能力发现、连接建立与具体工具执行有不同开销。能力缓存可能过期，长请求还需处理取消、超时与服务重启；测试应区分协议连通、参数有效和业务结果正确，不能仅以握手成功认定集成可用。
 

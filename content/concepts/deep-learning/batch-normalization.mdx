@@ -37,18 +37,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 识别统计轴
-- 管理 running stats
-- 处理小 batch
+- 两样本展示训练与推理方差差异
+- BN 的 momentum 越大，历史保留越多吗？
+- 说明：小批或非代表性批次可能让统计不稳；冻结 affine 不等于冻结运行状态。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-CNN 常用
-
-train/eval 行为不同
+BatchNorm 按通道标准化激活，训练时通常使用当前批统计，并更新 running_mean 和 running_var；推理时默认使用运行统计，再执行可学习的缩放与平移。
 :::
 
 
@@ -59,30 +57,32 @@ train/eval 行为不同
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-中间激活尺度变化会让优化不稳定。
+BatchNorm 不仅有可训练参数，还有随训练更新的运行统计。若只冻结权重却忽略模式切换，微调或推理结果仍可能变化。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-BatchNorm 在训练用当前 batch 统计，评估用 running stats，再学习 γ/β。
+BatchNorm 按通道标准化激活，训练时通常使用当前批统计，并更新 running_mean 和 running_var；推理时默认使用运行统计，再执行可学习的缩放与平移。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-每个通道用当前训练群体校准，再允许模型重新缩放和平移。
+训练时用这一批样本估计参照线，推理时用累计参照线。两条线可能不同，因此同一输入在两种模式下不一定相同。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-BatchNorm2d 对 \[N,C,H,W\] 每通道跨 N/H/W 统计；小 batch 统计噪声大。
+BatchNorm2d 接受 $[N,C,H,W]$，对每个通道跨 N、H、W 计算统计量，缩放和偏移各有 C 个参数。训练前向使用有偏方差估计；PyTorch 更新 running_var 时采用无偏估计，这使小构造批次的数值尤其值得区分。
 
-冻结 γ/β 不等于冻结 running stats；每次 model.train 后可能需重新设 BN eval。
+momentum 控制运行统计的指数更新比例，与优化器动量含义不同。track_running_stats=False 时不会维护这组运行统计，评估也使用输入批统计，因此不能把“eval 总用固定均值”当成所有配置的规则。
+
+requires_grad=False 只冻结 affine 参数，不阻止训练模式更新 buffer。做冻结骨干微调时，需要明确是否让 BatchNorm 继续适应新域；每次 model.train 后也要按配方重新设置这些层。
 :::
 
 
@@ -100,7 +100,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-每个通道独立统计。
+BatchNorm 按通道标准化激活，训练时通常使用当前批统计，并更新 running_mean 和 running_var；推理时默认使用运行统计，再执行可学习的缩放与平移。
 :::
 
 ::::
@@ -120,34 +120,43 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### BN2d 统计数
+### 两样本展示训练与推理方差差异
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=32,H=W=16
+- 单通道输入为 1、3
+- affine=False，momentum=1
+- 先训练前向，再对同一批评估前向
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 每通道 32×16×16
+1. 训练均值为 2，有偏方差为 1，输出近似 ±1。
+2. 运行方差记录无偏估计 2。
+3. 评估除以 sqrt(2)，输出近似 ±0.7071。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-8192 个值
+running_mean=2，running_var=2；相同输入在两种模式下数值不同。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 小批或非代表性批次可能让统计不稳；冻结 affine 不等于冻结运行状态。
 :::
+
+### 两样本展示训练与推理方差差异
+
+这个差异来自明确的统计约定，不是模型随机了。真实大批量时两种方差更接近，小批次则更明显；默认 momentum 也会让运行统计逐步混合，而不是完全替换。
+
+如果评估结果随同批其他样本变化，应先查看配置是否禁用了 running stats，以及是否真的调用 eval。不要只重复加载 affine 权重。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 按通道统计
-2. 归一化
-3. 仿射变换
-4. 更新 running
-5. eval 使用 running
+1. 训练均值为 2，有偏方差为 1，输出近似 ±1。
+2. 运行方差记录无偏估计 2。
+3. 评估除以 sqrt(2)，输出近似 ±0.7071。
 :::
 
 
@@ -155,33 +164,44 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Batch Normalization · PyTorch 示例
+### 两样本展示训练与推理方差差异的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证Batch Normalization的输入、计算和输出。
+使用完整构造输入核对两样本展示训练与推理方差差异，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-bn=nn.BatchNorm2d(64)
-x=torch.randn(32,64,16,16)
-print(bn(x).shape,bn.weight.shape)
+```python
+import torch
+from torch import nn
+bn = nn.BatchNorm1d(1, affine=False, momentum=1.)
+x = torch.tensor([[1.], [3.]])
+bn.train()
+a = bn(x)
+bn.eval()
+b = bn(x)
+print("train:", [round(v, 4) for v in a.flatten().tolist()])
+print(f"running mean={bn.running_mean.item():.1f} var={bn.running_var.item():.1f}")
+print("eval:", [round(v, 4) for v in b.flatten().tolist()])
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 输出形状不变
-- 每通道一个 γ/β
-- 训练更新 running
+- momentum=1 便于精确核对统计更新。
+- 没有 affine 参数，因此差异只来自统计方式。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-\[32,64,16,16\] 与 weight \[64\]。
+```text
+train: [-1.0, 1.0]
+running mean=2.0 var=2.0
+eval: [-0.7071, 0.7071]
+```
 :::
 
 ::::
@@ -189,8 +209,8 @@ print(bn(x).shape,bn.weight.shape)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- CNN
-- 稳定 batch MLP
+- CNN 训练与部署模式管理
+- 冻结骨干网络时处理运行统计
 :::
 
 
@@ -211,18 +231,17 @@ print(bn(x).shape,bn.weight.shape)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### no\_grad 会切换 BN 吗？
+### BN 的 momentum 越大，历史保留越多吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-不会。
+在 PyTorch 的运行统计更新中，新统计的权重是 momentum，值越大越快跟随当前批；这与某些动量直觉相反。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### N=1 一定可用吗？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-取决于空间统计与任务，仍可能不稳定。
+小批或非代表性批次可能让统计不稳；冻结 affine 不等于冻结运行状态。
 :::
-

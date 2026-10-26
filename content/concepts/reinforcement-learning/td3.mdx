@@ -55,18 +55,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义TD3并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 将双 Q 最小值、延迟更新和目标动作平滑分别对应到 DDPG 的失败来源。
+- 独立复核“裁剪目标动作并取双 critic 较小值”的输入、计算和解释。
+- 动作噪声先裁剪、动作边界后裁剪，限制对象不同。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-TD3位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+将双 Q 最小值、延迟更新和目标动作平滑分别对应到 DDPG 的失败来源。
 :::
 
 
@@ -77,36 +75,32 @@ TD3位于“状态—行动—反馈—更新”学习链中的关键位置。
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+确定性 actor 会追逐 critic 的局部高分，哪怕高分只是估计噪声形成的尖峰。TD3 在 DDPG 结构上加入三个机制，减少这种误差经过 actor 与 bootstrap 的反复放大。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-TD3 取两个 target Q 的最小值，并降低 Actor 更新频率。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+TD3 使用双 critic 的较小目标值，降低 actor 及目标网络的更新频率，并对目标动作添加有限平滑噪声。它仍是使用 replay 的确定性 off-policy actor-critic，行为探索噪声与目标平滑噪声用途不同。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-两个评委取更保守分数，演员不必每次都跟着噪声调整。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+先让两位评论家中较谨慎的给出目标，执行者不必每听一次新评分就改动作；评价附近一小片动作而非一个尖点，可减少追逐偶然高峰。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-缓解过估计。
+目标动作先加裁剪后的噪声，再按合法动作范围裁剪。两个 target critic 评价同一动作，取较小值构造 TD 目标；这不是 Double DQN 的在线选动作、目标网评价。
 
-target action 加平滑噪声。
+critic 通常每步更新，actor 每隔若干 critic 步更新，目标网络也按相应延迟更新。延迟让 actor 使用相对成熟的价值估计，但过慢会拖累改进，不能认为越慢越稳越好。
+
+双 Q 最小值会带来保守偏差，相关 critic 仍可共同出错。目标平滑依赖局部动作含义；若相近动作造成完全不同后果，平滑尺度过大可能抹去关键结构。
 :::
 
 
@@ -114,17 +108,17 @@ target action 加平滑噪声。
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### TD3 的 clipped double Q 目标
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+y=r+\gamma(1-d)\min_{i=1,2}\bar Q_i(s\prime,\tilde a),\quad\tilde a=\operatorname{clip}(\bar\mu(s\prime)+\operatorname{clip}(\epsilon,-c,c))
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+外层 clip 使用合法动作范围，d 表示真正终止。
 :::
 
 ::::
@@ -135,9 +129,9 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| Q̄1、Q̄2 | 两个目标 critic |
+| ã | 平滑并裁剪后的目标动作 |
+| c | 目标噪声幅度上限 |
 :::
 
 ::::
@@ -145,30 +139,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### TD3的最小计算
+### 裁剪目标动作并取双 critic 较小值
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 目标 actor 动作为 0.8，采样噪声 0.5，噪声裁剪到 ±0.2，动作上限 0.9。
+- 两个 target Q 对最终动作的估计为 5 与 3；奖励 1，折扣 0.9。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 裁剪噪声得 0.2，加到动作后为 1.0，再按动作上限得到 0.9。
+2. 双 critic 最小值为 3。
+3. TD3 目标为 1+0.9×3=3.7。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+最终目标动作 0.900，双 Q 目标为 3.700。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 动作噪声先裁剪、动作边界后裁剪，限制对象不同。
+- 该算术不包含延迟更新循环；延迟频率属于另一个机制。
 :::
 
 
@@ -186,7 +177,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### TD3的本地数值骨架
+### 裁剪目标动作并取双 critic 较小值
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -194,28 +185,29 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+最终目标动作 0.900，双 Q 目标为 3.700。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+target_action, sampled_noise = 0.8, 0.5
+noise = max(-0.2, min(0.2, sampled_noise))
+smoothed_action = max(-0.9, min(0.9, target_action + noise))
+target = 1.0 + 0.9 * min(5.0, 3.0)
+print(f"target_action={smoothed_action:.3f}, target={target:.3f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 裁剪噪声得 0.2，加到动作后为 1.0，再按动作上限得到 0.9。
+- 双 critic 最小值为 3。
+- TD3 目标为 1+0.9×3=3.7。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+target_action=0.900, target=3.700
+```
 :::
 
 ::::
@@ -231,9 +223,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 混淆数据采集探索噪声与目标平滑噪声。
+- 两个 critic 对不同目标动作评分后取最小。
+- 认为取最小值便得到真实价值下界或安全保证。
 :::
 
 
@@ -244,7 +236,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [OpenAI Spinning Up：TD3](https://spinningup.openai.com/en/latest/algorithms/td3.html)。
 :::
 
 
@@ -255,9 +247,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 混淆数据采集探索噪声与目标平滑噪声。
+- 两个 critic 对不同目标动作评分后取最小。
+- 认为取最小值便得到真实价值下界或安全保证。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -274,11 +266,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### TD3是 on-policy 还是 off-policy？
+### TD3 的双 critic 与 Double DQN 相同吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-本页算法/方法按 off-policy 组织。
+不是。TD3 对同一目标动作取两 critic 的最小值；Double DQN 用在线网络选离散动作，再由目标网络评价。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -288,4 +280,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

@@ -54,18 +54,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Multi-Agent 与 Hierarchical RL并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 区分多决策者交互与单决策者时间抽象，避免混淆两类扩展。
+- 独立复核“持续两步的 option 如何备份”的输入、计算和解释。
+- 时间抽象改变决策间隔，多智能体改变决策者数量。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Multi-Agent 与 Hierarchical RL位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+区分多决策者交互与单决策者时间抽象，避免混淆两类扩展。
 :::
 
 
@@ -76,36 +74,32 @@ Multi-Agent 与 Hierarchical RL位于“状态—行动—反馈—更新”学�
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+两辆仓库机器人同时选路线，会相互改变碰撞和拥堵；一辆机器人先选“去充电”再执行多步控制，则是在不同时间尺度上决策。多智能体与分层可以同时存在，但它们带来的建模困难不同。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-MARL 中环境随其他 Agent 学习而非平稳；HRL 用 option/skill 分层决策。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+多智能体强化学习研究多个策略共同影响环境与收益的情形，可协作、竞争或混合。分层强化学习用技能、子目标或 option 表达时间延展动作。option 通常包含启动条件、内部策略与终止规则，不能仅当作一个动作别名。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-团队协作与公司层级都增加协调问题。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+多智能体像多人配合搬家，需要考虑队友会怎样行动；分层像先决定“打包厨房”，再执行一串细动作，重点是把长任务分成有持续时间的技能。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-联合动作空间爆炸。
+其他学习者不断改策略，会使单个智能体看到的转移与回报分布变化。独立 replay 的旧经验可能对应旧队友；集中训练分散执行可在训练期用更多信息，但执行策略不能偷偷依赖不可获得的全局状态。
 
-集中训练分散执行是一类常见范式。
+联合动作空间随智能体数量乘法增长，团队奖励还会带来个体信用分配。集中 critic、值分解或通信协议各有结构假设，不能因为协作就声称所有贡献可自动辨别。
+
+技能持续 k 步时，高层备份需要累计这 k 步奖励并用 γ 的 k 次幂折扣后继价值。忽略持续时间会错误比较长短技能；技能可中断性与安全终止也需显式定义。
 :::
 
 
@@ -113,17 +107,17 @@ MARL 中环境随其他 Agent 学习而非平稳；HRL 用 option/skill 分层�
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### 持续 k 步的高层备份
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+y=\sum_{j=0}^{k-1}\gamma^j r_{t+j+1}+\gamma^k V(s_{t+k})
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+option 终止与任务真正终止不同；后者将高层后继项置零。
 :::
 
 ::::
@@ -134,9 +128,8 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| k | 技能实际持续步数 |
+| V | 下一高层决策点的价值 |
 :::
 
 ::::
@@ -144,30 +137,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Multi-Agent 与 Hierarchical RL的最小计算
+### 持续两步的 option 如何备份
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 技能产生奖励 1、2，持续 2 步，之后高层价值为 4。
+- 折扣 0.9，技能结束不是任务终止。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 技能内折扣回报为 1+0.9×2=2.8。
+2. 高层后继项为 0.9²×4=3.24。
+3. option 目标为 6.04；不能误写为 2.8+0.9×4。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+两步 option 目标为 6.040，持续时间决定后继折扣。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 时间抽象改变决策间隔，多智能体改变决策者数量。
+- 本例只核对高层折扣，未实现多个学习者的交互。
 :::
 
 
@@ -184,7 +174,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Multi-Agent 与 Hierarchical RL的本地数值骨架
+### 持续两步的 option 如何备份
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -192,28 +182,29 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+两步 option 目标为 6.040，持续时间决定后继折扣。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+rewards, gamma, next_high_value = [1.0, 2.0], 0.9, 4.0
+duration = len(rewards)
+within_option = sum(gamma ** i * r for i, r in enumerate(rewards))
+target = within_option + gamma ** duration * next_high_value
+print(f"duration={duration}, option_target={target:.3f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 技能内折扣回报为 1+0.9×2=2.8。
+- 高层后继项为 0.9²×4=3.24。
+- option 目标为 6.04；不能误写为 2.8+0.9×4。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+duration=2, option_target=6.040
+```
 :::
 
 ::::
@@ -229,9 +220,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 把多智能体与分层当作同一算法类别。
+- 训练 critic 的全局信息泄露给部署 actor。
+- 高层技能持续多步却只用一次 γ 折扣后继。
 :::
 
 
@@ -242,7 +233,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Sutton 等：Between MDPs and Semi-MDPs: A Framework for Temporal Abstraction in Reinforcement Learning](https://doi.org/10.1016/S0004-3702(99)00052-1)。
 :::
 
 
@@ -253,9 +244,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 把多智能体与分层当作同一算法类别。
+- 训练 critic 的全局信息泄露给部署 actor。
+- 高层技能持续多步却只用一次 γ 折扣后继。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -272,11 +263,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Multi-Agent 与 Hierarchical RL是 on-policy 还是 off-policy？
+### 集中训练是否允许执行时读取所有状态？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+只有部署确实能获得这些信息才可以。集中训练分散执行的核心正是让部署 actor 仅依赖本地可用信息。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -286,4 +277,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

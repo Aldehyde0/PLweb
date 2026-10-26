@@ -36,7 +36,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-同一对象跨折会让模型通过身份特征认出验证记录，结果无法代表新对象。
+一个用户多次访问、一个患者多张影像、一个设备多次采样时，相邻记录往往共享稳定特征。随机按行划分可能让模型在验证时“认出”训练中出现过的实体，无法衡量对新实体的泛化。
+
+分组验证将同一实体的全部记录绑定在一起。groups 的定义应来自真实依赖关系，而不是为了凑平衡而随意生成。
 :::
 
 
@@ -57,7 +59,13 @@ groups 标识相互依赖的样本集合；GroupKFold 以组为不可拆分单�
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-分组隔离通常优先于简单分层。若同时关心类别比例，可用 StratifiedGroupKFold。
+GroupKFold 把组分配给验证折，并确保同一折中训练与验证的组没有交集。标准分组 K 折中每个组恰好作为验证组一次；可选折数不能超过独立组数量。
+
+类别比例与组隔离是不同约束。StratifiedGroupKFold 尝试在不拆组的条件下维持类别比例，但组大小与组内类别分布可能使完美分层无法实现；必须检查实际折分布。
+
+当目标是新患者或新客户，组隔离通常比按行随机分层更符合问题。若目标是已知患者的未来记录，还要加入时间边界；仅按组隔离不能说明时间外推表现。
+
+groups 应传给划分过程，不应默认作为预测特征。用户标识可以是拆分依据，却可能没有部署泛化意义；编码或选择这些字段前，应明确预测时是否可用以及是否只是记忆实体。
 :::
 
 
@@ -80,6 +88,12 @@ $$
 
 ::::
 
+### 案例：6 名患者每人两次采样
+
+下方构造 12 行、6 名患者，3 折时每折留出 2 名患者。程序不仅看行索引不重叠，还直接检查患者标识集合交集为零，并检查 6 个患者都被留出过。
+
+如果同一患者有 100 行、其他患者只有 2 行，单看行级准确率还可能由大组主导。实际报告应说明行级与组级汇总口径，必要时另报患者平均指标，避免评价单位与部署目标不一致。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
@@ -96,31 +110,50 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### GroupKFold 与分层分组验证 示例
+### 直接检查训练验证患者集合
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+以患者为依赖单位验证隔离，不把行索引不重复误当作无实体泄漏。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-cv=GroupKFold(n_splits=5)
-r=cross_validate(model,X,y,groups=patient_ids,cv=cv)
+```Python
+import numpy as np
+from sklearn.model_selection import GroupKFold
+
+X = np.arange(12).reshape(-1, 1)
+y = np.tile([0, 1], 6)
+patients = np.repeat(np.arange(6), 2)
+seen = set()
+for number, (train, valid) in enumerate(GroupKFold(3).split(X, y, patients), start=1):
+    training_groups = set(patients[train])
+    validation_groups = set(patients[valid])
+    assert training_groups.isdisjoint(validation_groups)
+    seen.update(validation_groups)
+    print(f"fold={number}, train_rows={len(train)}, valid_groups={len(validation_groups)}, overlap=0")
+print("held_out_groups:", len(seen))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 患者标识传给 splitter，而不是作为模型输入特征。
+- seen 检查所有独立组都曾被验证。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-每折验证患者不出现在该折训练集。
+本地 scikit-learn 1.8.0 的核对输出：
+
+```text
+fold=1, train_rows=8, valid_groups=2, overlap=0
+fold=2, train_rows=8, valid_groups=2, overlap=0
+fold=3, train_rows=8, valid_groups=2, overlap=0
+held_out_groups: 6
+```
 :::
 
 ::::
@@ -136,8 +169,9 @@ r=cross_validate(model,X,y,groups=patient_ids,cv=cv)
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 忘传 groups
-- 按记录随机分层
+- 只检查训练行与验证行没有重复，却遗漏同一实体的不同记录。
+- 把 groups 放进 X 后以为已完成分组，实际上仍用普通 KFold。
+- 假定分组后类别比例一定平衡，或在组数不足时强行设更多折。
 :::
 
 

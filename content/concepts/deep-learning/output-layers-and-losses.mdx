@@ -37,18 +37,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 列出四类任务搭配
-- 解释 logit
-- 检查 shape/dtype
+- 相同三个零 logits 的两种语义
+- CrossEntropyLoss 的索引目标为什么通常是 long？
+- 说明：损失较小不等于任务更简单或模型更准确，不同损失的尺度不能直接比较。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-决定任务数学含义
-
-避免重复激活
+输出层规定预测张量的形状与语义，损失函数规定预测和目标如何比较。回归、二分类、互斥多分类和多标签分类各有不同的契约。
 :::
 
 
@@ -59,30 +57,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-输出、标签、dtype 和损失不匹配会直接导致错误训练。
+同样是输出三个数字，它们可以表示三个互斥类别，也可以表示三个独立标签。输出层和损失必须一起设计，否则网络会被迫学习错误的概率关系。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-输出头表达答案空间，损失把 logits 与目标映射为可优化标量。
+输出层规定预测张量的形状与语义，损失函数规定预测和目标如何比较。回归、二分类、互斥多分类和多标签分类各有不同的契约。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-先决定模型要回答什么格式的问题，再决定最后一层和评分规则。
+互斥分类像只投一张票，多标签像每个选项独立勾选。softmax 让票数总和为 1，sigmoid 则不要求不同标签互相排斥。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-回归直接实数；二分类 1 logit+BCEWithLogits；互斥多分类 C logits+CE；多标签 C logits+BCE。
+回归常输出实数并配 MSE 或 L1；二分类可输出一个 logit，配 BCEWithLogitsLoss，浮点目标与预测同形状。互斥多分类输出 $[N,C]$ logits，常用 CrossEntropyLoss 与 $[N]$ 的 long 类别索引。
 
-训练使用 logits 提高数值稳定性，推理再 Sigmoid/Softmax。
+多标签同样可输出 $[N,C]$，但每格是独立二元目标，因此使用浮点的 $[N,C]$ 目标和 BCEWithLogitsLoss。若错误地使用 softmax，一个标签概率升高会强制挤压其他标签，即使它们可以同时出现。
+
+组合损失内部以稳定方式完成概率和对数计算，训练前不必先 softmax 或 sigmoid。推理时才按需要转换概率、选择阈值；argmax 只适合互斥标签，不能自动给多标签选择集合。
 :::
 
 
@@ -100,7 +100,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-z\_y 是真实类别 logit。
+输出层规定预测张量的形状与语义，损失函数规定预测和目标如何比较。回归、二分类、互斥多分类和多标签分类各有不同的契约。
 :::
 
 ::::
@@ -120,37 +120,41 @@ z\_y 是真实类别 logit。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 十分类
+### 相同三个零 logits 的两种语义
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=32
-- C=10
+- logits 为 (0,0,0)
+- 互斥目标类别为 1
+- 多标签目标为 (1,0,1)
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 输出 \[32,10\]
-2. target \[32\] long
+1. 互斥 softmax 给每类 1/3，交叉熵为 log(3)。
+2. 独立 sigmoid 给每格 1/2，平均二元损失为 log(2)。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-CrossEntropyLoss 接收二者
+互斥损失约为 1.098612；多标签平均损失约为 0.693147。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 损失较小不等于任务更简单或模型更准确，不同损失的尺度不能直接比较。
 :::
+
+### 案例推演与判断
+
+对一张既有猫又有狗的图像，多标签目标可以同时激活两个位置。此时 argmax 只能选一个，不符合标注任务。若标签是“猫、狗、其他三选一”，则相反，需要互斥建模。
+
+两个损失的数值来自不同目标和归一化定义，不能因为 0.693 比 1.099 小就判断多标签模型更好。必须在相同任务、相同计算口径下比较。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认任务
-2. 设置 out\_features
-3. 准备标签 dtype
-4. 选择损失
-5. 检查 logits
-6. 推理转换
+1. 互斥 softmax 给每类 1/3，交叉熵为 log(3)。
+2. 独立 sigmoid 给每格 1/2，平均二元损失为 log(2)。
 :::
 
 
@@ -158,34 +162,41 @@ CrossEntropyLoss 接收二者
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 输出层与损失函数搭配 · PyTorch 示例
+### 相同三个零 logits 的两种语义的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证输出层与损失函数搭配的输入、计算和输出。
+使用完整构造输入核对相同三个零 logits 的两种语义，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-logits=torch.randn(32,10)
-target=torch.randint(0,10,(32,))
-loss=nn.CrossEntropyLoss()(logits,target)
-print(loss.item())
+```python
+import torch
+from torch import nn
+logits = torch.zeros(1, 3)
+single = nn.CrossEntropyLoss()(logits, torch.tensor([1]))
+multi = nn.BCEWithLogitsLoss()(logits, torch.tensor([[1., 0., 1.]]))
+print(f"single={single.item():.6f} multi={multi.item():.6f}")
+print("softmax:", [round(v, 6) for v in logits.softmax(-1)[0].tolist()])
+print("sigmoid:", logits.sigmoid()[0].tolist())
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- logits 不做 Softmax
-- target 是 long 类别索引
-- loss 是标量
+- 同一 logits 分别匹配两种完整目标。
+- 展示的是语义差异，没有比较真实模型效果。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-输出正标量损失。
+```text
+single=1.098612 multi=0.693147
+softmax: [0.333333, 0.333333, 0.333333]
+sigmoid: [0.5, 0.5, 0.5]
+```
 :::
 
 ::::
@@ -193,7 +204,8 @@ print(loss.item())
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 回归/分类/多标签
+- 设计分类和多标签任务头
+- 避免推理阈值与训练目标错配
 :::
 
 
@@ -214,18 +226,17 @@ print(loss.item())
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 二分类能否输出两个 logits？
+### CrossEntropyLoss 的索引目标为什么通常是 long？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-可以配 CE，但一 logit+BCE 更直接。
+索引目标表示类别编号，框架按编号选取正确类的对数概率；它不是需要插值的连续数值。概率目标是另一种受支持的契约，不能与索引接口混用。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 多标签为何不用 Softmax？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-标签不互斥，需要每类独立 Sigmoid。
+损失较小不等于任务更简单或模型更准确，不同损失的尺度不能直接比较。
 :::
-

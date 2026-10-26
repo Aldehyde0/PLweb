@@ -44,7 +44,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-一个高分 notebook 不等同可交付项目；模型文件、输入检查、命令、版本和限制同样重要。
+一个高分 notebook 可能依赖隐藏单元、个人路径和当前内存对象，别人无法从干净环境复现，也无法可靠输入新样本。项目交付要把训练、评价与预测拆成明确入口，并让产物携带解释自身所需的信息。
+
+交付是否合格取决于能否按约定运行、输入错误能否被发现，以及报告结论是否可回查，而不只是模型文件存在。
 :::
 
 
@@ -65,7 +67,15 @@ anchorAliases:
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-Level 1–4 逐级完成；任何测试集泄漏、修改测试样本、使用深度学习替代或无法解释代码均一票否决。
+可以按四个层次验收：先完成数据审计、固定测试和基线，再完成同折候选比较与开发选择，随后锁定最终评价和图表，最后交付模型、预测程序、依赖和限制说明。后一级不能靠跳过前一级的数据边界来获得高分。
+
+训练入口负责读取数据并输出已拟合 Pipeline 与元数据，评价入口读取固定预测和协议生成指标与图，预测入口只做契约检查、变换和预测，不能在用户每次调用时悄悄重新训练或更新缩放统计量。
+
+产物至少关联特征数与顺序、像素范围、展平方式、类别、依赖版本和数据/划分记录。Digits 预测要求二维的每行 64 个有限像素，范围 0–16；任意图片文件到这个表示的转换需要另行实现和验证，不能只 reshape 一张大照片。
+
+路径使用可配置输出目录与 pathlib，首次运行自动创建产物目录，缺少文件或输入不符时清楚报错。joblib/pickle 加载可能执行代码，只能加载可信来源；校验文件哈希不等于证明供应方可信。
+
+从干净进程重载刚保存的可信模型，用固定样本核对预测一致，并测试错误形状、非有限值和越界像素。工程验收也要保留未完成项：示例通过往返不证明完整项目图表、真实照片适配或线上监控已经实现。
 :::
 
 
@@ -83,20 +93,27 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-Level 1–4 逐级完成；任何测试集泄漏、修改测试样本、使用深度学习替代或无法解释代码均一票否决。
+此处保留项目主线锚点，箭头仅是工程顺序示意，不构成损失函数或评分规则。验收依据是可运行入口、真实产物、输入契约和可追溯记录。
 :::
 
 ::::
 
+### 案例：文件存在仍不等于预测接口合格
+
+下方先用固定开发数据拟合一个 KNN Pipeline，保存到临时目录，再仅加载本进程刚创建的可信文件。这个模型只是交付接口示例，不宣称它是前文所有候选中的最优者。
+
+合法的一行 64 像素输入应与保存前得到相同结果；63 列输入和包含 17 的像素则在 predict 前被拒绝。若仅检查模型文件存在，这两类输入问题会被漏掉。真实交付还需清晰命令、依赖与完整报告，不能把这个最小接口测试当成全部验收。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 按推荐顺序实现 starter→图表→基线→CV→搜索→测试
-2. 保存模型
-3. 实现 predict.py 输入校验
-4. 自动创建输出目录
-5. 记录依赖和随机种子
-6. 按评分表自检
+1. 从干净环境执行固定数据审计、划分、基线、开发比较与搜索。
+2. 锁定方案后评价测试，保存逐折指标、最终指标、五类图与错误说明。
+3. 保存完整 Pipeline、输入/类别元数据、依赖与数据/划分记录。
+4. 提供分离的训练、评价和预测入口，输出目录由配置决定并自动创建。
+5. 在预测前验证二维 64 列、实数、有限值与像素范围，给出清晰错误。
+6. 仅从可信来源加载产物，固定样本核对保存前后预测一致。
+7. 按四层交付检查报告、命令、图表和限制，未完成内容明确标注。
 :::
 
 
@@ -104,33 +121,82 @@ Level 1–4 逐级完成；任何测试集泄漏、修改测试样本、使用�
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Digits 项目工程交付与验收 核心代码
+### 可信临时模型的输入校验与保存恢复验收
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应项目要求中的可运行核心步骤。
+只保存并加载本次进程创建的可信临时 Pipeline，测试固定合法输入与两种明确错误。不会读取未知模型、修改原始样本或发布模型。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
+```Python
 from pathlib import Path
-MODEL_PATH=Path(__file__).resolve().parent/"models"/"digits_classifier.joblib"
-if not MODEL_PATH.exists():
-    raise FileNotFoundError(f"模型不存在: {MODEL_PATH}")
+from tempfile import TemporaryDirectory
+import json
+import joblib
+import numpy as np
+import sklearn
+from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+def validate_pixels(values):
+    pixels = np.asarray(values)
+    if pixels.ndim != 2 or pixels.shape[1] != 64:
+        raise ValueError("expected a 2D array with 64 columns")
+    if not np.issubdtype(pixels.dtype, np.number) or np.iscomplexobj(pixels):
+        raise ValueError("real numeric pixels required")
+    if not np.isfinite(pixels).all() or ((pixels < 0) | (pixels > 16)).any():
+        raise ValueError("pixels must be finite and in [0, 16]")
+    return pixels
+
+X, y = load_digits(return_X_y=True)
+train, test = train_test_split(np.arange(len(y)), test_size=0.2, stratify=y, random_state=42)
+model = make_pipeline(StandardScaler(), KNeighborsClassifier(n_neighbors=5))
+model.fit(X[train], y[train])
+sample = validate_pixels(X[test[:1]])
+with TemporaryDirectory() as temporary:
+    root = Path(temporary)
+    joblib.dump(model, root / "digits.joblib")
+    metadata = {"features": 64, "shape": [8, 8], "flatten_order": "C", "pixel_range": [0, 16],
+        "classes": model.classes_.tolist(), "sklearn": sklearn.__version__}
+    (root / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+    loaded = joblib.load(root / "digits.joblib")
+    restored_metadata = json.loads((root / "metadata.json").read_text(encoding="utf-8"))
+    assert loaded.n_features_in_ == restored_metadata["features"]
+    assert loaded.classes_.tolist() == restored_metadata["classes"]
+    assert np.array_equal(model.predict(sample), loaded.predict(validate_pixels(sample)))
+    print("round_trip_predictions_equal:", True)
+    print("single_prediction_count:", len(loaded.predict(sample)))
+    for name, bad in [("wrong_shape", np.zeros((1, 63))), ("wrong_range", np.full((1, 64), 17.0))]:
+        try:
+            loaded.predict(validate_pixels(bad))
+        except ValueError as error:
+            print(f"{name}: {error}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 固定数据协议保证模型公平比较。
-- 测试集在方案锁定前保持不可见。
+- 预测入口只校验和 predict，训练由上方独立 fit 完成。
+- 输入形状、实数类型、有限性和 0–16 范围都在调用模型前检查。
+- 元数据与模型状态交叉核对，round-trip 只是工程一致性证据，非泛化性能。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-使用与脚本位置相关的安全路径，并在模型缺失时给出明确错误。
+本地 scikit-learn 1.8.0 的核对输出；分数仅属于下方固定教学实验：
+
+```text
+round_trip_predictions_equal: True
+single_prediction_count: 1
+wrong_shape: expected a 2D array with 64 columns
+wrong_range: pixels must be finite and in [0, 16]
+```
 :::
 
 ::::
@@ -146,9 +212,9 @@ if not MODEL_PATH.exists():
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 硬编码个人绝对路径
-- 训练预测混在一起
-- 没有限制说明
+- 只交 notebook 或模型文件，缺少可独立调用的预测入口、元数据和依赖。
+- 在 predict 中重新 fit 预处理，或只检查特征数而不检查像素尺度与二维形状。
+- 加载未知 joblib 文件、硬编码个人绝对路径，或把最小示例通过描述成完整业务交付。
 :::
 
 

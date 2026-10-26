@@ -46,9 +46,9 @@ anchorAliases:
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-掌握缩放点积注意力的输入输出与训练边界
+注意力让一个查询位置按当前内容选择要组合的信息，而不是对所有位置使用固定平均。看懂分数、归一化和加权求和，才能进一步理解多头注意力、掩码和 Transformer。
 
-能够用 PyTorch 代码验证公式和形状
+本页用一个查询、两个候选位置把权重与输出手算出来，避免只通过张量形状“看起来对了”就认为理解了注意力。
 :::
 
 
@@ -59,30 +59,42 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-缩放点积注意力是该文档中连接数据表示、训练目标和工程实现的核心主题。
+处理序列时，不同位置之间需要交换信息。当前词要使用哪几个上下文位置，可能取决于当前输入；固定窗口或固定加权并不总能表达这种内容相关的选择。
+
+缩放点积注意力把这项工作拆成三步：用 Query 和 Key 算匹配分数，把分数变成一组归一化权重，再用权重组合 Value。网络通常通过可学习的投影产生 Q、K、V，本页先把它们当成已给定的小数组。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-注意力让每个 Query 直接按匹配程度读取所有允许的 Value。
+Q 表示当前查询，K 表示供匹配的位置描述，V 表示被取出并组合的信息。对每个查询，先计算与各个 Key 的点积并除以 Key 维度的平方根，再沿 Key 位置做 softmax。
+
+softmax 的结果非负且在有效位置上和为 1，输出是这些权重对 Value 的加权和。权重描述当前计算中的组合方式，不是“来源一定可信”的概率，也不能直接当成因果重要性证明。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把缩放点积注意力理解为数据在模型中的一套明确变换，而不是只记一个类名。
+可以把查询理解为“我现在需要什么信息”，Key 理解为每条候选信息的索引特征，Value 理解为实际要组合的内容。匹配得分与被组合的数值可以不同，所以要区分 K 与 V。
+
+同一组候选信息，换一个查询就可能得到不同权重。如果所有有效匹配分数相同，softmax 会给出均匀权重；如果屏蔽某个位置，它就不应再参与这次信息组合。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-先算分数、屏蔽禁止位置、对 Key 维 Softmax，再加权 Value。
+设查询数为 L、Key/Value 位置数为 S。忽略 batch 维时，Q 形状为 [L, d_k]，K 为 [S, d_k]，点积得到 [L, S] 的分数矩阵；再乘形状 [S, d_v] 的 V，得到 [L, d_v] 输出。
 
-实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+softmax 应沿 Key 的位置维进行，使每个查询各自得到一组权重。沿错维度归一化，张量形状仍可能合法，但计算的含义已经改变。
+
+除以 sqrt(d_k) 是对点积分数尺度的调整，常用于避免维度增大时分数过大、softmax 过度集中；它不是把分数转换成某种经过校准的事实置信度。
+
+掩码在归一化前限制允许访问的位置。例如自回归模型不能读取未来位置，padding 位置通常也不应参与组合。本页代码直接把禁止位置的分数设为负无穷；若手写 softmax，需要保证一行中至少有一个有效位置。
+
+不同 API 的布尔掩码含义可能相反。PyTorch 的 scaled_dot_product_attention 中 True 表示允许参与，而 MultiheadAttention 的 key_padding_mask 中 True 表示屏蔽；迁移代码时应核对具体接口，不能只按变量名猜测。
 :::
 
 
@@ -111,8 +123,11 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| N | batch size |
-| D/H | 特征或隐藏维度 |
+| Q | 查询矩阵，最后两维为查询位置数 L 与特征维度 d_k。 |
+| K | Key 矩阵，最后两维为候选位置数 S 与特征维度 d_k。 |
+| V | Value 矩阵，最后两维为候选位置数 S 与被组合的信息维度 d_v。 |
+| d_k | Query 与 Key 的点积维度，分数除以它的平方根。 |
+| M | 加性掩码：允许位置加 0，禁止位置通常加负无穷；没有掩码时可视为 0。 |
 :::
 
 ::::
@@ -120,45 +135,51 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 缩放点积注意力数值/形状检查
+### 一个查询怎样得到 17.5 的加权结果
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=8
-- D=64
+- 取 d_k=1，因此缩放因子 sqrt(d_k)=1。
+- 一个查询 q=1，两个 Key 分别是 0 与 ln(3)。
+- 两个 Value 分别是 10 与 20。这个数组只用于手算，不是训练得到的检索分数。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 按公式或模块逐步计算
-2. 核对输出 shape
+1. 点积分数为 [0, ln(3)]。
+2. 指数变换得到 [1, 3]，除以总和 4，权重为 [0.25, 0.75]。
+3. 加权 Value：0.25×10 + 0.75×20 = 17.5。
+4. 若禁止读取第二个位置，其分数变为负无穷，权重变为 [1, 0]，输出为 10。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出保持 batch 维并符合任务头约定
+未屏蔽时输出 17.5；屏蔽第二个位置后输出 10。输出变化来自可访问位置变化。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 把查询换成 0 时，两个分数都为 0，权重变成 [0.5, 0.5]，输出为 15。
+- 这里 d_k=1 是为了便于手算；多维情况下仍要使用实际 d_k 的平方根进行缩放。
+- 权重 0.75 不代表第二条信息有 75% 的正确率，它只控制这次加权计算。
 :::
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认输入与目标
-2. 建立最小模块
-3. 随机张量前向
-4. 计算损失
-5. 反向与更新
-6. 验证与错误分析
+1. 明确 Query、Key、Value 的位置维和特征维，确认 Key 与 Value 的位置一一对应。
+2. 计算 Q 与 K 转置的点积，按实际 d_k 缩放。
+3. 在 softmax 前加入因果或 padding 等掩码，并检查是否存在没有有效 Key 的查询行。
+4. 沿 Key 位置维做 softmax，检查有效权重是否有限且每行和约为 1。
+5. 将权重乘以 V，核对输出位置数与 Value 特征维。
+6. 在实际模块中再检查 batch/多头维、dtype、设备以及训练和评估阶段的 dropout 设置。
 :::
 
 
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 缩放点积注意力 · PyTorch 示例
+### 核对 softmax 权重、加权输出与掩码
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -166,26 +187,39 @@ PyTorch
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证缩放点积注意力的输入、计算和输出。
+使用固定 Q/K/V 得到上面手算的 17.5，再验证屏蔽一个位置后的结果。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```PyTorch
-q=torch.randn(2,5,8);k=torch.randn(2,5,8);v=torch.randn(2,5,8)
-s=q@k.transpose(-2,-1)/(8**.5)
-w=s.softmax(-1);out=w@v
-print(s.shape,out.shape)
+import math
+import torch
+
+q = torch.tensor([[[1.0]]], dtype=torch.float64)
+k = torch.tensor([[[0.0], [math.log(3.0)]]], dtype=torch.float64)
+v = torch.tensor([[[10.0], [20.0]]], dtype=torch.float64)
+scores = q @ k.transpose(-2, -1) / math.sqrt(q.shape[-1])
+weights = scores.softmax(dim=-1)
+output = weights @ v
+masked_scores = scores.clone()
+masked_scores[..., 1] = -torch.inf
+masked_output = masked_scores.softmax(dim=-1) @ v
+print(f"weights={weights[0, 0, 0].item():.4f},{weights[0, 0, 1].item():.4f}")
+print(f"output={output.item():.4f}")
+print(f"masked_output={masked_output.item():.4f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码显式标注输入和输出
-- 使用框架稳定实现
-- 结果通过 shape 或数值检查
+- 第一个维度是 batch；本例只有一个查询、两个 Key 位置，每个特征向量长度为 1。
+- softmax(dim=-1) 对每个查询沿两个 Key 位置归一化，得到 0.25 和 0.75。
+- 这里使用加性负无穷分数实现屏蔽，没有调用布尔 mask API；换成其他接口时仍需核对掩码语义。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印与页面说明一致的张量形状或损失。
+weights=0.2500,0.7500
+output=17.5000
+masked_output=10.0000
 :::
 
 ::::
@@ -201,9 +235,10 @@ print(s.shape,out.shape)
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- Softmax 轴错
-- 忘除 sqrt(dk)
-- Softmax 后 mask
+- 把 K 与 V 当成同一个概念，或者把查询数 L 误认为必须等于 Key 数 S。
+- softmax 沿错轴，代码不报形状错误，却组合了错误的位置关系。
+- 忘记屏蔽未来或 padding 位置，或误读某个 API 中 True 的含义。
+- 把注意力权重直接解释成事实可信度、解释质量或因果重要性。
 :::
 
 
@@ -214,18 +249,17 @@ print(s.shape,out.shape)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 缩放点积注意力最先检查什么？
+### Query、Key、Value 一定来自同一个序列吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-先检查输入输出 shape、dtype 和数据边界。
+不一定。自注意力通常从同一序列生成 Q、K、V；交叉注意力可以用一个序列生成 Q，另一个序列生成 K 和 V，因此查询位置数与候选位置数可以不同。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 何时使用测试集？
+### 权重和为 1，是否说明它们是正确性概率？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-全部设计锁定后最终评估。
+不是。归一化只是让权重形成一组位置上的分配，描述如何组合 Value；它没有自动经过事实验证或概率校准，也不保证高权重位置就是正确答案。
 :::
-

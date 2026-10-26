@@ -34,18 +34,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 比较常见激活
-- 解释死亡 ReLU
-- 正确搭配输出损失
+- 用 ReLU 组合出绝对值
+- 没有激活的多层网络为什么仍然线性？
+- 说明：ReLU 可以产生折点，但不会自动学到合适参数；概率输出也不能任意替换隐藏激活。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-决定表达能力和梯度传播
-
-连接输出层与损失
+激活函数是施加在层输出上的非线性映射。ReLU、Sigmoid、Tanh、GELU 的输出范围和导数不同，因此会同时影响表示能力与梯度传播。
 :::
 
 
@@ -56,30 +54,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-无激活的多层线性网络仍等价于一个线性层。
+如果把两个全连接层直接相连，后一层仍只是在前一层的线性结果上做线性变换。无论堆多深，整体都可以合并成一个仿射变换，无法因此获得弯曲的决策边界。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-激活函数作用于线性分数；隐藏层与输出层的选择目的不同。
+激活函数是施加在层输出上的非线性映射。ReLU、Sigmoid、Tanh、GELU 的输出范围和导数不同，因此会同时影响表示能力与梯度传播。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-线性层折不了弯，激活函数让表示在不同区域产生不同响应。
+ReLU 像按条件打开的开关：某个隐藏特征在正区间传递数值，在负区间停止响应。不同神经元打开的区域不同，多层组合便能拼出分段的非线性函数。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-ReLU 隐藏层常用；Sigmoid/Softmax 多用于概率解释，组合损失直接接收 logits。
+仿射层计算 $z=XW^T+b$，逐元素激活计算 $h=\phi(z)$。激活通常保持张量形状，改变的是每个位置的数值和局部导数；它不会自动增添特征维度。
 
-CrossEntropyLoss 前不 Softmax，BCEWithLogitsLoss 前不 Sigmoid。
+ReLU 在正区间导数为 1，负区间为 0。若某神经元对全部训练样本都落在负区间，沿该分支的梯度可能长期为零，形成死亡 ReLU。LeakyReLU 给负半轴保留斜率，但并不能修复错误标签或过大的学习率。
+
+Sigmoid 把实数映射到 0 到 1，适合解释二元概率；当输入绝对值很大时，导数接近零。Tanh 同样会饱和，GELU 则平滑地按输入大小调节输出。隐藏层激活与输出概率变换应分开：交叉熵等组合损失需要原始 logits。
 :::
 
 
@@ -97,7 +97,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-负数变 0，正数保留。
+激活函数是施加在层输出上的非线性映射。ReLU、Sigmoid、Tanh、GELU 的输出范围和导数不同，因此会同时影响表示能力与梯度传播。
 :::
 
 ::::
@@ -116,34 +116,40 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### ReLU
+### 用 ReLU 组合出绝对值
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- z=\[-2,0,3\]
+- 输入 x 为 -2、0、3
+- 两个隐藏单元分别计算 ReLU(x) 与 ReLU(-x)
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 逐元素 max(0,z)
+1. 先对 x 和 -x 分别截断负值。
+2. 把两个非负响应相加，得到绝对值。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-\[0,0,3\]
+两条分支相加得到 2、0、3；单个仿射函数无法在整条数轴上表示这个折点。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- ReLU 可以产生折点，但不会自动学到合适参数；概率输出也不能任意替换隐藏激活。
 :::
+
+### 案例推演与判断
+
+在 x=-2 时，正向单元为 0，反向单元为 2；在 x=3 时恰好相反。最终输出可以写成 $\mathrm{ReLU}(x)+\mathrm{ReLU}(-x)$。这个构造展示非线性来自激活与分支组合，并不来自“层数”这个数字。
+
+如果删掉两个 ReLU，同样的加法变成 x+(-x)=0，结构仍在却失去目标函数。反向传播时还要注意零点不可微，框架选择一个约定的次梯度；这不妨碍函数前向计算。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 线性变换
-2. 选择隐藏激活
-3. 输出 logits
-4. 按任务选择损失
-5. 推理转换概率
+1. 先对 x 和 -x 分别截断负值。
+2. 把两个非负响应相加，得到绝对值。
 :::
 
 
@@ -151,31 +157,37 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 激活函数与非线性 · PyTorch 示例
+### 用 ReLU 组合出绝对值的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证激活函数与非线性的输入、计算和输出。
+使用完整构造输入核对用 ReLU 组合出绝对值，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-x=torch.tensor([-2.,0.,3.])
-print(torch.relu(x))
+```python
+import torch
+x = torch.tensor([-2., 0., 3.])
+y = torch.relu(x) + torch.relu(-x)
+print(y.tolist())
+print(tuple(y.shape))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 逐元素计算
-- 不改变 shape
+- 两个分支共享同一输入，只改变符号。
+- 输出形状与输入一致，数值恰为绝对值。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-tensor(\[0.,0.,3.\])。
+```text
+[2.0, 0.0, 3.0]
+(3,)
+```
 :::
 
 ::::
@@ -183,8 +195,8 @@ tensor(\[0.,0.,3.\])。
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- MLP/CNN 隐藏层
-- Transformer GELU
+- MLP、CNN 隐藏层的非线性表示
+- 二分类推理时把单个 logit 转成概率
 :::
 
 
@@ -205,18 +217,17 @@ tensor(\[0.,0.,3.\])。
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 为什么隐藏层不用 Softmax？
+### 没有激活的多层网络为什么仍然线性？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-它会让特征竞争且限制表达，通常只用于类别概率。
+矩阵乘法与偏置可以逐层合并为一个矩阵和一个偏置；中间没有非线性时，深度不会改变这个函数族。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### Sigmoid 为何易梯度消失？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-绝对值大时进入饱和区，导数接近零。
+ReLU 可以产生折点，但不会自动学到合适参数；概率输出也不能任意替换隐藏激活。
 :::
-

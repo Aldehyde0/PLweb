@@ -40,18 +40,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 写出五步循环
-- 解释每步是否更新参数
-- 记录训练损失
+- 一个参数训练一步
+- backward 为什么不能替代 optimizer.step？
+- 说明：单步损失下降只证明这一步对当前构造目标有效，不证明所有批次都下降或模型已收敛。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-串联所有训练组件
-
-是 PyTorch 项目的核心骨架
+一个基本训练步依次清理旧梯度、前向预测、计算标量损失、反向传播和更新参数。epoch 是重复这些批次步骤的外层数据遍历。
 :::
 
 
@@ -62,30 +60,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-职责顺序错误会导致梯度累加、参数不更新或损失无法下降。
+定义网络只是定义了一族函数。训练循环把数据、目标、梯度和优化器接起来，让当前参数按选定损失发生变化。循环顺序错误时，代码可能运行却一直使用旧梯度。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-一次普通训练迭代处理一个 batch，并在 optimizer.step 时更新一次参数。
+一个基本训练步依次清理旧梯度、前向预测、计算标量损失、反向传播和更新参数。epoch 是重复这些批次步骤的外层数据遍历。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-先答题、计分、追责，再按责任调整参数。
+forward 给答案，loss 按规则评分，backward 计算每个参数应往哪边调，step 才真正转动参数旋钮。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-backward 只计算并累积梯度，step 才更新参数，zero\_grad 清除旧梯度。
+optimizer.zero_grad(set_to_none=True) 让下一次反向从新梯度开始；loss.backward 只累积导数。optimizer.step 使用优化器保存的参数引用和内部状态更新参数，因此优化器必须绑定实际参与训练的参数。
 
-学习率控制更新尺度；验证阶段不得 backward 或 step。
+model.train 切换 Dropout、BatchNorm 的训练行为。验证时使用 model.eval 并关闭梯度跟踪，不应执行 backward 或 step。训练与验证的预处理也应按约定区分，验证结果用于选择模型而测试结果用于最终评估。
+
+记录 epoch 损失时，均值损失要乘批内有效样本数再累计，最后除总数。梯度累积则需另行定义归一化与更新频率，不能把每次 backward 都当成一次 optimizer update。
 :::
 
 
@@ -103,7 +103,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-θ 是参数，η 是学习率，梯度来自 backward。
+一个基本训练步依次清理旧梯度、前向预测、计算标量损失、反向传播和更新参数。epoch 是重复这些批次步骤的外层数据遍历。
 :::
 
 ::::
@@ -124,36 +124,42 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 一次权重更新
+### 一个参数训练一步
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- w=2
-- grad=0.3
-- η=0.1
+- 模型 y=wx，初始 w=1
+- 输入 x=2，目标为 6，学习率 0.1
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. w\_new=2-0.1×0.3
+1. 清梯度，前向得到 2，损失为 16。
+2. 反向得到 w 的梯度 -16。
+3. SGD 更新得到 w=2.6，再前向损失约为 0.64。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-w\_new=1.97
+一次更新使本构造样本上的损失从 16 变为 0.64。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 单步损失下降只证明这一步对当前构造目标有效，不证明所有批次都下降或模型已收敛。
 :::
+
+### 案例推演与判断
+
+这个例子把参数更新从框架代码中拆开：w−0.1×(-16)=2.6。再次前向得到 5.2，与目标差 -0.8，平方损失为 0.64。日志同时记录更新前后，便能确认 optimizer 的确使用了本次梯度。
+
+这只有一条训练样本，没有泛化结论。更大的模型即便训练损失降低，也仍要检查独立验证样本和类间差异。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. zero\_grad
-2. model(x)
-3. criterion
-4. loss.backward
-5. optimizer.step
+1. 清梯度，前向得到 2，损失为 16。
+2. 反向得到 w 的梯度 -16。
+3. SGD 更新得到 w=2.6，再前向损失约为 0.64。
 :::
 
 
@@ -161,36 +167,45 @@ w\_new=1.97
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 神经网络训练循环 · PyTorch 示例
+### 一个参数训练一步的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证神经网络训练循环的输入、计算和输出。
+使用完整构造输入核对一个参数训练一步，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
+```python
+import torch
+from torch import nn
+model = nn.Linear(1, 1, bias=False)
+with torch.no_grad():
+    model.weight.fill_(1.)
+optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+x, target = torch.tensor([[2.]]), torch.tensor([[6.]])
 optimizer.zero_grad(set_to_none=True)
-prediction=model(x)
-loss=criterion(prediction,target)
+loss = (model(x) - target).square().mean()
 loss.backward()
 optimizer.step()
+with torch.no_grad():
+    after = (model(x) - target).square().mean()
+print(f"before={loss.item():.2f} weight={model.weight.item():.2f} after={after.item():.2f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 清梯度在新迭代开始
-- loss 保留计算图
-- backward 后 grad 可检查
-- step 执行更新
+- 初始化与学习率固定，可手算更新。
+- 更新后重新前向计算损失，不复用旧预测。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-参数在 step 后发生变化，loss 可用于日志。
+```text
+before=16.00 weight=2.60 after=0.64
+```
 :::
 
 ::::
@@ -198,7 +213,8 @@ optimizer.step()
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 所有梯度训练模型
+- 监督学习的小批量训练
+- 定位模型参数始终不变的问题
 :::
 
 
@@ -219,18 +235,17 @@ optimizer.step()
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 哪一步更新参数？
+### backward 为什么不能替代 optimizer.step？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-optimizer.step。
+backward 计算和累积导数；step 按 SGD、Adam 等规则读取这些导数并修改参数，两者是不同操作。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 为何先清梯度？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-PyTorch 默认把梯度累加到 .grad。
+单步损失下降只证明这一步对当前构造目标有效，不证明所有批次都下降或模型已收敛。
 :::
-

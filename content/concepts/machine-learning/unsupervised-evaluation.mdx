@@ -37,28 +37,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-高轮廓系数不保证分组可行动，降维保留方差也不保证保留预测信息。
+聚类总能输出一些编号，但没有标签就不能通过直接算“分类准确率”判断分组是否正确。紧密分离、跨随机种子稳定、专家可解释和能改善下游决策，是不同证据，必须分别检查。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-没有标准标签时不能只用准确率；内部指标衡量数学结构，业务意义必须另行验证。
+内部指标只看数据几何与分组，如轮廓、簇内平方和；外部指标将分组与参考划分比较，如 ARI。稳定性检查关注扰动后是否仍形成相近结构，任务验证则评价实际用途。任何单项都不能单独证明发现了真实自然类别。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-算法找到“像”的群体，但“像什么、是否有用”需要领域和独立实验回答。
+把图书按封面颜色分组可能非常稳定、边界清晰，却不一定帮助读者找主题。评价分组需要先说明想保留哪种相似性，以及结果将服务什么决策。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-检查随机种子与参数稳定性、专家解释、下游任务提升和独立数据复现。真实标签若存在只能用于事后外部评价。
+簇标签是任意编号，交换 0 与 1 不改变划分，因此不能直接逐元素比较编号计算准确率。ARI 等基于成对关系或信息的指标能避免编号置换问题，但仍依赖参考标签是否适合当前目的。
+
+轮廓等内部指标偏好特定距离结构，且有有效簇数条件。对 DBSCAN，是否排除噪声应明确，并同时报告保留比例；删掉困难样本后提高分数，不等于整体覆盖更好。
+
+可改变种子、参数或做重采样检查共同样本的分组关系。若用参考标签反复选择算法或 K，这些标签就参与了选择，不能再冒称完全未使用的最终测试；需要新的独立评估与业务证据。
 :::
 
 
@@ -66,30 +70,35 @@ anchorAliases:
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 核心表达
+### 划分的编号置换不变性
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-评价 = 内部指标 + 稳定性 + 外部验证 + 业务价值
+\operatorname{ARI}(c,\pi(c))=1
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-检查随机种子与参数稳定性、专家解释、下游任务提升和独立数据复现。真实标签若存在只能用于事后外部评价。
+π 是对簇编号的一一置换；同一分组不应仅因编号变化受到惩罚。
 :::
 
 ::::
 
+## 手算与场景核对 {#worked-example}
+
+划分 A 为 [0,0,1,1]，划分 B 为 [1,1,0,0]。逐元素编号准确率是 0，但两者都把前两个点放一组、后两个点放另一组，实际上完全相同。
+
+调整兰德指数 ARI=1 正确识别这种等价。这只能证明两份划分一致，不能证明两个簇对应真实用户类别，更不能用作未来业务收益。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 计算内部指标
-2. 改变参数/种子
-3. 检查簇规模和样本
-4. 领域命名
-5. 独立数据验证
-6. 评估下游价值
+1. 先定义分组用途、特征距离与希望验证的主张。
+2. 计算适用内部指标，同时报告簇数、大小和噪声比例。
+3. 改变初始化、参数或样本，比较重叠样本的划分稳定性。
+4. 有参考标签时使用编号不变的外部指标，并记录其是否参与调参。
+5. 检查代表样本、下游效果和独立数据复现。
 :::
 
 
@@ -97,32 +106,39 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 无监督学习结果评价 实现
+### 编号准确率为零，划分却完全相同
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的训练与预测逻辑。
+用完整标签数组核对编号不变的外部评价。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-for seed in [1,2,3,4,5]:
-    labels=KMeans(3,n_init=20,random_state=seed).fit_predict(X_scaled)
-    print(seed,silhouette_score(X_scaled,labels))
+```Python
+from sklearn.metrics import adjusted_rand_score
+
+partition_a = [0, 0, 1, 1]
+partition_b = [1, 1, 0, 0]
+raw_match = sum(a == b for a, b in zip(partition_a, partition_b)) / len(partition_a)
+ari = adjusted_rand_score(partition_a, partition_b)
+print(f"raw_label_match={raw_match:.3f}, ARI={ari:.3f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码先建立符合输入要求的估计器。
-- 参数应在交叉验证中选择，测试集不参与。
+- 簇编号可任意交换，原始编号匹配不是合适的聚类准确率。
+- ARI 按划分关系比较，完全相同时取 1。
+- 示例只有一致性，没有提供外部真实语义证据。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-输出多个随机种子下的轮廓系数，用于观察稳定性。
+```text
+raw_label_match=0.000, ARI=1.000
+```
 :::
 
 ::::
@@ -130,20 +146,25 @@ for seed in [1,2,3,4,5]:
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 聚类审查
-- 降维验证
+- 对候选聚类形成几何、稳定性与任务用途的多维证据。
+- 识别由尺度、离群点或参数选择制造的脆弱分组。
 :::
 
 
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 簇直接命名业务类别
-- 只追求内部指标
-- 偷用标签训练
+- 直接比较簇编号算准确率，惩罚等价编号交换。
+- 只保留容易样本后报告内部指标，不披露覆盖。
+- 参考标签已用于选择参数，却仍当成独立外部测试。
 :::
 
 
 ## 与其他概念的关系 {#related}
 
 <ConceptRelated />
+
+
+## 资料与假设 {#source-notes}
+
+参见 [scikit-learn：Clustering performance evaluation](https://scikit-learn.org/stable/modules/clustering.html#clustering-performance-evaluation)。 本页数值均为构造例；涉及模型分数时仅说明给定数据与协议下的计算。

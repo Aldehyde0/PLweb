@@ -37,7 +37,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-一次划分可能碰巧容易或困难，导致算法排序不稳定。
+一次随机划分可能碰巧包含容易或困难样本，导致对模型的判断不稳定。交叉验证在开发数据内轮流留出不同部分，让我们观察同一训练流程在多个验证子集上的表现。
+
+它评估的是给定训练与划分流程，不会自动解决泄漏，也不会因为用了多个折就消除模型选择带来的偏差。
 :::
 
 
@@ -58,7 +60,13 @@ anchorAliases:
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-划分器必须匹配分类、群组和时间结构；所有预处理都在当前训练折内 fit。
+K 折把开发集划成 K 个验证子集。每轮从其余部分重新拟合模型，再预测当前验证折；每个样本在标准 K 折中恰好验证一次，模型也会被重新训练 K 次。
+
+预处理必须一起重新拟合。填补、缩放与特征选择应在当前训练折中学习，验证折只应用对应变换；通过 Pipeline 包装能让这些边界随每轮训练保持一致。
+
+分层、群组和时间划分对应不同的数据结构。选择划分器之前，应明确要推广到新行、新实体还是未来时间；普通随机 K 折不适合所有情境。
+
+每折分数可以汇总均值与波动，但各训练折共享数据，折分数不是相互独立的重复实验。CV 也不负责把最终模型自动交付：模型选择后通常在完整开发集上另行拟合，再用保留测试集做最终评价。
 :::
 
 
@@ -81,6 +89,12 @@ $$
 
 ::::
 
+### 案例：150 行开发数据做 3 折验证
+
+用内置 Iris 的 150 行演示 3 折分层验证，每轮训练 100 行、验证 50 行。标准化与逻辑回归一起在训练折拟合，输出 3 个验证分数，而不是一份模型对训练数据的分数。
+
+下方还检查传入的原始估计器没有在原地被拟合。交叉验证使用副本完成各折；若要部署，需要在固定方案后显式 fit 最终流程。这里没有单独测试集，输出仅是教学数据上的开发分数。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
@@ -97,31 +111,48 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 交叉验证 示例
+### 完整 Pipeline 的 3 折分数与拟合状态
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+固定 Iris、划分与随机种子复核开发分数；示例没有独立最终测试，不声称上线效果。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-cv=StratifiedKFold(5,shuffle=True,random_state=42)
-r=cross_validate(model,X_train,y_train,cv=cv,scoring=["accuracy","f1_macro"])
+```Python
+from sklearn.datasets import load_iris
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import StratifiedKFold, cross_validate
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+X, y = load_iris(return_X_y=True)
+model = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000))
+cv = StratifiedKFold(3, shuffle=True, random_state=42)
+result = cross_validate(model, X, y, cv=cv, scoring="accuracy")
+print("fold_accuracy:", result["test_score"].round(3).tolist())
+print(f"mean={result['test_score'].mean():.3f}")
+print("original_model_fitted:", hasattr(model.named_steps["logisticregression"], "classes_"))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 每轮使用新的 Pipeline 副本，缩放只在训练折学习。
+- 原始模型没有 classes_，提示 CV 与最终 refit 是两步。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-5 个 accuracy 与 macro F1 验证分数。
+本地 scikit-learn 1.8.0 的核对输出：
+
+```text
+fold_accuracy: [1.0, 0.92, 0.94]
+mean=0.953
+original_model_fitted: False
+```
 :::
 
 ::::
@@ -137,9 +168,9 @@ r=cross_validate(model,X_train,y_train,cv=cv,scoring=["accuracy","f1_macro"])
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 替代最终测试
-- 预处理在 CV 前
-- 只看最高折
+- CV 前就对全数据拟合预处理，或只报告最好的一折。
+- 把折间标准差当作独立样本标准误，或用 CV 代替所有最终测试。
+- 以为 cross_validate 已经把原始 estimator 拟合成可部署模型。
 :::
 
 

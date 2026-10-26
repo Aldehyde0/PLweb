@@ -63,18 +63,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义IQL：Implicit Q-Learning并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 仅用数据动作做价值与策略更新，理解 expectile 与优势加权的支持边界。
+- 独立复核“两个数据动作的上 expectile 不等于分位数”的输入、计算和解释。
+- expectile 来自非对称平方损失，不是分位数。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-IQL：Implicit Q-Learning位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+仅用数据动作做价值与策略更新，理解 expectile 与优势加权的支持边界。
 :::
 
 
@@ -85,40 +83,32 @@ IQL：Implicit Q-Learning位于“状态—行动—反馈—更新”学习链�
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+离线数据中的 max Q 会主动查询未见动作，造成外推误差。IQL 试图在更新时不显式评价新的动作：先从数据动作的价值分布提取偏高状态价值，再偏向较好的数据动作拟合策略。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-IQL 交替拟合数据动作 Q 的状态条件上 expectile V、用 V(s′) 更新 Q，再以 exp(β(Q−V)) 加权数据动作的对数似然提取策略。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+IQL 先用非对称平方损失拟合状态条件 expectile V，再用 r+γV(s′) 回归数据动作 Q，最后以 exp(β(Q−V)) 加权数据动作对数似然。训练中的策略提取不需要在新动作上查询 critic，但部署策略仍会泛化。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-先从每个状态已有记录中估计“较好但仍有证据”的门槛，再更认真模仿超过门槛的动作；不要求 critic 给从未记录的新动作打分。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+从同一地点的历史选择中，较重视表现好的记录，形成一个偏积极但仍基于记录的参考值；然后更多模仿超过该参考的动作。它不是在所有未见动作中寻找最高分。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-expectile τ\>0.5 更重视 Q 高于 V 的数据动作，但它不是分位数。
+expectile 对正负残差使用不同平方权重，τ>0.5 更强调 Q 高于 V 的样本。它不是分位数：分位数对应非对称绝对误差，两个目标的数值和统计意义不同。
 
-Q target 使用 V(s′)，策略训练只评价数据动作的 log probability。
+Q 回归、V 回归和 actor 回归各有固定目标与停止梯度边界。actor 的优势权重常裁剪，避免指数把少量高估或异常样本放大到支配整个批次；β 越大并不保证改进越好。
 
-指数优势权重必须裁剪或归一化，否则极少数样本会主导 actor。
-
-IQL 避免显式 OOD action query，但函数近似泛化、状态覆盖和部署分布偏移仍存在。
+“不查询数据外动作”描述训练目标，不是整个策略的严格支持保证。数据缺乏关键状态、函数近似把多峰行为平均到无支持动作，或部署进入新区域时，IQL 仍可能失败。
 :::
 
 
@@ -158,30 +148,27 @@ V 做 expectile regression，Q 只对数据 transition 做 TD，策略只对数�
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### IQL：Implicit Q-Learning的最小计算
+### 两个数据动作的上 expectile 不等于分位数
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 同状态等频数据动作的 Q 为 1 与 3，τ=0.75。
+- 假设拟合值位于 1 和 3 之间。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 较低动作残差用 0.25，较高动作残差用 0.75。
+2. 令平方损失导数为零，得到 V=(0.25×1+0.75×3)/(0.25+0.75)=2.5。
+3. 这两个原子分布的 0.75 分位数为 3，和 2.5 不同。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+上 expectile 为 2.5；下方 PyTorch 代码进一步核对 V、Q 和 actor 三项损失。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- expectile 来自非对称平方损失，不是分位数。
+- IQL 避免显式 OOD 动作查询，但不能突破状态覆盖限制。
 :::
 
 
@@ -246,7 +233,11 @@ print('losses:', [round(x.item(), 3) for x in (v_loss,q_loss,policy_loss)])
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-高于 V 的 Q 使用 0.7 权重；高优势数据动作获得更大的 policy weight。
+```text
+expectile weights: tensor([0.7000, 0.3000, 0.7000])
+policy weights: tensor([4.4817, 0.4066, 8.1662])
+losses: [0.182, 0.035, 2.705]
+```
 :::
 
 ::::
@@ -262,9 +253,9 @@ print('losses:', [round(x.item(), 3) for x in (v_loss,q_loss,policy_loss)])
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 把 expectile 称为 τ 分位数。
+- 让指数权重无限增长，使异常样本主导策略。
+- 把只拟合数据动作夸大成部署永远不会产生数据外动作。
 :::
 
 
@@ -275,7 +266,7 @@ print('losses:', [round(x.item(), 3) for x in (v_loss,q_loss,policy_loss)])
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-门槛类比、PyTorch 三损失教学代码、部署边界与 DQN/SAC/CQL 对照均为本站扩展解释；expectile 与 Algorithm 1 依据 IQL 原论文。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Kostrikov 等：Offline Reinforcement Learning with Implicit Q-Learning](https://arxiv.org/abs/2110.06169)。
 :::
 
 
@@ -326,11 +317,11 @@ A(s,a)=Q(s,a)−V(s)，仅在数据动作上计算
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### IQL：Implicit Q-Learning是 on-policy 还是 off-policy？
+### IQL 不评价新动作就没有分布外问题了吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+没有。训练少了一类显式动作外推，但函数近似、状态覆盖、连续策略泛化和长期部署分布仍可能超出数据证据。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -340,4 +331,3 @@ A(s,a)=Q(s,a)−V(s)，仅在数据动作上计算
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

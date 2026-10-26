@@ -67,9 +67,9 @@ anchorAliases:
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Q-Learning位于“状态—行动—反馈—更新”学习链中的关键位置。
+Q-learning 把 Bellman 最优关系变成可从单条转移样本执行的更新。它展示了智能体怎样一边探索、一边改进对各个动作长期收益的估计。
 
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+理解它还需要分清行为策略与目标策略：实际采集数据时可以随机探索，而更新目标使用下一状态的贪心动作价值，这正是 off-policy 的关键。
 :::
 
 
@@ -80,38 +80,40 @@ Q-Learning位于“状态—行动—反馈—更新”学习链中的关键位�
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
+如果不知道完整转移概率，仍可以记录一次交互中的状态、动作、即时奖励、下一状态与是否真正终止。Q-learning 使用这样的样本，让当前动作价值向一个一步目标靠近。
 
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+当前学到的价值会影响下一次动作选择，动作选择又决定之后能获得哪些数据，因此探索覆盖很重要。只反复执行目前看起来最好的动作，可能永远无法发现其他动作的收益。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Q-Learning 更新当前 Q(s,a) 向 r+γ max Q(s′,a′) 靠近。
+表格型 Q-learning 为离散状态和动作保存 Q(s,a)。对一个非终止转移，一步目标是即时奖励加上 gamma 乘下一状态最大的 Q 值，再按学习率 alpha 将当前 Q 向该目标移动。
 
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+这个目标不是本次实际执行到终点的完整回报，而是利用当前下一价值估计的 bootstrap 目标。真正终止时，不再加入下一状态价值。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-即使行为在探索，学习目标仍假设下一步采取当前最优动作。
+可以把 Q 表看成一本不断修正的行动账本。经历一次转移后，不是立即把原估计全部抹掉，而是按 alpha 接受一部分新证据。
 
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+例如当前行为策略在下一步仍可能探索一个较差动作，但 Q-learning 的更新目标会使用下一状态当前看起来最好的动作。它学习的目标策略与采集数据的行为策略可以不同。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-max 使目标策略为贪心策略，因此与 epsilon-greedy 行为策略不同。
+通常使用 epsilon-greedy 收集数据：大多数时候选择当前 Q 最大的动作，小部分时候随机探索。epsilon 决定探索方式，alpha 决定更新幅度，gamma 决定未来奖励权重，三者不是同一类参数。
 
-表格收敛要求充分访问和合适递减学习率等条件。
+Q-learning 目标中的 max 不依赖下一步实际抽中的探索动作，因此属于 off-policy TD 控制。SARSA 则使用行为策略实际选择的下一动作价值，在同一个样本上下文中可能得到不同更新。
 
-终止状态的下一价值为 0。
+表格型方法的经典收敛结论需要状态动作得到充分访问、合适的学习率序列和相应环境条件。一个固定学习率、有限回合的小演示只说明更新过程，不能当成一般收敛证明。
+
+真正环境终止时 bootstrap 为零；如果只是外部时间上限截断，而任务仍会继续，则不能未经判断就把下一价值清零。实际接口中的 terminated 与 truncated 应按照任务语义处理。
 :::
 
 
@@ -151,50 +153,51 @@ off-policy TD 控制更新。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Q-Learning的最小计算
+### 同一组估计，Q-learning 与 SARSA 怎样更新
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 当前 Q(s,a)=0.5，观察到即时奖励 r=1；先考虑一个非终止转移。
+- 下一状态有两个动作，当前 Q 分别为 2 和 1.5；行为策略这次选择了值为 1.5 的动作。
+- 学习率 alpha=0.1，折扣因子 gamma=0.9。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. Q-learning 使用最大下一价值 2，目标为 1+0.9×2=2.8。
+2. TD 误差为 2.8−0.5=2.3，新值为 0.5+0.1×2.3=0.73。
+3. SARSA 使用实际选中的下一动作价值 1.5，目标为 1+0.9×1.5=2.35，新值为 0.685。
+4. 另构造一个同样奖励为 1、但真正终止的转移，目标应为 1，更新后为 0.55。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+非终止例中 Q-learning 更新到 0.73，SARSA 更新到 0.685；终止例更新到 0.55。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 0.73 与 0.685 的差异来自目标采用哪个下一动作价值，不是使用了不同学习率。
+- 当 alpha=1 时直接替换为本次目标，但这并不意味着噪声环境中总应使用 alpha=1。
+- 下一状态数值即使很大，也不能用于真正终止后的 bootstrap；外部截断则需另行判断。
 :::
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. epsilon-greedy 选动作
-2. 执行得到 s′,r
-3. 计算 max 下一 Q
-4. 计算 TD error
-5. 更新 Q(s,a)
-6. 衰减 epsilon
+1. 初始化 Q 表与探索、学习率、折扣设置，确认合法动作和终止规则。
+2. 根据当前状态按 epsilon-greedy 等行为策略选择动作。
+3. 执行动作，记录即时奖励、下一状态及终止/截断信息。
+4. 非终止时取下一状态最大 Q；真正终止时取零，计算一步目标与 TD 误差。
+5. 按 alpha 更新当前 Q(s,a)，再推进到下一状态。
+6. 在有限训练后，用明确的评估策略检查轨迹与回报；不要把训练中的探索行为和最终贪心评估混为一谈。
 :::
 
 
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 表格型 Q-Learning：确定性 GridWorld
+### 表格型 Q-learning：保留探索的确定性走廊
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -202,7 +205,7 @@ NumPy
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-完整展示 epsilon-greedy、TD 目标、Q 值更新和策略提取。
+从状态 0 向终点 5 移动；展示有限训练后贪心动作与第一个状态的 Q 值。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
@@ -234,19 +237,65 @@ for episode in range(300):
         if done:
             break
 
-print('policy:', np.argmax(Q, axis=1))
+print('policy:', np.argmax(Q[:-1], axis=1))
 print('Q[0]:', np.round(Q[0], 3))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 固定 rng 保证演示可复现。
-- epsilon-greedy 生成行为数据，但目标使用下一状态最大 Q，因此是 off-policy。
-- 终止状态 bootstrap 设为 0，避免把终点之后的虚构价值加入目标。
+- 这个走廊有 6 个状态，动作 0 向左、1 向右；进入终点得 1，其余步得 -0.01。
+- 固定 rng=7、300 回合和每回合最多 30 步，使用 alpha=0.2、gamma=0.95、epsilon=0.2；这些设置与上面的单次手算例不同。
+- 输出只列出 5 个非终止状态的贪心动作，终止状态的 argmax 没有行动含义，因此不输出。
+- 这里最多 30 步只是演示的采样上限，只有到达终点才把 bootstrap 置零；有限训练得到的数值不是一般收敛或真实性能承诺。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-策略在非终止状态主要选择向右；Q\[0,右\] 高于 Q\[0,左\]。
+policy: [1 1 1 1 1]
+Q[0]: [0.727 0.777]
+:::
+
+::::
+
+::::code-example{index="1"}
+
+:::field{path="codeExamples.1.title" type="text"}
+### 单次更新：贪心目标、实际下一动作与终止
+:::
+
+:::field{path="codeExamples.1.language" type="text"}
+Python
+:::
+
+:::field{path="codeExamples.1.purpose" type="text"}
+精确复现上面的三个更新结果，区分算法目标与终止处理。
+:::
+
+:::field{path="codeExamples.1.source" type="code" trailing="0"}
+```Python
+current, reward, alpha, gamma = 0.5, 1.0, 0.1, 0.9
+next_values = [2.0, 1.5]
+actual_next_action = 1
+q_target = reward + gamma * max(next_values)
+sarsa_target = reward + gamma * next_values[actual_next_action]
+terminal_target = reward
+for name, target in [("q_learning", q_target),
+                     ("sarsa", sarsa_target),
+                     ("terminal", terminal_target)]:
+    updated = current + alpha * (target - current)
+    print(f"{name}={updated:.4f}")
+```
+:::
+
+:::field{path="codeExamples.1.explanation" type="list"}
+- 三个更新使用同一个旧估计、奖励、学习率和折扣设置。
+- 第二个下一动作的值是 1.5，只有 SARSA 的这一项使用它；Q-learning 使用 max=2。
+- terminal 行表示另一个真正终止的样本，所以没有下一价值项。
+:::
+
+:::field{path="codeExamples.1.expectedOutput" type="text"}
+q_learning=0.7300
+sarsa=0.6850
+terminal=0.5500
 :::
 
 ::::
@@ -262,9 +311,10 @@ print('Q[0]:', np.round(Q[0], 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 把下一次实际探索动作的 Q 值代入 Q-learning 目标，却仍把实现叫作标准 Q-learning。
+- 探索不足导致部分状态动作从未被充分访问，却把最终表格当成已经收敛。
+- 真正终止后仍加下一价值，或把所有时间截断都不加区分地当成任务终止。
+- 只报告一次幸运轨迹或最高训练回报，不说明随机种子、探索设置和评估策略。
 :::
 
 
@@ -305,18 +355,17 @@ print('Q[0]:', np.round(Q[0], 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Q-Learning是 on-policy 还是 off-policy？
+### 为什么行为在随机探索，Q-learning 仍是 off-policy？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-本页算法/方法按 off-policy 组织。
+因为数据可以由 epsilon-greedy 行为策略产生，而更新目标使用下一状态的贪心最大 Q 值。目标策略与行为策略可以不同；off-policy 并不意味着可以忽视数据覆盖与学习条件。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 网页是否会训练模型？
+### 固定种子的小网格训练能证明算法一定收敛吗？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
+不能。下面演示只核对一个确定性小环境中的更新、探索与策略提取过程；理论收敛还需要相应条件，复杂函数近似环境也可能出现不同的稳定性问题。
 :::
-

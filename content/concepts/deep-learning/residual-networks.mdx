@@ -37,18 +37,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释核心机制
-- 手算一个主要形状或公式
-- 运行完整示例并排查错误
+- 零残差与投影残差的形状
+- 1×1 卷积为什么能够做捷径投影？
+- 说明：残差连接改善优化结构，但不会保证更深网络一定更准确。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-掌握残差连接与现代 CNN的输入输出与训练边界
-
-能够用 PyTorch 代码验证公式和形状
+残差块把主分支的变换 F(x) 与捷径分支相加。形状相同时捷径可直接用 x，形状变化时通常用可学习投影匹配。
 :::
 
 
@@ -59,30 +57,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-残差连接与现代 CNN是该文档中连接数据表示、训练目标和工程实现的核心主题。
+简单地堆叠更多层，优化可能反而困难：网络不仅要学有用变换，还要学会在某些层保留已有表示。残差连接显式提供了保留路径。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-残差连接提供信息与梯度捷径，使深层网络更容易优化。
+残差块把主分支的变换 F(x) 与捷径分支相加。形状相同时捷径可直接用 x，形状变化时通常用可学习投影匹配。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把残差连接与现代 CNN理解为数据在模型中的一套明确变换，而不是只记一个类名。
+主分支只需要提出“在原表示上改多少”。如果这一步暂时没有帮助，接近零的残差就能近似保留原表示。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-形状变化时用 1×1 stride 投影匹配主分支。
+当 y=x+F(x) 时，反向导数包含直接路径与残差路径两项。这改善深层信息和梯度传递的条件，但不意味着梯度在所有网络中绝不消失，或任意深度都容易训练。
 
-实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+逐元素相加要求两个分支形状一致。通道从 64 变为 128、空间从 32 变为 16 时，捷径常用 1×1、stride=2 的卷积；这条路径也有参数，并非恒等映射。不能依赖意外广播来“凑成可加”。
+
+加法后是否再激活、归一化放在何处，会形成不同残差块配方。加载预训练权重时应保持结构一致；残差连接也不能修复失真的输入或不合适损失。
 :::
 
 
@@ -100,7 +100,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-残差连接与现代 CNN的核心数学表达。
+残差块把主分支的变换 F(x) 与捷径分支相加。形状相同时捷径可直接用 x，形状变化时通常用可学习投影匹配。
 :::
 
 ::::
@@ -120,37 +120,43 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 残差连接与现代 CNN数值/形状检查
+### 零残差与投影残差的形状
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=8
-- D=64
+- 输入为 (2,3,8,8)
+- 恒等分支与一个全零同形状残差相加
+- 降采样块将通道改为 6、空间改为 4×4
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 按公式或模块逐步计算
-2. 核对输出 shape
+1. 零残差使输出逐元素等于输入。
+2. 主分支 3×3 stride=2、padding=1 得到 (2,6,4,4)。
+3. 捷径 1×1 stride=2 得到同形状，方可相加。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出保持 batch 维并符合任务头约定
+恒等情形最大差为 0；投影块两个分支和输出均为 (2,6,4,4)。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 残差连接改善优化结构，但不会保证更深网络一定更准确。
 :::
+
+### 零残差与投影残差的形状
+
+这里把残差直接设为零，只是验证恒等通路的代数性质，不是建议把所有主分支参数永久清零。真实训练仍需合适初始化和非线性。
+
+若只给主分支加 stride 而保持捷径不变，就会得到 8×8 与 4×4 两种空间尺寸，无法相加。错误位置通常可由逐分支 shape 打印立即定位。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认输入与目标
-2. 建立最小模块
-3. 随机张量前向
-4. 计算损失
-5. 反向与更新
-6. 验证与错误分析
+1. 零残差使输出逐元素等于输入。
+2. 主分支 3×3 stride=2、padding=1 得到 (2,6,4,4)。
+3. 捷径 1×1 stride=2 得到同形状，方可相加。
 :::
 
 
@@ -158,34 +164,40 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 残差连接与现代 CNN · PyTorch 示例
+### 零残差与投影残差的形状的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证残差连接与现代 CNN的输入、计算和输出。
+使用完整构造输入核对零残差与投影残差的形状，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-block=nn.Sequential(nn.Conv2d(64,128,3,stride=2,padding=1),nn.BatchNorm2d(128))
-shortcut=nn.Conv2d(64,128,1,stride=2)
-x=torch.randn(8,64,32,32)
-print(block(x).shape,shortcut(x).shape)
+```python
+import torch
+from torch import nn
+x = torch.ones(2, 3, 8, 8)
+print("identity max diff:", (x + torch.zeros_like(x) - x).abs().max().item())
+main = nn.Conv2d(3, 6, 3, stride=2, padding=1)
+shortcut = nn.Conv2d(3, 6, 1, stride=2)
+a, b = main(x), shortcut(x)
+print(tuple(a.shape), tuple(b.shape), tuple((a + b).shape))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码显式标注输入和输出
-- 使用框架稳定实现
-- 结果通过 shape 或数值检查
+- 分别检查主分支和投影捷径。
+- 不添加广播或任意 reshape 掩盖不匹配。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印与页面说明一致的张量形状或损失。
+```text
+identity max diff: 0.0
+(2, 6, 4, 4) (2, 6, 4, 4) (2, 6, 4, 4)
+```
 :::
 
 ::::
@@ -193,8 +205,8 @@ print(block(x).shape,shortcut(x).shape)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 残差连接与现代 CNN
-- 教学与项目基线
+- 深层视觉骨干网络
+- Transformer 中的子层残差连接
 :::
 
 
@@ -214,18 +226,17 @@ print(block(x).shape,shortcut(x).shape)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 残差连接与现代 CNN最先检查什么？
+### 1×1 卷积为什么能够做捷径投影？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-先检查输入输出 shape、dtype 和数据边界。
+它在每个采样位置混合输入通道，设置 stride 后还能同步下采样；因此能把通道数和空间尺寸对齐。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 何时使用测试集？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-全部设计锁定后最终评估。
+残差连接改善优化结构，但不会保证更深网络一定更准确。
 :::
-

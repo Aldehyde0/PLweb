@@ -36,18 +36,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 区分训练/验证 transform
-- 只用训练统计
-- 正确统计 epoch loss
+- 尾批使批均值平均失真
+- 验证集可以重新计算自己的标准化均值吗？
+- 说明：统计权重必须匹配损失定义；按样本和按有效 token 的平均不能混用。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-防止数据泄漏
-
-保证训练/推理一致
+数据管道是从样本读取到模型输入的完整变换链，包含划分、清洗、预处理、增强、组批和设备迁移。训练、验证与推理应共享兼容契约。
 :::
 
 
@@ -58,30 +56,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-错误归一化、增强错位和 batch 统计会让模型训练失真。
+同一模型训练与部署采用不同数值范围，或标准化统计混入验证数据，都会使评估失真。数据管道需要同时维护数值、形状和划分来源。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-数据管道保证训练、验证、测试使用一致且无泄漏的输入契约。
+数据管道是从样本读取到模型输入的完整变换链，包含划分、清洗、预处理、增强、组批和设备迁移。训练、验证与推理应共享兼容契约。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-模型只能看到最终张量，所有上游处理都是模型的一部分。
+模型不是只吃一张图片，而是吃“按某种规则加工后的张量”。保存权重却丢失加工规则，等于只留下半个系统。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-训练可随机增强，验证测试确定性；逐 batch 传设备，按样本加权统计 loss。
+均值、标准差、词表和缺失值填补等数据驱动规则只能在训练部分拟合，再固定用于验证与测试。先全量拟合再划分，会让未来数据影响训练表示，形成泄漏。
 
-预训练权重需配套 resize/crop/mean/std。
+训练增强可随机，但必须保持标签语义；验证和推理通常使用确定性变换。图像与框、mask 必须同步变换，序列标签也要与 token 对齐。预训练权重还应使用配套的尺寸和归一化。
+
+计算 epoch 均值损失时，若 criterion 返回批内均值，应乘批样本数再累计。序列和分割若按有效 token 或像素定义目标，权重应改为对应有效数量，不能机械地都乘 batch size。
 :::
 
 
@@ -99,7 +99,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-训练统计复用于所有分块。
+数据管道是从样本读取到模型输入的完整变换链，包含划分、清洗、预处理、增强、组批和设备迁移。训练、验证与推理应共享兼容契约。
 :::
 
 ::::
@@ -119,36 +119,40 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 尾批加权
+### 尾批使批均值平均失真
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 批 loss 1.0,size64
-- 批 loss 2.0,size16
+- 五条样本损失为 1、1、1、1、9
+- batch_size=2，批均值为 1、1、9
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. (64×1+16×2)/80
+1. 简单平均批均值得到 11/3。
+2. 按样本数加权为 (2×1+2×1+1×9)/5。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-epoch loss=1.2
+正确样本平均为 2.6，等权平均批均值则约为 3.6667。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 统计权重必须匹配损失定义；按样本和按有效 token 的平均不能混用。
 :::
+
+### 尾批使批均值平均失真
+
+尾批只有一条，若与两条样本的批次等权，就放大了它的影响。代码构造平方误差恰为这五个值，只演示日志归一化，不训练模型。
+
+若任务按 token 求平均，最后一批可能虽样本少却 token 多。此时应记录 loss sum 与有效 token count，依据目标定义计算，而不是照搬本例样本数。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 先划分
-2. 拟合统计
-3. 分别 transform
-4. 组批
-5. 传设备
-6. 样本加权统计
+1. 简单平均批均值得到 11/3。
+2. 按样本数加权为 (2×1+2×1+1×9)/5。
 :::
 
 
@@ -156,34 +160,42 @@ epoch loss=1.2
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 深度学习数据管道与预处理 · PyTorch 示例
+### 尾批使批均值平均失真的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证深度学习数据管道与预处理的输入、计算和输出。
+使用完整构造输入核对尾批使批均值平均失真，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-total=0.;count=0
-for x,y in loader:
-    loss=criterion(model(x),y)
-    total+=loss.item()*x.size(0);count+=x.size(0)
-print(total/count)
+```python
+import torch
+from torch.utils.data import DataLoader, TensorDataset
+error = torch.tensor([1., 1., 1., 1., 3.])
+loader = DataLoader(TensorDataset(error), batch_size=2)
+total, count, batch_means = 0., 0, []
+for (e,) in loader:
+    loss = e.square().mean()
+    total += loss.item() * len(e)
+    count += len(e)
+    batch_means.append(loss.item())
+print(f"weighted={total / count:.4f} mean_of_batches={sum(batch_means) / len(batch_means):.4f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 每个样本权重一致
-- 尾批不偏置平均
+- 平方误差输入完全给定。
+- 明确区分样本加权与等权批平均。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-输出按样本加权的 epoch loss。
+```text
+weighted=2.6000 mean_of_batches=3.6667
+```
 :::
 
 ::::
@@ -191,7 +203,8 @@ print(total/count)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 所有训练项目
+- 建立一致的训练与推理预处理
+- 正确汇总不等长批次的损失
 :::
 
 
@@ -212,18 +225,17 @@ print(total/count)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 标准化统计从哪来？
+### 验证集可以重新计算自己的标准化均值吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-只从训练集。
+通常不可以。部署时应应用训练拟合的规则；单独重新拟合会改变评估契约，也可能使用本不应知道的评估分布信息。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### pin\_memory 必然更快吗？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-不一定，应实测。
+统计权重必须匹配损失定义；按样本和按有效 token 的平均不能混用。
 :::
-

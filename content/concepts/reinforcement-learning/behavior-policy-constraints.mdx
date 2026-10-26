@@ -70,18 +70,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义行为策略约束：在数据支持内改进并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 限制策略离开行为支持的程度，同时承认保守约束可能牺牲改进空间。
+- 独立复核“指数倾斜后仍需检查实际 KL”的输入、计算和解释。
+- 加权模仿与严格求解 KL 约束不是同一个验证结论。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-行为策略约束：在数据支持内改进位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+限制策略离开行为支持的程度，同时承认保守约束可能牺牲改进空间。
 :::
 
 
@@ -92,40 +90,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+固定日志里某状态几乎只执行过刹车，actor 却因为 Q 的高估想改成大油门。即使这次改动在网络上看起来最优，也缺乏验证它真实后果的数据。行为约束把策略改进限制在较有证据的区域。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-行为策略约束把策略改进限制在数据支持附近，避免 actor 或 Bellman backup 选择行为数据几乎未覆盖的动作。约束对象可以是显式估计的 β、样本集合或隐式加权的行为克隆。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+行为策略约束用显式距离、生成候选或加权模仿，让学习策略靠近数据行为。KL 需要行为密度估计，BCQ 通过候选生成与小扰动约束动作，BEAR 用样本分布距离控制支持。约束价值的 CQL 与直接限制动作分布并不是同一种操作。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-不是禁止超越示范者，而是要求每次改进都有历史证据：先沿着走过的路挑更好路段，再谨慎决定是否扩大边界。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+允许在已走过的道路附近寻找更快路线，而不因为地图空白处被画了高分就跳过去。路线范围越窄越可靠，却也可能保留原驾驶员的低效习惯。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-纯 Behavior Cloning 最稳但通常不能利用奖励超越行为策略。
+加权行为克隆按优势提高优质数据动作的相对权重，仍只对数据动作拟合似然。有限数据下，连续策略的泛化可能产生两种示范之间实际没出现过的动作，不能将“只拟合数据”当作严格支持保证。
 
-显式 KL 需要可靠的行为策略密度；多峰数据被单峰模型拟合时可能制造不存在的中间动作。
+指数倾斜 π∝β exp(kA) 与固定 KL 半径的约束优化有联系，但给定一个温度 k 并不自动满足指定的 ε。需计算实际距离或求合适对偶参数，不能把任意归一化权重都称为已满足硬约束。
 
-BEAR 用样本 MMD 约束策略动作与行为数据动作；BCQ 通过生成候选并做小扰动限制动作。
-
-IQL 的优势加权行为克隆是一种隐式支持约束；CQL 则主要约束价值而非直接约束策略距离。
+行为密度模型失准会影响约束可信度，特别是多峰动作被单 Gaussian 平均成不存在的中间动作。行为数据本身若含危险行动，靠近行为也不能替代独立安全检查。
 :::
 
 
@@ -165,30 +155,27 @@ D 可取 KL、MMD 或其他支持距离；ε 控制改进幅度与外推风险�
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 行为策略约束：在数据支持内改进的最小计算
+### 指数倾斜后仍需检查实际 KL
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 行为概率为 [0.9,0.1]，动作权重为 [1,9]。
+- 将行为概率乘权重再归一化，使用自然对数。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 未归一化质量为 [0.9,0.9]，新策略为 [0.5,0.5]。
+2. KL(π∥β)=0.5 ln(0.5/0.9)+0.5 ln(0.5/0.1)≈0.510826。
+3. 若要求 KL≤0.1，该温度或权重并不合格。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+新策略为 [0.5,0.5]，实际 KL≈0.510826，不能声称满足 0.1 的半径。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 加权模仿与严格求解 KL 约束不是同一个验证结论。
+- 数据未覆盖动作不能仅靠大优势权重产生可靠改进证据。
 :::
 
 
@@ -208,42 +195,40 @@ D 可取 KL、MMD 或其他支持距离；ε 控制改进幅度与外推风险�
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 优势加权的行为克隆
+### 指数倾斜后仍需检查实际 KL
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-NumPy
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-展示行为约束仍可在数据支持内提高高优势动作的权重。
+新策略为 [0.5,0.5]，实际 KL≈0.510826，不能声称满足 0.1 的半径。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```NumPy
-import numpy as np
-
-behavior_prob = np.array([0.70, 0.25, 0.05])
-advantage = np.array([-0.4, 0.5, 1.2])
-beta = 2.0
-weights = np.exp(np.clip(beta * advantage, -5, 5))
-policy = behavior_prob * weights
-policy = policy / policy.sum()
-kl = np.sum(policy * np.log(policy / behavior_prob))
-print('behavior:', np.round(behavior_prob, 3))
-print('constrained policy:', np.round(policy, 3))
-print('KL(policy || behavior):', round(float(kl), 3))
+```Python
+import math
+behavior, weights = [0.9, 0.1], [1.0, 9.0]
+mass = [b * w for b, w in zip(behavior, weights)]
+policy = [x / sum(mass) for x in mass]
+kl = sum(p * math.log(p / b) for p, b in zip(policy, behavior))
+print("policy=" + ",".join(f"{p:.3f}" for p in policy))
+print(f"KL={kl:.6f}, within_0.1={kl <= 0.1}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- behavior\_prob 代表数据收集策略的动作分布。
-- 指数优势权重提高数据中较好动作的概率，同时保留行为分布作为锚点。
-- beta 越大，改进更激进、有效样本数通常更低。
+- 未归一化质量为 [0.9,0.9]，新策略为 [0.5,0.5]。
+- KL(π∥β)=0.5 ln(0.5/0.9)+0.5 ln(0.5/0.1)≈0.510826。
+- 若要求 KL≤0.1，该温度或权重并不合格。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-新策略提高高优势动作概率，但不会给行为策略概率为零的动作凭空分配质量。
+```text
+policy=0.500,0.500
+KL=0.510826, within_0.1=False
+```
 :::
 
 ::::
@@ -259,9 +244,9 @@ print('KL(policy || behavior):', round(float(kl), 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 指数加权后未计算 KL，就声称满足任意指定距离半径。
+- 多峰行为被单峰策略平均成无数据支持的动作。
+- 把行为支持内行动视为自动安全。
 :::
 
 
@@ -272,7 +257,7 @@ print('KL(policy || behavior):', round(float(kl), 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-道路类比、约束选型清单、NumPy 优势加权示例和安全回退建议为本站扩展解释；算法依据来自 BEAR、BCQ 与 IQL 原论文。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Kumar 等：Stabilizing Off-Policy Q-Learning via Bootstrapping Error Reduction](https://arxiv.org/abs/1906.00949)。
 :::
 
 
@@ -323,11 +308,11 @@ print('KL(policy || behavior):', round(float(kl), 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 行为策略约束：在数据支持内改进是 on-policy 还是 off-policy？
+### 约束越强是否越可靠？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+更强约束通常减少分布外行动，也会保留行为策略缺点；行为密度估计错误和数据中的危险动作仍然存在，不能仅靠距离大小判断可部署性。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -337,4 +322,3 @@ print('KL(policy || behavior):', round(float(kl), 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

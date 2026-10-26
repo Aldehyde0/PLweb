@@ -38,29 +38,45 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-模型简单不等于任务简单。文本 TF-IDF 可在高维空间近似线性分开，而环形二维数据则不适合原始线性边界。
+线性模型能在高维文本上很有效，也可能无法分开简单的二维 XOR。关键不是输入维数看起来多复杂，而是选定表示中目标是否接近线性可分或可拟合。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-线性边界在原始特征空间是超平面；模型容量由特征表示和正则化共同决定。
+线性模型对选定特征表示作加权求和。原始输入中的弯曲边界可以通过非线性特征映射变成表示空间中的超平面，容量由表示与正则共同决定。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-是否线性取决于模型看到的坐标系；改变 φ(x) 可以让弯曲关系在新空间变直。
+在原纸上无法画直线分开的点，换一种坐标展开后可能可以。模型仍按直线规则工作，但你改变了它看到的坐标。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-先把线性模型作为基线，再通过残差和验证结果决定是否构造特征、用核方法或树。
+原始特征线性分数只含各输入的加性贡献，不能自动表达乘法交互或局部阈值。但加入平方、交互、样条或领域特征后，同一个线性求和可在原空间形成非线性函数。
+
+特征扩展会增加维度与共线性，需结合缩放和正则。高维稀疏表示可能很适合线性方法；盲目添加所有高阶多项式却会增加计算和过拟合风险，且外推时高次项增长很快。
+
+判断适用边界可从验证残差、错误分组和非线性基线比较入手。线性模型快速、可检查，但不是天然因果模型；树、核和神经网络也要使用同样独立验证协议，不能仅凭结构复杂就认为更合适。
 :::
+
+### XOR 中加入交互特征
+
+- 四个输入为 (0,0)、(0,1)、(1,0)、(1,1)
+- 标签为 0、1、1、0
+
+交互分数在四点上依次为 -0.5、0.5、0.5、-0.5，能表达 XOR。
+
+新模型对扩展特征 (x1,x2,x1x2) 仍是线性求和，因此“线性模型”不等于“原始输入只能有直线关系”。特征映射和估计器应一起描述。
+
+四点上的手工构造仅说明可表达性，不是外部测试表现。真实任务需要从训练数据选择特征，并在未用于构造规则的数据上验证。
+
 
 
 ## 数学表达 {#formulas}
@@ -72,12 +88,12 @@ anchorAliases:
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-f(x)=wᵀφ(x)+b
+f(x)=w^T\phi(x)+b,\quad \phi(x)=(x_1,x_2,x_1x_2)
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-先把线性模型作为基线，再通过残差和验证结果决定是否构造特征、用核方法或树。
+模型对 phi(x) 线性；交互项使其在原始二维空间具有非线性边界。
 :::
 
 ::::
@@ -85,11 +101,9 @@ $$
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 建立线性基线
-2. 检查残差/错误区域
-3. 尝试有意义特征
-4. 交叉验证比较
-5. 权衡解释与成本
+1. 建立缩放与正则的线性基线。
+2. 查看独立验证残差与系统性错误，识别需要的交互。
+3. 将特征构造放入训练流程，并与非线性基线公平比较。
 :::
 
 
@@ -97,33 +111,39 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 线性模型的适用边界 实现
+### XOR 中加入交互特征的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的训练与预测逻辑。
+使用完整构造输入核对XOR 中加入交互特征，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import Ridge
-from sklearn.pipeline import make_pipeline
-model=make_pipeline(PolynomialFeatures(2,include_bias=False),Ridge(alpha=1))
+```python
+points = [(0, 0), (0, 1), (1, 0), (1, 1)]
+linear = [a + b - 0.5 for a, b in points]
+interaction = [a + b - 2 * a * b - 0.5 for a, b in points]
+print("linear predictions:", [int(s >= 0) for s in linear])
+print("interaction scores:", interaction)
+print("interaction predictions:", [int(s >= 0) for s in interaction])
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码先建立符合输入要求的估计器。
-- 参数应在交叉验证中选择，测试集不参与。
+- 显示手工可表达性，不冒充拟合实验。
+- 比较只在四个构造点上成立。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-得到对二阶特征线性的非线性回归器。
+```text
+linear predictions: [0, 1, 1, 1]
+interaction scores: [-0.5, 0.5, 0.5, -0.5]
+interaction predictions: [0, 1, 1, 0]
+```
 :::
 
 ::::
@@ -131,8 +151,8 @@ model=make_pipeline(PolynomialFeatures(2,include_bias=False),Ridge(alpha=1))
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 稀疏文本
-- 快速基线
+- 高维稀疏文本基线
+- 通过交互或样条扩展线性表达
 :::
 
 

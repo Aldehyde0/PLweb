@@ -24,14 +24,20 @@ preserved: {}
 ## 通俗直觉 {#intuition}
 
 :::field{path="explanation" type="text"}
-随机森林让许多不同的树投票；Boosting 则让后一棵树重点修正前面的残差。
+随机森林让各棵树在不同自助样本与节点候选特征上独立训练，再汇总预测；梯度提升让下一棵树继续修正已有模型的损失。二者都能拟合非线性表格关系，但“许多树”只是共同外形，不代表训练机制相同。
+
+例如三位评审独立给出 2、4、6，平均得到 4，类似回归森林的汇总。提升则先给初值，再逐步加入修正，每轮都依据已经形成的答案，因此顺序不能任意交换。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="principle" type="text"}
-Bagging 并行训练多模型以降低方差；Boosting 串行添加弱模型以降低当前误差。
+随机森林主要用抽样和特征随机化降低树间相关性；更多树降低有限集合的波动，却不能消除共同偏差。深度、最小叶样本和候选特征控制单树质量与差异，OOB 只提供符合抽样假设的近似检查。
+
+梯度提升把预测写成逐步相加的函数，树拟合损失的负梯度；平方误差下才等于通常的残差。分类常在 logit 或 margin 上累加，再变成概率，不能把每轮树直接当作最终类别。学习率、树数和单树容量需要联合选择。
+
+独立树间易并行，提升轮间有依赖但每轮内部仍可并行。训练与验证必须按时间或实体边界拆分；两个模型用相同协议比较，输出分数只对应具体数据。森林和提升都没有脱离任务的统一性能排名。
 :::
 
 
@@ -39,22 +45,29 @@ Bagging 并行训练多模型以降低方差；Boosting 串行添加弱模型以
 
 :::field{path="formula.expression" type="math"}
 $$
-Fₘ(x)=Fₘ₋₁(x)+ηhₘ(x)
+F_m(x)=F_{m-1}(x)+\eta h_m(x)
 $$
 :::
 
 :::field{path="formula.description" type="text"}
-梯度提升以学习率 η 逐步加入新树。
+h 根据当前损失确定，η 控制每轮贡献；随机森林的独立回归树则直接平均，不按此式顺序训练。
 :::
 
+
+## 手算与场景核对 {#worked-example}
+
+以两个回归标签 1、3 为例，初始模型预测均为 2。若新树输出 −1、1，学习率为 0.1，则提升预测更新到 1.9、2.1，均方误差由 1 变为 0.81。
+
+随机森林的两棵树若分别对某点给 1 和 3，则平均预测为 2；两棵树不需要先后修正。这里的数字仅说明聚合关系，下面另用完整固定分类数据演示训练预测接口。
 
 ## 工作流程 {#algorithm-steps}
 
 :::field{path="workflow" type="list"}
-- 明确输入、输出与评价方式
-- 建立简单基线
-- 实现并检查关键中间量
-- 在验证数据上诊断和迭代
+- 固定目标、指标与训练/验证边界，保留最终测试。
+- 森林对样本与节点特征随机化，独立训练后聚合。
+- 提升从常数初值起，反复拟合当前损失的修正方向。
+- 在相同验证协议调树容量、森林数量或提升学习率与轮数。
+- 同时检查误差、少数类、稳定性与运行成本，再独立评测。
 :::
 
 
@@ -66,39 +79,64 @@ Python
 
 :::field{path="code.source" type="code" trailing="0"}
 ```Python
+from sklearn.datasets import make_classification
 from sklearn.ensemble import RandomForestClassifier, HistGradientBoostingClassifier
+from sklearn.model_selection import train_test_split
 
-forest = RandomForestClassifier(n_estimators=300, min_samples_leaf=2, random_state=42)
-boost = HistGradientBoostingClassifier(learning_rate=0.05, max_iter=200)
+X, y = make_classification(n_samples=240, n_features=6, n_informative=4,
+                           n_redundant=0, random_state=7)
+X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.3,
+                                                    stratify=y, random_state=7)
+models = {
+    "forest": RandomForestClassifier(n_estimators=40, min_samples_leaf=2, random_state=7),
+    "boost": HistGradientBoostingClassifier(max_iter=40, max_leaf_nodes=7, random_state=7),
+}
+for name, model in models.items():
+    model.fit(X_train, y_train)
+    print(f"{name} validation_accuracy={model.score(X_valid, y_valid):.4f}")
 ```
 :::
 
 :::field{path="code.highlights" type="list"}
-- 先检查数据和张量形状
-- 把会学习参数的步骤限制在训练数据内
+- 所有输入、导入和随机种子均在代码中给出。
+- 两个模型仅 fit 训练划分，统一在保留数据 score。
+- 这份 legacy 页面保留原字段和章节锚点，内容比较的边界与专门页面一致。
 :::
 
 :::field{path="codeExplanation" type="text"}
-两种方法都基于树，但训练关系、主要超参数和误差特性不同。
+固定训练验证划分，实际训练并记录本例准确率；不把该结果作为普遍排名。
+
+下列输出只来自本页固定构造数据，不是算法通用性能：
+
+```text
+forest validation_accuracy=0.9167
+boost validation_accuracy=0.8889
+```
 :::
 
 
 ## 应用场景 {#applications}
 
 :::field{path="applications" type="list"}
-- 建立可靠训练流程
-- 诊断模型行为
+- 用不同训练机制构造表格分类回归基线。
+- 比较样本扰动与逐步拟合如何影响误差和计算成本。
 :::
 
 
 ## 常见误区 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只记接口而不检查数据边界
-- 只看单次分数而忽略泛化
+- 把所有多树模型都视为硬标签多数票。
+- 把所有提升损失都写成普通残差回归。
+- 根据一个构造数据分数推断算法在所有业务更优。
 :::
 
 
 ## 相关概念 {#related}
 
 <ConceptRelated />
+
+
+## 资料与假设 {#source-notes}
+
+参见 [scikit-learn：Ensemble methods](https://scikit-learn.org/stable/modules/ensemble.html)。 本页数值均为构造例；涉及模型分数时仅说明给定数据与协议下的计算。

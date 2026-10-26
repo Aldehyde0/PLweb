@@ -37,7 +37,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-列错位、单位变化或 Series 降成一维会让预测报错或静默产生错误结果。
+模型接收的数组即使列数正确，也可能把年龄读成金额，或把元读成万元。预测接口需要检查结构与业务含义，不能靠模型猜测列名、单位和缺失值约定。
+
+契约应随模型版本保存，并在进入预处理前验证。训练允许的缺失值、类别范围和数据类型，应与推理时采用同一约定。
 :::
 
 
@@ -58,7 +60,13 @@ anchorAliases:
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-优先使用带列名 DataFrame；在 predict 前验证列集合、顺序、有限值、范围与模型版本。
+结构检查包含二维形状、必需列、重复列和额外字段。带列名 DataFrame 可以先验证列集合，再按契约显式排序；不能对缺失列静默补零，或按当前恰好出现的顺序直接转数组。
+
+语义检查包含单位、类型、范围和时间含义。年龄与金额都可以是浮点数，不能仅凭数值 dtype 判断正确；单位需要来自可信数据接口或明确转换流程，不能从每个数值可靠推断。
+
+缺失值策略必须与 Pipeline 一致。若训练使用填补器，可以允许约定的缺失表示，但仍拒绝无穷值和错误类型；若契约要求完整数值，就应在预测前清楚报错，而不是让不同接口各自填值。
+
+单条样本也应保持一行多列，避免 DataFrame 取成 Series 后降为一维。校验成功只代表输入在已定义范围内，不代表分布没有漂移或预测必然正确；还应记录契约与模型版本便于排查。
 :::
 
 
@@ -81,6 +89,12 @@ $$
 
 ::::
 
+### 案例：金额与年龄列换位时先对齐
+
+约定输入列为 age_years、amount_yuan，单位分别是年与元，并且本例不允许缺失。请求按相反列顺序提供时，可以在核对同一列集合后安全重排；若金额实际上是分，必须先走明确单位转换或拒绝。
+
+下方验证器会拒绝重复列、未知列、非数值、非有限值和年龄范围错误。单位来自显式元数据，这仍要求上游如实提供；验证器不能通过观察数字“自动知道”元与分是否弄反。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
@@ -97,34 +111,65 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 推理输入契约 示例
+### 完整验证一条数值输入并拒绝单位不符
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+本例采用无缺失、非负金额与有限年龄的显式契约，只验证输入，不假装完成模型预测。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-expected=list(X_train.columns)
-if list(new_sample.columns)!=expected:
-    raise ValueError("输入特征名称或顺序不一致")
-if not np.isfinite(new_sample.to_numpy()).all():
-    raise ValueError("输入包含非有限值")
+```Python
+import numpy as np
+import pandas as pd
+
+EXPECTED = ["age_years", "amount_yuan"]
+UNITS = {"age_years": "years", "amount_yuan": "yuan"}
+
+def validate(frame, units):
+    if frame.columns.duplicated().any() or set(frame.columns) != set(EXPECTED):
+        raise ValueError("column mismatch")
+    if units != UNITS:
+        raise ValueError("unit mismatch")
+    aligned = frame.loc[:, EXPECTED]
+    if not all(pd.api.types.is_numeric_dtype(dtype) for dtype in aligned.dtypes):
+        raise TypeError("numeric columns required")
+    if not np.isfinite(aligned.to_numpy(dtype=float)).all():
+        raise ValueError("finite values required")
+    if not aligned["age_years"].between(0, 120).all():
+        raise ValueError("age outside contract")
+    if (aligned["amount_yuan"] < 0).any():
+        raise ValueError("negative amount")
+    return aligned
+
+sample = pd.DataFrame({"amount_yuan": [100.0], "age_years": [24]})
+validated = validate(sample, UNITS)
+print("columns:", validated.columns.tolist())
+print("shape:", validated.shape)
+try:
+    validate(sample, {"age_years": "years", "amount_yuan": "cents"})
+except ValueError as error:
+    print("rejected:", error)
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 验证集合后按 EXPECTED 排列，单条输入仍保留二维。
+- 单位与缺失策略是业务契约，不能从 dtype 自动推断。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-合法输入继续预测；列或数值错误得到清晰异常。
+本地 scikit-learn 1.8.0 的核对输出：
+
+```text
+columns: ['age_years', 'amount_yuan']
+shape: (1, 2)
+rejected: unit mismatch
+```
 :::
 
 ::::
@@ -140,9 +185,9 @@ if not np.isfinite(new_sample.to_numpy()).all():
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只检查特征数
-- Series 一维输入
-- 单位未记录
+- 只检查列数或总元素数，不检查名称、重复列、单位和排列。
+- 静默把未知字符串转数字、把缺失列填零，改变训练时的输入语义。
+- 在允许填补的契约中一律拒绝 NaN，或在要求完整输入的契约中随意填补。
 :::
 
 

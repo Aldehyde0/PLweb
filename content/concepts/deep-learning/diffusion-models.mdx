@@ -34,18 +34,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释核心机制
-- 手算一个主要形状或公式
-- 运行完整示例并排查错误
+- 已知噪声时反解一个加噪样本
+- alpha_bar 和单步 alpha 是同一个量吗？
+- 说明：已知真实噪声的反解是代数检查，不能当作训练好的去噪器或完整生成采样器。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-掌握扩散模型的输入输出与训练边界
-
-能够用 PyTorch 代码验证公式和形状
+扩散模型规定前向加噪过程，训练网络在给定噪声等级或时间条件下预测噪声、干净样本或其他等价参数化，再按相应采样规则逆向求样本。
 :::
 
 
@@ -56,30 +54,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-扩散模型是该文档中连接数据表示、训练目标和工程实现的核心主题。
+从纯噪声一次生成复杂样本很困难。扩散模型把问题拆成许多噪声等级上的去噪任务，再用匹配的逆向过程逐步生成。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-扩散模型学习不同时间步去噪，从噪声多步生成样本。
+扩散模型规定前向加噪过程，训练网络在给定噪声等级或时间条件下预测噪声、干净样本或其他等价参数化，再按相应采样规则逆向求样本。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把扩散模型理解为数据在模型中的一套明确变换，而不是只记一个类名。
+先知道图片如何被逐渐弄模糊，再学习不同损坏程度下怎样修复。训练中的单步修复和完整生成的多步采样不是同一段程序。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-训练常预测加入噪声，采样必须使用匹配调度与参数化。
+常用封闭式前向写为 x_t=sqrt(alpha_bar_t)×x0+sqrt(1−alpha_bar_t)×epsilon。alpha_bar 是累计保留系数，不是单步 alpha；每条样本可随机选择不同 t，并把对应系数广播到图像维。
 
-实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+预测噪声时，网络输入 x_t 和 t，目标为本次使用的 epsilon，常用均方误差。时间条件不可省略，因为相同观测值在不同噪声水平下含义不同。噪声预测与 x0 预测有不同尺度，不能随意切换而不改公式。
+
+采样需要与训练一致的调度、参数化、数据缩放和起始分布。仅按公式把预测噪声减掉不是完整 DDPM 或 DDIM 采样器；最后一步、中间随机性和步长都有明确规则。
 :::
 
 
@@ -97,7 +97,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-扩散模型的核心数学表达。
+扩散模型规定前向加噪过程，训练网络在给定噪声等级或时间条件下预测噪声、干净样本或其他等价参数化，再按相应采样规则逆向求样本。
 :::
 
 ::::
@@ -117,37 +117,42 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 扩散模型数值/形状检查
+### 已知噪声时反解一个加噪样本
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=8
-- D=64
+- x0=(2,-2)，alpha_bar=0.25
+- 构造 epsilon=(1,-1)
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 按公式或模块逐步计算
-2. 核对输出 shape
+1. 信号系数为 0.5，噪声系数约为 0.866025。
+2. 得到 x_t≈(1.866025,-1.866025)。
+3. 用已知真实噪声反解 x0，得到 (2,-2)。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出保持 batch 维并符合任务头约定
+代数恢复误差约为 0；这使用了真实噪声，是公式验证而非学习结果。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 已知真实噪声的反解是代数检查，不能当作训练好的去噪器或完整生成采样器。
 :::
+
+### 已知噪声时反解一个加噪样本
+
+真实生成时没有可直接读取的 x0 和本次真实噪声，所以必须依靠训练网络估计。即使某一步估计准确，完整采样的分布也依赖整套逆向规则。
+
+alpha_bar 接近零时反解中除以很小的平方根会放大误差，显示参数化与采样调度的重要性。代码选择 0.25 便于手算，不代表推荐的训练调度。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认输入与目标
-2. 建立最小模块
-3. 随机张量前向
-4. 计算损失
-5. 反向与更新
-6. 验证与错误分析
+1. 信号系数为 0.5，噪声系数约为 0.866025。
+2. 得到 x_t≈(1.866025,-1.866025)。
+3. 用已知真实噪声反解 x0，得到 (2,-2)。
 :::
 
 
@@ -155,35 +160,42 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 扩散模型 · PyTorch 示例
+### 已知噪声时反解一个加噪样本的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证扩散模型的输入、计算和输出。
+使用完整构造输入核对已知噪声时反解一个加噪样本，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-t=torch.randint(0,alpha_bar.numel(),(x0.size(0),),device=x0.device)
-noise=torch.randn_like(x0)
-a=alpha_bar[t].view(-1,1,1,1)
-xt=a.sqrt()*x0+(1-a).sqrt()*noise
-loss=F.mse_loss(denoiser(xt,t),noise)
+```python
+import torch
+x0 = torch.tensor([2., -2.])
+noise = torch.tensor([1., -1.])
+a = torch.tensor(0.25)
+xt = a.sqrt() * x0 + (1 - a).sqrt() * noise
+recovered = (xt - (1 - a).sqrt() * noise) / a.sqrt()
+print("noisy:", [round(v, 6) for v in xt.tolist()])
+print("recovered:", recovered.tolist())
+print(f"max_error={(recovered - x0).abs().max().item():.6f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码显式标注输入和输出
-- 使用框架稳定实现
-- 结果通过 shape 或数值检查
+- 噪声与累计系数全部显式给定。
+- 没有引入不存在的 denoiser 或虚构生成图像。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印与页面说明一致的张量形状或损失。
+```text
+noisy: [1.866025, -1.866025]
+recovered: [2.0, -2.0]
+max_error=0.000000
+```
 :::
 
 ::::
@@ -191,8 +203,8 @@ loss=F.mse_loss(denoiser(xt,t),noise)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 扩散模型
-- 教学与项目基线
+- 构建噪声预测训练样本
+- 检查扩散参数化与调度一致性
 :::
 
 
@@ -213,18 +225,17 @@ loss=F.mse_loss(denoiser(xt,t),noise)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 扩散模型最先检查什么？
+### alpha_bar 和单步 alpha 是同一个量吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-先检查输入输出 shape、dtype 和数据边界。
+不是，alpha_bar 通常是到 t 为止各步 alpha 的乘积；封闭式从 x0 直接构造 x_t 时需要累计量。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 何时使用测试集？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-全部设计锁定后最终评估。
+已知真实噪声的反解是代数检查，不能当作训练好的去噪器或完整生成采样器。
 :::
-

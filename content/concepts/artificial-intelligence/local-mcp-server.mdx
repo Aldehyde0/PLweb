@@ -65,7 +65,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-本地部署避免把资料发送给远程服务，但仍可能读写本机文件，权限边界同样重要。
+本地 Server 可以把文件读取和开发工具留在用户机器上执行，但“本地”不代表整个数据链都留在本机：返回内容仍可能进入远程模型或追踪服务。部署位置、执行权限和后续数据流要分别检查。
+
+一个本地能力是否适合开放，取决于它能读写哪些路径、运行什么程序、继承哪些环境变量，以及宿主能否限制和结束它。
 :::
 
 
@@ -86,13 +88,23 @@ anchorAliases:
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-stdio Server 的 stdout 只能输出协议消息，日志应写 stderr。
+stdio Server 通常作为宿主启动的子进程运行，stdout 只传协议消息，日志写 stderr。启动命令、工作目录、依赖与环境应明确，避免依赖不可复现的交互式终端状态。
 
-启动参数和工作目录必须明确，避免继承过宽环境。
+文件工具应以配置的允许目录为边界，解析规范化路径后检查是否仍在该目录内。字符串前缀判断无法阻止 ../ 穿越；符号链接、并发替换与操作系统权限也需要在真实实现中考虑。
 
-只暴露白名单目录与必要工具，写操作单独审批。
+工具目录只是能力声明，读取和写入权限仍由实现落实。优先以只读窄接口验证连接与结果，写操作另外设计审批、幂等和审计；同机其他进程也不能默认视为可信用户。
+
+实际协议连接应使用与目标版本兼容的实现或 SDK。当前规范与旧版初始化流程不同；下方代码刻意只验证本地读取工具的路径边界，不实现 stdio、HTTP 或完整 MCP 消息处理，不能当作可接入宿主的 Server。
+
+传输行为可参照 [官方 stdio 绑定](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/stdio)。
 :::
 
+
+### 案例：只开放课程笔记目录
+
+假设允许目录是 notes，Agent 可以读取其中的 agent.md。请求 `../private.md` 即使在字符串上看似与笔记有关，解析后已越过允许根目录，执行端必须拒绝；不能让模型自己决定是否遵守边界。
+
+下方示例在临时目录创建一份笔记，成功读取后验证越界路径会被拒绝，最后自动清理。它没有开放网络或启动外部进程，也没有实现完整沙箱。真实部署还要检查链接与并发变化、操作系统身份，以及读出内容是否允许被发送给模型服务。
 
 ## 理解与实践步骤 {#algorithm-steps}
 
@@ -109,7 +121,7 @@ stdio Server 的 stdout 只能输出协议消息，日志应写 stderr。
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 本地 MCP 消息流：Server 与 Client 的最小可复现模型
+### 本地读取工具：成功读取与越界拒绝
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -117,54 +129,44 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-不依赖网络或第三方 SDK，用队列完整演示 initialize、tools/list 与 tools/call 的请求—响应结构；这是协议教学模型，不宣称替代完整 MCP SDK。
+使用 Python 标准库与临时目录验证路径边界，无需网络、模型或第三方 SDK。这是工具实现测试，不包含 MCP 传输或完整 Server。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-from queue import Queue
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
-requests = Queue()
-responses = Queue()
+def read_note(root: Path, relative_path: str) -> str:
+    allowed_root = root.resolve()
+    candidate = (allowed_root / relative_path).resolve()
+    if not candidate.is_relative_to(allowed_root):
+        raise PermissionError("path is outside the allowed root")
+    if candidate.suffix != ".md":
+        raise ValueError("only Markdown notes are allowed")
+    return candidate.read_text(encoding="utf-8")
 
-def server_once():
-    message = requests.get()
-    method = message["method"]
-    if method == "initialize":
-        result = {"protocolVersion": "2026-07-28", "capabilities": {"tools": {}}}
-    elif method == "tools/list":
-        result = {"tools": [{"name": "read_note", "readOnly": True}]}
-    elif method == "tools/call":
-        args = message["params"]["arguments"]
-        if not args["path"].startswith("notes/"):
-            raise PermissionError("path is outside the allowed root")
-        result = {"content": [{"type": "text", "text": "local note"}]}
-    else:
-        raise ValueError(f"unsupported method: {method}")
-    responses.put({"jsonrpc": "2.0", "id": message["id"], "result": result})
-
-def client_call(method, params=None):
-    requests.put({"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}})
-    server_once()
-    return responses.get()
-
-print(client_call("initialize"))
-print(client_call("tools/list"))
-print(client_call("tools/call", {
-    "name": "read_note",
-    "arguments": {"path": "notes/agent.md"},
-}))
+with TemporaryDirectory() as temporary:
+    notes_root = Path(temporary) / "notes"
+    notes_root.mkdir()
+    (notes_root / "agent.md").write_text("local note", encoding="utf-8")
+    print(read_note(notes_root, "agent.md"))
+    try:
+        read_note(notes_root, "../private.md")
+    except PermissionError as error:
+        print(f"blocked: {error}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- Queue 代替 stdio/HTTP，只保留 Client 发请求、Server 回响应的核心数据流。
-- initialize 声明协议版本与能力；tools/list 用于发现；tools/call 携带工具名和参数。
-- 路径校验发生在 Server 执行层，readOnly 元数据不能替代真实授权。
+- resolve 规范化路径，is_relative_to 检查解析后是否仍位于允许目录，拒绝 ../ 穿越。
+- 示例实际创建并读取一份 Markdown 笔记，越界请求在读取前被拒绝，临时目录退出时清理。
+- 此边界检查用于固定测试环境，不提供完整沙箱；真实服务还需处理符号链接、并发替换、操作系统权限与输出数据流。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-依次打印初始化能力、只读工具目录和 local note 内容；越过 notes/ 根目录会抛出 PermissionError。
+local note
+blocked: path is outside the allowed root
 :::
 
 ::::
@@ -180,8 +182,9 @@ print(client_call("tools/call", {
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 把整个磁盘作为根目录
-- stdout 混入日志破坏协议
+- 把整个磁盘设为允许目录，或用字符串 startswith 判断路径是否安全。
+- 在 stdout 混入调试日志，或者任由子进程继承不必要的秘密与权限。
+- 把本地执行等同于数据从不离开本机，或把简化工具测试当成完整 MCP Server。
 :::
 
 
@@ -211,10 +214,9 @@ print(client_call("tools/call", {
 
 ## 安全风险与信任边界 {#security-risks}
 
-
-
+本地服务进程可能继承启动环境的目录、变量和文件访问能力，不能因为没有远程地址就默认隔离。应核对服务实际读取与写入的路径；stdio 的协议输出与诊断日志也要分开，避免把日志或敏感环境信息混入返回内容。
 
 ## 性能与失败模式 {#performance-notes}
 
-
+冷启动、依赖加载、子进程生命周期和本地 IO 都会影响响应。测试应覆盖首次启动、重复请求、取消与异常退出，区分协议错误和后端库错误；运行在本机不保证比远程服务更快或更稳定。
 

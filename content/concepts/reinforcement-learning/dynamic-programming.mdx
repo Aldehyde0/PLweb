@@ -55,18 +55,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Dynamic Programming、Policy/Value Iteration并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 用已知环境模型精确做期望备份，区分策略评价与策略改进。
+- 独立复核“随机后继下的一次最优备份”的输入、计算和解释。
+- 必须对随机后继求期望，不能只挑最好后继。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Dynamic Programming、Policy/Value Iteration位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+用已知环境模型精确做期望备份，区分策略评价与策略改进。
 :::
 
 
@@ -77,38 +75,32 @@ Dynamic Programming、Policy/Value Iteration位于“状态—行动—反馈—
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+小型调度问题中，所有转移概率和成本可能已经给定。此时不必先通过随机试验估计每一步结果，可以直接枚举后继状态并计算期望；这正是动态规划成为强化学习基准和概念起点的原因。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-DP 使用完整转移概率和奖励模型计算 Bellman 期望。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+动态规划在已知转移与奖励模型下，对价值函数反复应用 Bellman 备份。策略迭代交替做给定策略的评价和贪心改进；价值迭代直接应用最优备份。它不是从固定轨迹直接求平均，也不要求训练一个神经网络。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-如果游戏规则全部已知，可系统扫描所有状态而不必靠采样。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+如果有完整路线图和每段路的通行概率，可以在地图上反复更新“从这里出发还要花多少成本”，不必真的把每条路线都走一遍。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-Policy Iteration 交替评估与改进。
+策略评价对动作按当前策略加权，并对各后继按模型概率加权。策略改进比较动作价值后改变策略；混用两个步骤会把“评价旧策略”误写成“寻找最优策略”。
 
-Value Iteration 合并为最优备份。
+同步备份用同一份旧价值计算所有新值，原地异步备份立即使用刚更新的值。它们在适当条件下可以接近同一固定点，但每轮中间数值不同，手算与代码必须说明更新顺序。
 
-大状态空间中全扫描不可行。
+有限折扣 MDP 的 Bellman 最优算子具有压缩性质，可支持相应收敛结论；不折扣持续任务、近似模型和任意非线性逼近需要额外条件。全状态与动作扫描也会遇到维数灾难。
 :::
 
 
@@ -116,17 +108,17 @@ Value Iteration 合并为最优备份。
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### Bellman 最优备份
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+V_{k+1}(s)=\max_a\sum_{s\prime,r}p(s\prime,r\mid s,a)[r+\gamma V_k(s\prime)]
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+在终止状态未来价值设为零；本式展示同步价值迭代。
 :::
 
 ::::
@@ -137,9 +129,9 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| p | 已知的后继状态与奖励联合模型 |
+| V_k | 第 k 次备份前的状态价值 |
+| γ | 折扣因子 |
 :::
 
 ::::
@@ -147,30 +139,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Dynamic Programming、Policy/Value Iteration的最小计算
+### 随机后继下的一次最优备份
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 动作 stop 立即得 2 并终止。
+- 动作 try 奖励为 0，以 0.5 到达价值 4 的状态，以 0.5 到达价值 0 的状态；折扣 0.9。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 先求 try 的后继价值期望：0.5×4+0.5×0=2。
+2. try 的备份值为 0+0.9×2=1.8。
+3. 比较 stop=2 与 try=1.8，选择 stop。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+一次最优备份得到 V(s)=2.000，贪心动作为 stop。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 必须对随机后继求期望，不能只挑最好后继。
+- 有限一次备份并不代表全部状态已达到固定点。
 :::
 
 
@@ -188,7 +177,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Dynamic Programming、Policy/Value Iteration的本地数值骨架
+### 随机后继下的一次最优备份
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -196,28 +185,29 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+一次最优备份得到 V(s)=2.000，贪心动作为 stop。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
 gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+q = {"stop": 2.0, "try": gamma * (0.5 * 4.0 + 0.5 * 0.0)}
+print(f"Q_stop={q['stop']:.3f}, Q_try={q['try']:.3f}")
+print("best=" + max(q, key=q.get))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 先求 try 的后继价值期望：0.5×4+0.5×0=2。
+- try 的备份值为 0+0.9×2=1.8。
+- 比较 stop=2 与 try=1.8，选择 stop。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+Q_stop=2.000, Q_try=1.800
+best=stop
+```
 :::
 
 ::::
@@ -233,9 +223,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 模型未知时仍声称做了精确 Bellman 期望。
+- 手算用同步更新，代码却原地更新而不说明。
+- 把折扣有限表格结论推广到任意函数逼近。
 :::
 
 
@@ -246,7 +236,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Sutton 与 Barto《Reinforcement Learning: An Introduction》](http://incompleteideas.net/book/the-book-2nd.html)（第 4 章）。
 :::
 
 
@@ -257,9 +247,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 模型未知时仍声称做了精确 Bellman 期望。
+- 手算用同步更新，代码却原地更新而不说明。
+- 把折扣有限表格结论推广到任意函数逼近。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -276,11 +266,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Dynamic Programming、Policy/Value Iteration是 on-policy 还是 off-policy？
+### 动态规划是否需要环境交互数据？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+若模型完全已知，可以直接规划；若模型由数据估计，规划虽仍可执行，但误差与收敛结论须考虑估计模型的可靠性。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -290,4 +280,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

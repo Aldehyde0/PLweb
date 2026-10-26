@@ -37,18 +37,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释核心机制
-- 手算一个主要形状或公式
-- 运行完整示例并排查错误
+- 手算一次 LSTM 的状态写入
+- LSTM 的细胞状态和隐藏状态为什么不同？
+- 说明：门控改善记忆路径，不能保证任意长度依赖都能学习，也不能省略变长处理。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-掌握LSTM的输入输出与训练边界
-
-能够用 PyTorch 代码验证公式和形状
+LSTM 维护隐藏状态 h 与细胞状态 c，使用遗忘门 f、输入门 i、输出门 o 和候选内容 g 更新。门通常经 sigmoid，候选内容经 tanh。
 :::
 
 
@@ -59,30 +57,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-LSTM是该文档中连接数据表示、训练目标和工程实现的核心主题。
+普通 RNN 不容易稳定地把信息传过很多时间步。LSTM 通过可控制的细胞状态通路，分别决定保留旧内容、写入新内容和暴露哪些内容。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-LSTM 用输入门、遗忘门、输出门和细胞状态缓解长距离依赖训练。
+LSTM 维护隐藏状态 h 与细胞状态 c，使用遗忘门 f、输入门 i、输出门 o 和候选内容 g 更新。门通常经 sigmoid，候选内容经 tanh。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把LSTM理解为数据在模型中的一套明确变换，而不是只记一个类名。
+细胞状态像长期笔记，遗忘门擦去一部分，输入门写入一部分，输出门决定本步向外展示多少。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-门值是连续软控制，细胞状态提供更直接的信息通路。
+更新 c_t=f_t×c_prev+i_t×g_t，再计算 h_t=o_t×tanh(c_t)。门是 0 到 1 的连续向量，不是人工写好的二元开关。加法通路能减轻反复矩阵相乘造成的梯度问题，但遗忘门持续很小仍会快速抹去历史。
 
-实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+四组变换各自读取当前输入和前一隐藏状态，因此标准 LSTM 通常比相同 hidden size 的普通 RNN 有更多参数。细胞状态也不等于原始历史；它是由目标训练出来的压缩表示。
+
+PyTorch 返回 output 和 (h_n,c_n)。多层或双向时，最终状态首轴包含层与方向；最后时间位置不等于所有方向的最终摘要。变长序列需要正确处理 padding，在线跨片段时还应明确状态携带与 detach。
 :::
 
 
@@ -100,7 +100,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-LSTM的核心数学表达。
+LSTM 维护隐藏状态 h 与细胞状态 c，使用遗忘门 f、输入门 i、输出门 o 和候选内容 g 更新。门通常经 sigmoid，候选内容经 tanh。
 :::
 
 ::::
@@ -120,37 +120,42 @@ LSTM的核心数学表达。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### LSTM数值/形状检查
+### 手算一次 LSTM 的状态写入
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=8
-- D=64
+- 上一细胞状态为 2
+- f=0.5，i=0.25，g=0.8，o=0.75
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 按公式或模块逐步计算
-2. 核对输出 shape
+1. 保留项为 0.5×2=1。
+2. 新写入项为 0.25×0.8=0.2。
+3. c=1.2，h=0.75×tanh(1.2)。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出保持 batch 维并符合任务头约定
+细胞状态为 1.2，隐藏输出约为 0.625241。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 门控改善记忆路径，不能保证任意长度依赖都能学习，也不能省略变长处理。
 :::
+
+### 手算一次 LSTM 的状态写入
+
+本例门值是人为给定，用于隔离更新公式，不是从真实网络拟合得到。c 可以超过 1，h 经 tanh 与输出门后仍被限制，这解释了两种状态为何不能互换。
+
+若把遗忘门改为 0，旧细胞状态的直接贡献消失；若输入门为 0，则没有新内容写入。真实门向量由输入和历史动态计算，不会固定采用此处比例。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认输入与目标
-2. 建立最小模块
-3. 随机张量前向
-4. 计算损失
-5. 反向与更新
-6. 验证与错误分析
+1. 保留项为 0.5×2=1。
+2. 新写入项为 0.25×0.8=0.2。
+3. c=1.2，h=0.75×tanh(1.2)。
 :::
 
 
@@ -158,34 +163,37 @@ LSTM的核心数学表达。
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### LSTM · PyTorch 示例
+### 手算一次 LSTM 的状态写入的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证LSTM的输入、计算和输出。
+使用完整构造输入核对手算一次 LSTM 的状态写入，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-lstm=nn.LSTM(64,128,batch_first=True)
-x=torch.randn(8,20,64)
-out,(h,c)=lstm(x)
-print(out.shape,h.shape,c.shape)
+```python
+import torch
+c_prev = torch.tensor(2.)
+f, i, g, o = [torch.tensor(v) for v in [0.5, 0.25, 0.8, 0.75]]
+c = f * c_prev + i * g
+h = o * torch.tanh(c)
+print(f"cell={c.item():.6f} hidden={h.item():.6f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码显式标注输入和输出
-- 使用框架稳定实现
-- 结果通过 shape 或数值检查
+- 门值为构造条件，不假装网络训练结果。
+- 分别打印 c 与 h，展示不同的数值范围。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印与页面说明一致的张量形状或损失。
+```text
+cell=1.200000 hidden=0.625241
+```
 :::
 
 ::::
@@ -193,8 +201,8 @@ print(out.shape,h.shape,c.shape)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- LSTM
-- 教学与项目基线
+- 需要较长上下文的序列基线
+- 有状态在线时序预测
 :::
 
 
@@ -214,18 +222,17 @@ print(out.shape,h.shape,c.shape)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### LSTM最先检查什么？
+### LSTM 的细胞状态和隐藏状态为什么不同？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-先检查输入输出 shape、dtype 和数据边界。
+细胞状态用于内部累加和保留信息，隐藏状态是经 tanh 与输出门暴露的表示；两者形状可能相同，但运算角色不同。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 何时使用测试集？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-全部设计锁定后最终评估。
+门控改善记忆路径，不能保证任意长度依赖都能学习，也不能省略变长处理。
 :::
-

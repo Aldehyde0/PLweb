@@ -24,81 +24,112 @@ preserved: {}
 ## 通俗直觉 {#intuition}
 
 :::field{path="explanation" type="text"}
-它像模型的评分规则：分数越差，优化器就越需要调整参数。
+损失函数把预测与目标之间的差异变成可优化的标量。它既规定模型追求什么，也通过局部导数告诉优化器应怎样调整参数；它不是模型架构或输出激活。
+
+想象两套评分规则：平方误差会把大偏差放大，绝对误差按偏差线性计分。即使输入与模型完全相同，换一种损失也可能学出不同参数。因此选择评分规则需要考虑噪声假设和实际错误代价，而不是只看哪个数值较小。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="principle" type="text"}
-不同任务需要匹配概率假设的损失；分类常用交叉熵，回归常用均方误差。
+回归的均方误差比较预测实数与目标，误差先平方再平均，对离群大误差较敏感。交叉熵比较目标分布与预测概率，互斥类别且标签为索引时，每条样本等价于正确类别负对数概率。
+
+模型通常输出未归一化的 logits。CrossEntropyLoss 内部以稳定方式计算 log-softmax，BCEWithLogitsLoss 则处理独立二元目标；不要在它们之前重复 softmax 或 sigmoid。索引型多分类目标通常是 long，形状为 batch 轴；多标签二元目标是与 logits 同形状的浮点张量。
+
+归约方式也是目标定义的一部分。sum 随样本数放大梯度，mean 则按参与元素平均；变长序列应明确有效 token 数，不能把 padding 当作真实标签。若要改变损失权重或梯度累积设置，也需同时核对实际梯度尺度。
+
+优化的是训练代理目标，业务最终可能关心召回率、排序或代价。交叉熵更低可能只意味着概率更好，还未跨越分类阈值；不同损失的绝对值也不能拿来直接比较模型质量。
 :::
+
+### 同样分类正确，交叉熵也会不同
+
+构造两个模型都把正确类排第一，但正确类概率分别为 0.6 与 0.9。二者准确率均为 1，单样本交叉熵却分别约为 0.510826 和 0.105361。交叉熵还能区分预测的把握程度，因此比离散准确率更适合作为梯度训练目标。
+
+反过来，若模型高置信地犯错，正确类概率仅为 0.01，交叉熵约为 4.605170。它会强烈惩罚这种错误，但概率大小是否校准、哪个阈值符合业务仍要另行验证。这些都是手算构造值，不是实测模型指标。
+
 
 
 ## 数学公式 {#formulas}
 
 :::field{path="formula.expression" type="math"}
 $$
-CE = -Σ yᵢ log pᵢ
+L_{CE}=-\sum_{c=1}^{C} y_c\log p_c,\qquad L_{MSE}=\frac1N\sum_{n=1}^N(\widehat y_n-y_n)^2
 $$
 :::
 
 :::field{path="formula.description" type="text"}
-交叉熵惩罚模型给正确类别分配过低概率。
+交叉熵式中 y 是目标分布，p 是预测概率；one-hot 目标时只保留正确类的负对数概率。MSE 式按 N 个标量预测取平均，两种损失对应不同任务。
 :::
 
 
 ## 工作流程 {#algorithm-steps}
 
 :::field{path="workflow" type="list"}
-- 模型输出 logits
-- 转换或直接计算损失
-- 对批次求平均
-- 反向传播损失梯度
+- 明确目标是连续值、互斥类别还是独立多标签。
+- 规定输出与标签的 shape、dtype 和含义。
+- 选择匹配的损失及归约方式，确认 padding 或 ignore 标签。
+- 用一条可手算样本检查损失，再反向与更新。
+- 用独立验证集同时检查代理损失与任务指标。
 :::
 
 
 ## 代码示例 {#code}
 
 :::field{path="code.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="code.source" type="code" trailing="0"}
-```PyTorch
+```python
 import torch
 from torch import nn
-
-logits = torch.tensor([[2.0, 0.4, -1.0]])
+logits = torch.tensor([[2., 0.4, -1.]])
 target = torch.tensor([0])
 loss = nn.CrossEntropyLoss()(logits, target)
-print(loss.item())
+probability = logits.softmax(-1)[0, 0]
+print(f"correct_probability={probability.item():.6f} cross_entropy={loss.item():.6f}")
+prediction = torch.tensor([1., 3.])
+truth = torch.tensor([2., 2.])
+print(f"mse={nn.MSELoss()(prediction, truth).item():.6f}")
 ```
 :::
 
 :::field{path="code.highlights" type="list"}
-- CrossEntropyLoss 接收原始 logits
-- 目标使用类别索引
+- 输入和目标完整定义，输出使用固定小数格式。
+- 多分类接收 logits 与 long 类别索引，不重复 softmax。
+- MSE 使用两条标量误差，归约为均值。
 :::
 
 :::field{path="codeExplanation" type="text"}
-正确类别是索引 0，它的 logit 最大，因此损失较小。函数内部完成 softmax 与对数计算。
+正确类别 logit 为 2，softmax 后概率约为 0.799；交叉熵是其负对数。另一个回归例子两条误差分别为 -1 和 1，平方后均为 1，所以 MSE 为 1。这里只核对损失定义，两个数值不能用于比较任务效果。
+
+预期输出：
+
+```text
+correct_probability=0.798924 cross_entropy=0.224490
+mse=1.000000
+```
 :::
 
 
 ## 应用场景 {#applications}
 
 :::field{path="applications" type="list"}
-- 模型训练目标
-- 模型比较
+- 监督学习的可微训练目标。
+- 设计多任务各损失的归约与相对权重。
+- 分析训练代理目标与业务指标的差异。
 :::
 
 
 ## 常见误区 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 对 logits 重复做 softmax
-- 只看损失不看业务指标
+- 把损失和准确率视为同一种指标。
+- 对组合分类损失重复做概率激活。
+- 忽略广播，误把不同样本的预测和标签两两比较。
+- 改变 sum/mean 或有效数量后不检查梯度尺度。
+- 用不同任务损失的绝对值直接判断模型优劣。
 :::
 
 

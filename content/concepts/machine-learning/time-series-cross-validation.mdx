@@ -36,7 +36,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-普通 KFold 会让未来数据进入训练；滚动均值、滞后特征和标准化也必须只使用当时历史。
+预测未来时，训练数据只能来自当时已经可获得的信息。普通随机 K 折可能用未来记录训练，再回头预测过去，即使没有重复样本，也会得到不符合使用方式的结果。
+
+时间验证需要模拟实际更新频率、训练窗口和预测跨度，尤其要检查标签何时成熟、滞后特征使用了哪些时段。
 :::
 
 
@@ -57,7 +59,13 @@ anchorAliases:
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-数据先排序；窗口长度、测试跨度和 gap 必须模拟真实预测频率。多实体时还需结合群组。
+TimeSeriesSplit 按输入顺序使用较早行训练、较晚行验证，默认是逐渐扩大的训练窗口。它不会读取时间戳替你排序，调用前必须按真实时间组织数据。
+
+test_size 控制每折验证样本数，max_train_size 可限制训练窗口，gap 在训练与验证间留出若干行。gap 的单位是样本数，并不是自动理解的天数；不规则采样时，等行数也不意味着等时间跨度。
+
+间隔要与标签窗口、延迟和特征构造匹配。例如未来多天的累计结果作为标签时，靠近验证起点的训练标签可能尚未可得，需要相应清除或延迟。只设一个任意 gap 不能保证没有未来信息。
+
+多实体时间序列还要定义同一时间点和同一实体的边界。评价过去到未来、旧实体到新实体是不同目标；对时间漂移明显的任务，旧时期的均值分数也可能掩盖最近窗口的退化。
 :::
 
 
@@ -80,6 +88,12 @@ $$
 
 ::::
 
+### 案例：12 个等间隔时点的前向划分
+
+构造索引 0 到 11 的时间序列，用 3 折、每折验证 2 行、gap 为 1。第一折训练 0 到 4，跳过 5，验证 6 到 7；第二折训练扩展到 6，验证 8 到 9；第三折训练到 8，验证 10 到 11。
+
+这个例子只说明索引规则。如果一行代表一天，则间隔是一日；若一天有多条记录，就不能继续把 gap=1 称为一天。实际还应按时间戳检查预测时点能够获得哪些输入与标签。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
@@ -96,31 +110,45 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### TimeSeriesSplit 示例
+### 打印并核对前向训练、间隔与验证范围
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+使用已按时间顺序排列的构造行，直接检查真实索引关系；未训练模型。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-cv=TimeSeriesSplit(n_splits=5,test_size=30,gap=5)
-r=cross_validate(model,X_time,y_time,cv=cv,scoring="neg_mean_absolute_error")
+```Python
+import numpy as np
+from sklearn.model_selection import TimeSeriesSplit
+
+X = np.arange(12).reshape(-1, 1)
+cv = TimeSeriesSplit(n_splits=3, test_size=2, gap=1)
+for train, valid in cv.split(X):
+    gap = int(valid[0] - train[-1] - 1)
+    assert gap == 1
+    assert train[-1] < valid[0]
+    print(f"train={train[0]}..{train[-1]}, valid={valid[0]}..{valid[-1]}, gap={gap}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 验证范围固定为 2 行，训练窗口随折数扩大。
+- gap 由索引核算，不能自动换算成业务时间。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-5 个按时间递进的验证 MAE。
+本地 scikit-learn 1.8.0 的核对输出：
+
+```text
+train=0..4, valid=6..7, gap=1
+train=0..6, valid=8..9, gap=1
+train=0..8, valid=10..11, gap=1
+```
 :::
 
 ::::
@@ -136,9 +164,9 @@ r=cross_validate(model,X_time,y_time,cv=cv,scoring="neg_mean_absolute_error")
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- shuffle
-- 未来窗口特征
-- 全时段标准化
+- 以为 TimeSeriesSplit 会自动根据时间列排序，或先随机打乱再调用。
+- 把 gap 的行数当作固定时长，忽略采样不规则与标签观察窗口。
+- 在生成滞后、滚动统计或目标编码时先使用全部未来信息，再期望划分器修复。
 :::
 
 

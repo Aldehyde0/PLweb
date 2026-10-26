@@ -37,7 +37,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-sklearn 对误差类 scoring 取负以统一越大越好；不同指标数值不可直接大小比较。
+交叉验证得到什么分数，取决于 scoring，而不是只由模型决定。估计器默认 score 可能是准确率或 R²；若直接接受默认值，很容易与业务真正关心的误差错位。
+
+多指标输出可以帮助诊断，但用于选择模型的主指标和取舍规则应事先固定，避免事后挑选有利分数。
 :::
 
 
@@ -58,7 +60,13 @@ cross\_val\_score 适合单指标，cross\_validate 支持字典指标、return\
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-预先指定主指标；附加指标用于诊断。return\_estimator 会占内存，仅需要分析每折模型时开启。
+scoring 可以是内置名称、评分器或多指标字典。评分器通常接收估计器、输入和真实标签，负责调用相应预测方法；需要概率的指标不能用硬标签随意替代。
+
+scikit-learn 的评分方向统一为越大越好，因此 MAE、MSE 等损失常返回负值。负误差越接近零越好，报告业务误差时可以取反；不要按绝对值越大越好排序。
+
+cross_validate 会分别返回各折验证分数、拟合时间与评分时间；return_train_score 可添加训练分数辅助观察过拟合。训练分数高不是好方案的充分证据，时间值还依赖硬件与并行设置。
+
+自定义指标要明确参数、正类和零分母处理。return_estimator 适合需要分析折内状态时使用，会保存额外模型；指标平均方式也要与数据结构匹配，按折均值和全部折外预测统一计算可能不同。
 :::
 
 
@@ -81,6 +89,12 @@ $$
 
 ::::
 
+### 案例：负 MAE 只是评分方向约定
+
+构造目标 0 到 11，按顺序做普通 3 折，每轮用训练均值作常量预测。三折真实 MAE 分别为 6、1、6，scoring 返回 −6、−1、−6，转回正误差后的折均值为 13 / 3。
+
+这里有序 KFold 只为让算术可复核，不代表合适的时间预测协议。若误把最负的一折称为最好，就把优化方向读反了；下面代码同时展示返回键与取反步骤。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
@@ -96,31 +110,49 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### cross\_validate 与 scoring 示例
+### 用常量回归手算负 MAE 的方向
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+固定 12 个目标值，用可手算的常量基线说明 scoring 的符号与结果键。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-r=cross_validate(model,X,y,cv=5,scoring={"acc":"accuracy","f1":"f1_macro"},return_train_score=True,n_jobs=-1)
-print(r["test_acc"],r["test_f1"],r["fit_time"])
+```Python
+import numpy as np
+from sklearn.dummy import DummyRegressor
+from sklearn.model_selection import KFold, cross_validate
+
+X = np.arange(12).reshape(-1, 1)
+y = np.arange(12, dtype=float)
+result = cross_validate(DummyRegressor(strategy="mean"), X, y,
+    cv=KFold(3), scoring={"mae": "neg_mean_absolute_error", "r2": "r2"},
+    return_train_score=True)
+mae = -result["test_mae"]
+assert np.allclose(mae, [6.0, 1.0, 6.0])
+print("raw_scores:", result["test_mae"].tolist())
+print("positive_mae:", mae.tolist())
+print(f"fold_mean_mae={mae.mean():.3f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 字典键 mae 生成 test_mae 与 train_mae，不改变评分器本身的方向。
+- 只有误差取反，折间波动和样本数仍按原定义报告。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-每折 accuracy、macro F1 和训练耗时。
+本地 scikit-learn 1.8.0 的核对输出：
+
+```text
+raw_scores: [-6.0, -1.0, -6.0]
+positive_mae: [6.0, 1.0, 6.0]
+fold_mean_mae=4.333
+```
 :::
 
 ::::
@@ -136,9 +168,9 @@ print(r["test_acc"],r["test_f1"],r["fit_time"])
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 负误差未还原
-- 指标数值直接互比
-- 事后挑主指标
+- 使用 estimator 默认 score 却没有核对分类或回归中的实际含义。
+- 把负损失当成真实负误差，或者按绝对值最大选择最差候选。
+- 多指标结果出来后才决定主指标，或把 fit_time 当作跨机器通用性能基准。
 :::
 
 

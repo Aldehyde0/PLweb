@@ -35,28 +35,44 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-K-Means 过多 K、PCA 保留低方差噪声、异常检测边界过紧都属于自由度过高。
+没有人工标签，不代表模型无法过度适应训练样本。更多簇可以把每个点单独包住，更多主成分可以把训练输入重构得几乎无误差，但这些目标改善未必对应有用结构。
+
+无监督任务更需要明确“希望保留什么关系”，并结合稳定性、独立数据与领域证据，而不能只追求训练目标最小。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-无标签任务没有训练准确率差距的直接形式，过拟合表现为结构过细、对参数/样本敏感或新正常样本误报。
+无监督过拟合指方法捕捉了当前样本中特有的噪声或细节，而未形成能在目标范围内复现的结构。它不能只靠监督准确率定义，也不能因缺少标签而被忽略。
+
+内部指标、重构误差、簇内平方和和业务有效性回答不同问题。某个优化目标持续变好，并不自动证明聚类或表示更可靠。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把每个个体都分成独立小组会让内部误差很好，却没有可推广结构。
+把每个训练点都设为自己的簇，可以得到零簇内误差，却几乎没有压缩或解释作用。类似地，完整保留所有维度通常比降维重构好，但不一定达到降噪与简化目的。
 :::
+
+### K 等于样本数时，训练目标可以轻易为零
+
+构造一维点 [0,1,10,11]。K=2 的自然分组中心为 0.5、10.5，簇内平方和是 4×0.25=1；K=4 时每个点自成一簇，训练平方和为 0。
+
+不能据此认定 K=4 更有业务意义；此时每簇只有一个样本，常见轮廓评价也不满足通常的有效簇数条件。应检查简化、稳定性与独立使用目的，而不是只看零训练误差。
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-使用独立数据、参数扰动、重采样稳定性、下游任务和领域解释共同评价。
+固定数据下增加 K 通常不会增加最优簇内平方误差，因此不能仅用训练惯性选择簇数。轮廓等内部指标也有适用条件和簇形状偏好，应作为部分证据。
+
+用重采样、合理参数扰动或独立时间/人群检查结构能否复现。聚类编号可任意置换，比较时应使用适当的对齐或分组一致性度量，不能把编号不同直接当成不稳定。
+
+预处理和降维同样必须遵守训练边界。如果用全数据学到主成分，再声称对留出数据验证了完整流程，已经改变了独立性。
+
+领域解释与下游任务能补充证据，但反复使用某套外部标签挑选方法后，这些标签也参与了选型。最终报告应说明用了哪些信息与仍存在的限制。
 :::
 
 
@@ -94,33 +110,37 @@ $$
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 无监督学习中的过拟合 示例
+### 核对零训练惯性不等于有用分组
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+让相同四个点在不同簇数下比较训练目标。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-for k in [2,3,5,10]:
-    labels=KMeans(k,n_init=20,random_state=42).fit_predict(X_train_scaled)
-    print(k,silhouette_score(X_train_scaled,labels))
+```Python
+from sklearn.cluster import KMeans
+X = [[0.0], [1.0], [10.0], [11.0]]
+for k in [2, 4]:
+    model = KMeans(n_clusters=k, n_init=10, random_state=7).fit(X)
+    print(f"k={k} inertia={model.inertia_:.4f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 输入和随机设置保持一致，仅改变 K。
+- 没有把更低的训练惯性解释成独立验证或真实聚类质量。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-不同簇数的内部指标，仍需独立稳定性和业务解释。
+k=2 inertia=1.0000
+k=4 inertia=0.0000
 :::
 
 ::::

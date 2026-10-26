@@ -54,18 +54,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Markov Property并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 检查状态是否足以预测下一步，而不是要求世界没有历史。
+- 独立复核“相同位置、不同速度的状态混叠”的输入、计算和解释。
+- 预测分布需要历史信息时，应检查状态遗漏。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Markov Property位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+检查状态是否足以预测下一步，而不是要求世界没有历史。
 :::
 
 
@@ -76,38 +74,32 @@ Markov Property位于“状态—行动—反馈—更新”学习链中的关�
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+球在相同位置，向左运动和向右运动会到达不同下一位置。只用位置作为状态，历史轨迹仍能提供速度信息；这说明表示不充分，而不是说物理系统不能用状态建模。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-若状态充分，下一状态分布只依赖当前状态与动作。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+马尔可夫性质要求：给定当前状态与动作后，更早的历史不再改变下一状态及奖励的条件分布。它是关于所选状态表示与任务动力学的条件独立假设，不是下一步必然确定，也不是当前状态与过去完全无关。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-当前棋盘若完整，预测下一步无需知道棋子怎样走到这里。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+位置与速度一起像一份足够完整的快照。只看一张位置照片可能无法预测下一秒；再看上一帧能估计速度，说明照片里漏了决策所需的变量。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-观察不等于真实状态。
+状态可以概括历史，例如累计库存、剩余时间或对隐藏变量的后验分布。关键是压缩后是否保留预测所需信息，而非强行只用传感器当前读数。
 
-缺失历史会破坏马尔可夫性。
+环境即使满足马尔可夫性质，也可以有随机转移：同一状态与动作可能以固定概率到多个后继。性质要求这些概率在给定状态后不再依赖更早历史，不能把马尔可夫性误写成确定性。
 
-RNN 或 belief state 可处理部分可观测。
+在真实任务中无法靠少量样本严格证明状态充分。可以比较加入历史前后的预测误差，寻找状态混叠；帧堆叠、循环网络和 belief state 是补救方式，但有限记忆不保证解决所有部分可观测问题。
 :::
 
 
@@ -146,30 +138,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Markov Property的最小计算
+### 相同位置、不同速度的状态混叠
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 简化运动为下一位置等于当前位置加上速度；这里时间步长为 1，速度在一步内不变。
+- 两个历史都到位置 0，但当前速度分别是 +1 与 −1。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 若状态只记位置 0，两个样本会被合并。
+2. 加上速度后，后继位置分别为 1 与 −1。
+3. 更早一帧可揭示速度，因此位置表示还不充分。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+位置同为 0 的两段历史得到不同后继；加入速度可区分它们。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 预测分布需要历史信息时，应检查状态遗漏。
+- 本例用确定性运动说明混叠；随机系统也可以满足马尔可夫性。
 :::
 
 
@@ -186,7 +175,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Markov Property的本地数值骨架
+### 相同位置、不同速度的状态混叠
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -194,28 +183,29 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+位置同为 0 的两段历史得到不同后继；加入速度可区分它们。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+position = 0
+for velocity in [1, -1]:
+    next_position = position + velocity
+    print(f"state=({position},{velocity:+d}) -> next_position={next_position}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 若状态只记位置 0，两个样本会被合并。
+- 加上速度后，后继位置分别为 1 与 −1。
+- 更早一帧可揭示速度，因此位置表示还不充分。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+state=(0,+1) -> next_position=1
+state=(0,-1) -> next_position=-1
+```
 :::
 
 ::::
@@ -231,9 +221,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 把随机转移当成违反马尔可夫性质。
+- 只给位置却忽略速度、计时或隐藏模式。
+- 认为加一个 RNN 就严格恢复了真实状态。
 :::
 
 
@@ -244,7 +234,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Sutton 与 Barto《Reinforcement Learning: An Introduction》](http://incompleteideas.net/book/the-book-2nd.html)（第 3 章）。
 :::
 
 
@@ -255,9 +245,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 把随机转移当成违反马尔可夫性质。
+- 只给位置却忽略速度、计时或隐藏模式。
+- 认为加一个 RNN 就严格恢复了真实状态。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -274,11 +264,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Markov Property是 on-policy 还是 off-policy？
+### 马尔可夫性质意味着历史没有用吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+历史可以用于构造充分状态；性质只说在已经给出充分状态后，额外历史不再改变下一步条件分布。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -288,4 +278,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

@@ -65,9 +65,9 @@ anchorAliases:
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-MDP 与五元组位于“状态—行动—反馈—更新”学习链中的关键位置。
+MDP 把“环境是什么”和“智能体怎样学习”分开。先把状态、动作、转移、奖励和折扣写清楚，才能判断一个更新公式究竟在学习哪个决策问题。
 
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+它还帮助发现建模遗漏：如果当前状态没有包含影响下一步的关键信息，后续价值函数再复杂，也可能是在一个不合适的状态表示上学习。
 :::
 
 
@@ -78,38 +78,42 @@ MDP 与五元组位于“状态—行动—反馈—更新”学习链中的关�
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
+在连续决策中，一次动作既产生当前奖励，也改变之后会遇到的局面。例如机器人先充电会付出时间代价，却可能让下一次送货更有可能成功。
 
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+因此不能把每一步都当成互不相关的分类题。需要明确：当前有哪些状态、允许什么动作、动作可能导致哪些后果，以及怎样比较现在和未来的收益。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-MDP 五元组通常写作 (S,A,P,R,γ)。
+一个常用 MDP 由状态集合 S、动作集合 A、转移概率 P、奖励规则 R 与折扣因子 gamma 描述。状态是对决策有用的环境表示，转移给出在当前状态执行某个动作后，各种下一状态出现的概率。
 
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+马尔可夫性质的关键是：给定当前状态与动作后，预测下一步不再额外依赖更早的历史。它不表示世界没有历史，而是要求当前状态已经包含该预测所需的信息。
+
+策略描述智能体在状态下怎样选择动作，不属于环境五元组本身。同一个 MDP 可以被不同策略使用，产生不同的轨迹和回报。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-它是游戏规则书：有哪些局面、能做什么、怎么转移、得多少分、未来多重要。
+MDP 像游戏的规则书：有哪些局面、每个局面允许做什么、行动会以什么概率改变局面、改变后得到什么分数。策略则是玩家按照这些规则采用的打法。
 
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+知道规则书与通过试错学会打法是两件事。model-free 方法可以不知道完整转移表，而从真实或模拟交互中学习；这并不意味着环境没有转移规律。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-P 描述环境动力学。
+状态必须足以支持决策。如果电量影响能否送货，却只用当前位置作为状态，那么相同的“在仓库”可能对应完全不同的下一步结果。在这个例子中，补充电量信息有助于形成合适的状态表示；观察不充分时则可能需要历史估计或 POMDP 视角。
 
-策略不属于环境五元组。
+转移概率是一组条件分布。固定一个状态和合法动作后，各个可能下一状态的概率之和应为 1。只列出成功结果、忽略失败分支，会改变正在学习的问题。
 
-model-free 方法不要求显式知道 P。
+奖励需要说明在什么时候、因为什么产生。即时奖励的期望与某一次实际得到的奖励不同，长期折扣回报又是另一个量，不能把三者互换。
+
+终止状态意味着当前回合结束，不能继续往它后面拼接不存在的未来奖励。持续任务也可以用吸收状态等形式统一描述，但必须明确采用的约定。
 :::
 
 
@@ -138,9 +142,11 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| S | 所有状态；本例使用 low、ready、delivered 三个抽象状态。 |
+| A(s) | 在状态 s 允许执行的动作；终止状态不再执行新动作。 |
+| P(s′\|s,a) | 在状态 s 执行动作 a 后到达 s′ 的概率。 |
+| R(s,a,s′) | 这次转移产生的即时奖励，本例按转移给定。 |
+| γ | 对未来奖励的折扣权重，本例为 0.9。 |
 :::
 
 ::::
@@ -148,49 +154,52 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### MDP 与五元组的最小计算
+### 把一个送货机器人写成明确的 MDP
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 状态 low 表示需要充电，ready 表示可以送货，delivered 表示本回合成功结束。
+- low 状态只允许 charge；ready 状态允许 deliver；delivered 终止。
+- 充电必定变成 ready，奖励 -1；送货以 0.8 概率成功并得 5，以 0.2 概率回到 low 并得 -1。
+- 折扣因子 gamma=0.9。所有数值都是为讲解而构造的规则。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 对 ready 下的 deliver，检查转移概率 0.8+0.2=1。
+2. 该动作的即时奖励期望为 0.8×5+0.2×(-1)=3.8。
+3. 一条具体成功轨迹可以是 low→ready→delivered，对应奖励 [-1, 5]。
+4. 这条具体轨迹的折扣回报为 -1+0.9×5=3.5；它不是所有随机轨迹回报的期望。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+同一规则中，ready 送货的一步期望奖励为 3.8，而从 low 开始这条成功轨迹的回报为 3.5；两者回答不同问题。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 改变转移概率或奖励是在改变环境；在同一环境中改为选择不同动作是在改变策略。
+- 如果只记录是否在仓库、不记录 low/ready 的区别，就丢掉了本例中决定合法动作与结果的重要信息。
+- 一条成功轨迹不足以证明策略长期表现，必须把失败分支及其后续收益也纳入评价。
 :::
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 定义 S
-2. 定义 A
-3. 定义 P
-4. 定义 R
-5. 设置 γ
+1. 确定状态包含哪些影响下一步结果的信息，并区分状态与实际可观察量。
+2. 列出各状态允许的动作，说明终止状态的处理方式。
+3. 为每个合法状态—动作对列出可能转移，并核对概率和。
+4. 明确奖励是在动作还是转移后产生，以及它与真实目标的关系。
+5. 设定折扣与回合结束规则，再另行定义或学习策略。
+6. 用一两条可手算轨迹检查模型是否表达了原问题，之后才选择算法。
 :::
 
 
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### MDP 与五元组的本地数值骨架
+### 核对转移分布与一条具体轨迹
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -198,28 +207,35 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+显式写出送货动作的两种后果，分别检查期望奖励和样本轨迹回报。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
+transitions = {
+    ("low", "charge"): [(1.0, "ready", -1.0)],
+    ("ready", "deliver"): [(0.8, "delivered", 5.0),
+                            (0.2, "low", -1.0)],
+}
+outcomes = transitions[("ready", "deliver")]
+assert abs(sum(p for p, _, _ in outcomes) - 1.0) < 1e-12
+expected_reward = sum(p * reward for p, _, reward in outcomes)
 gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+one_successful_trajectory_return = -1.0 + gamma * 5.0
+print(f"expected_immediate_reward={expected_reward:.4f}")
+print(f"one_trajectory_return={one_successful_trajectory_return:.4f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 转移表把概率、下一状态和奖励放在同一行，便于检查是否遗漏失败分支。
+- 3.8 是 ready 执行 deliver 的一步奖励期望，没有把后续重复尝试的收益算进去。
+- 3.5 是从 low 出发并恰好一次送货成功的样本轨迹回报，不是最优价值或评测成绩。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+expected_immediate_reward=3.8000
+one_trajectory_return=3.5000
 :::
 
 ::::
@@ -235,9 +251,10 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 把策略混进环境五元组，或认为写出 MDP 就已经决定使用 Q-learning。
+- 用缺少关键信息的观察替代状态，却没有检查马尔可夫假设是否合理。
+- 把某条轨迹的奖励和、一步奖励期望以及长期价值当成同一个量。
+- 漏写失败概率、非法动作或终止约定，使训练环境与原问题不一致。
 :::
 
 
@@ -292,4 +309,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

@@ -219,6 +219,10 @@ export function parseArticle(source, file) {
     }
     if (n.type === 'mdxjsEsm')
       throw new Error(`${file}: 请使用集中组件映射，不在文章中 import/export`);
+    if (n.type === 'mdxTextExpression' || n.type === 'mdxFlowExpression')
+      throw new Error(
+        `${file}: 正文中出现 MDX 表达式；字面花括号请转义或放入行内代码，数学表达式请使用 $...$。`,
+      );
     if (n.type === 'textDirective' || n.type === 'leafDirective')
       throw new Error(`${file}: 未知指令 ${n.name}；字面冒号请写成 \\:`);
     if (n.type === 'mdxJsxFlowElement' || n.type === 'mdxJsxTextElement') {

@@ -35,18 +35,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 完成三者换算
-- 解释 drop\_last
-- 区分梯度累积
+- 十条样本、四条一批、两批一更新
+- 增大 batch 后 epoch 不变，更新次数也不变吗？
+- 说明：ceil(批次数/K) 只在明确处理最后不足 K 批的累积组时才是更新次数。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-正确计算更新次数
-
-理解 batch size 与显存
+epoch 通常指遍历训练数据一次，batch 是一次取出的样本组，iteration 通常指处理一个批次。优化器更新次数需单独计算，尤其在梯度累积或跳过更新时。
 :::
 
 
@@ -57,30 +55,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-大数据无法一次装入显存，因此按 batch 流式训练。
+“训练了十轮”并不足以比较实验：数据集大小、批量大小和梯度累积设置不同，实际更新次数会相差很多，学习率计划也可能因此跑错。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-小批量训练平衡显存、硬件并行和梯度噪声。
+epoch 通常指遍历训练数据一次，batch 是一次取出的样本组，iteration 通常指处理一个批次。优化器更新次数需单独计算，尤其在梯度累积或跳过更新时。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-一本题库分多页做，一页是 batch，做完一页是 iteration，整本做完是 epoch。
+epoch 像把一摞卡片看完一遍，batch 是每次拿起的一把，参数更新则是看完多少把后才做一次笔记。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-保留尾批时每 epoch 批次数是 ceil(N/B)；梯度累积时 iteration 不一定等于参数更新。
+若 N 条样本按大小 B 分组，保留尾批时批次数为 ceil(N/B)，丢弃尾批时为 floor(N/B)。最后一个 batch 可能更小，所以求 epoch 平均损失时不能把各批均值等权平均。
 
-小 batch 梯度波动大，大 batch 占内存多且更新次数少。
+累积 K 个 micro-batch 的梯度再更新，可在有限显存下扩大有效 batch。损失归一化应与目标样本均值一致；遇到不完整累积组，应明确是否仍更新以及如何缩放。使用 BatchNorm 时，微批统计也不会自动等同于一个大批。
+
+调度器若按真实更新推进，不能在每个 micro-batch 后无条件 step。流式数据、采样有放回或 IterableDataset 中，“一轮”可能不是严格看过每条样本一次，实验记录应写清定义。
 :::
 
 
@@ -98,7 +98,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-N 是训练样本数，B 是 batch size。
+epoch 通常指遍历训练数据一次，batch 是一次取出的样本组，iteration 通常指处理一个批次。优化器更新次数需单独计算，尤其在梯度累积或跳过更新时。
 :::
 
 ::::
@@ -118,36 +118,40 @@ N 是训练样本数，B 是 batch size。
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 1050 个样本
+### 十条样本、四条一批、两批一更新
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=1050
-- B=100
+- N=10，batch_size=4，drop_last=False
+- 累积两个 batch 后更新，末尾剩余梯度也更新
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. ceil(1050/100)=11
-2. 尾批 50
+1. 三个 batch 大小依次为 4、4、2。
+2. 前两批更新一次，尾批再更新一次。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-每 epoch 11 次 iteration
+一次 epoch 有 3 次批处理与 2 次参数更新。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- ceil(批次数/K) 只在明确处理最后不足 K 批的累积组时才是更新次数。
 :::
+
+### 案例推演与判断
+
+如果把最后两条直接丢弃，每轮只见 8 条样本；若同时 shuffle，每轮被丢弃的样本可能不同，但样本预算仍改变。若保留尾批却不在 epoch 末处理残余梯度，又会浪费尾批的训练计算。
+
+微批损失按本组总样本数归一化时，前一组是 8 条，后一组是 2 条。简单对所有批损失都除以 2，会使尾组更新相对偏小。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确定 N/B
-2. 设置 DataLoader
-3. 遍历 batch
-4. 每 epoch 打乱
-5. 记录更新数
+1. 三个 batch 大小依次为 4、4、2。
+2. 前两批更新一次，尾批再更新一次。
 :::
 
 
@@ -155,32 +159,40 @@ N 是训练样本数，B 是 batch size。
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Epoch、Batch 与 Iteration · PyTorch 示例
+### 十条样本、四条一批、两批一更新的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证Epoch、Batch 与 Iteration的输入、计算和输出。
+使用完整构造输入核对十条样本、四条一批、两批一更新，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-loader=DataLoader(dataset,batch_size=100,shuffle=True,drop_last=False)
-print(len(loader))
+```python
+from torch.utils.data import DataLoader, TensorDataset
+import torch
+dataset = TensorDataset(torch.arange(10))
+loader = DataLoader(dataset, batch_size=4, drop_last=False)
+sizes = [len(batch[0]) for batch in loader]
+updates = (len(loader) + 2 - 1) // 2
+print("batch sizes:", sizes)
+print(f"iterations={len(loader)} updates={updates}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- DataLoader 负责组批
-- drop\_last 控制尾批
-- len(loader) 是批次数
+- 代码只核对计数，没有执行训练。
+- 更新数采用保留末尾累积组的约定。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-1050 条数据时输出 11。
+```text
+batch sizes: [4, 4, 2]
+iterations=3 updates=2
+```
 :::
 
 ::::
@@ -188,8 +200,8 @@ print(len(loader))
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 训练预算
-- 显存规划
+- 设定训练预算
+- 对齐梯度累积与学习率调度
 :::
 
 
@@ -209,18 +221,17 @@ print(len(loader))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### epoch 是否等于更新一次？
+### 增大 batch 后 epoch 不变，更新次数也不变吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-不是，通常包含多个 batch 更新。
+通常会减少。每轮取出的批次数更少，因此固定 epoch 不代表固定更新预算，应结合样本数、更新数和计算时间比较。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### drop\_last 何时考虑？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-固定 batch 统计或尾批过小时。
+ceil(批次数/K) 只在明确处理最后不足 K 批的累积组时才是更新次数。
 :::
-

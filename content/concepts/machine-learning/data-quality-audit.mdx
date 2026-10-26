@@ -42,28 +42,44 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-模型会忠实学习输入中的错误。单位混用、重复样本跨分割、标签定义漂移或不可能数值，都可能比算法选择更显著地影响结果。
+模型分数异常时，问题可能早在采集与表连接阶段发生：同一记录重复、单位混用、标签错位或时间字段解析失败，都可能被正常执行的训练程序隐藏。
+
+数据审计应先描述发现，再决定处理，不能把“清洗”理解成自动删除所有不常见的样本。异常值可能是错误，也可能正是任务需要识别的目标。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-数据质量检查是在建模前验证数据是否符合任务契约的过程。它不仅是打印 describe，还包括标签语义、时间边界、来源一致性和预测时可用性。
+数据质量检查系统地核对结构、数值、标签与来源。结构包括行列、类型和主键，数值包括缺失、范围与分布，标签包括比例和口径，来源包括时间、实体和采集方式。
+
+检查结论应与任务相联系。某个值是否不合理，需要单位和业务定义；某条重复记录是否应删除，需要区分重复导出与真实重复事件。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-先确认“尺子、答案和样本对应关系”正确，再比较模型；否则更复杂的模型只会更熟练地拟合错误。
+先像检查原始实验记录一样核对每列从哪里来，再看汇总统计。漂亮的均值无法保证个别行没有错，几个截图样本也无法替代完整计数。
 :::
+
+### 三行小表中的三个不同问题
+
+构造年龄 [20,-5,20]、收入 [100,缺失,100]、标签 [0,1,0]。这份表有一条全行重复、一项缺失收入和一个不合理年龄，它们需要分别统计，不能把三者都叫作“异常值”。
+
+删除重复行会改变类别比例；填补收入需要从训练范围学习统计量；修正负年龄则应先追溯原始来源。处理动作与影响应逐项记录，而不是只输出一个“清洗成功”。
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-检查分为结构、数值、标签与来源四层：结构检查 shape/dtype；数值检查缺失、范围、重复与异常；标签检查比例和一致性；来源检查时间、设备、群组和采集变化。
+先验证唯一键和连接关系。一次意外的一对多连接可能放大行数，使同一对象重复出现在训练与验证中；缺失检查不能发现所有这类重复问题。
+
+按列检查 dtype、缺失比例、合法范围和分位数，并按来源或时间分组对照。整体分布平稳，也可能掩盖某一设备的单位发生变化。
+
+标签审计应检查定义、生成时点、少数类支持数和冲突标注。标签比例突然变化不一定是世界变了，也可能是采样或标注流程变化。
+
+记录处理规则、受影响行数与理由，并保留可恢复的原始数据。数据驱动的填补、阈值或缩放规则还要遵守训练边界，不能利用测试集选取最有利的清理方案。
 :::
 
 
@@ -83,8 +99,9 @@ anchorAliases:
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### Pandas 数据审计起点
+### 对固定小表分别统计质量问题
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -92,28 +109,30 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-生成结构、缺失、重复、描述统计和标签分布。
+提供完整输入，区分重复、缺失与范围违反。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-print(df.shape)
-print(df.dtypes)
-print(df.isna().sum())
-print("duplicates:", df.duplicated().sum())
-print(df.describe(include="all"))
-print(df["target"].value_counts(dropna=False))
+import pandas as pd
+df = pd.DataFrame({"age": [20, -5, 20],
+                   "income": [100.0, float("nan"), 100.0],
+                   "target": [0, 1, 0]})
+print("duplicates:", int(df.duplicated().sum()))
+print("missing_income:", int(df["income"].isna().sum()))
+print("invalid_age:", int((df["age"] < 0).sum()))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- shape 和 dtype 先验证结构契约。
-- 缺失、重复和标签分布需要分别检查。
-- describe 发现异常后仍需回到业务含义确认。
+- 代码只计数，不自动修改或删除数据。
+- 这些规则来自构造列的含义；实际年龄上限、收入单位和重复事件定义还应由任务确定。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-输出行列数、各列类型、缺失计数、重复行数量、描述统计和每类样本数。
+duplicates: 1
+missing_income: 1
+invalid_age: 1
 :::
 
 ::::

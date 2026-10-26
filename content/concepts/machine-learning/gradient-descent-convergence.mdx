@@ -36,28 +36,44 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-运行固定 epochs 既可能提前停止，也可能浪费计算。某一轮变化小也可能只是震荡瞬间，因此需要阈值与 patience。
+损失不再明显变化，可能是已经接近驻点，也可能是学习率太小、梯度中断、数值精度限制或错误实现。仅凭最后两个损失相近就宣布“已经学好”，证据不足。
+
+收敛诊断应把优化轨迹、停止规则与泛化表现分开，回答程序为什么停止，以及停止时实际满足了什么条件。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-收敛表示在当前模型、特征和优化设置下，参数更新带来的目标改善已经很小；它不等于模型泛化良好。
+优化中的收敛可以由损失变化、参数变化、梯度范数或特定算法条件描述。实际实现常采用带预算与耐心的近似停止规则，而不是证明已经达到全局最优。
+
+早停根据验证表现控制训练轮数，是选择模型的一部分；它与训练损失数值稳定并不完全相同。两种停止依据都应明确记录。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-不是看到车速慢一次就说已到终点，而是连续多次变化都很小，并确认没有发散或停在错误原因上。
+连续几次几乎不动像“停在某处”的信号，但还要问为什么不动。步幅极小的行走者也可能远离谷底；模型同样需要结合梯度、参数和验证误差判断。
 :::
+
+### 耐心为三轮时，计数如何累积
+
+构造损失序列 [1,0.5,0.500000001,0.500000002,0.5000000021]，相对变化阈值取 1e-8。第一次明显变化后计数为 0，后面三个变化都足够小，计数依次为 1、2、3。
+
+此时只能报告“损失变化满足本停止条件”，不能据此证明全局最优或泛化良好。示例甚至含小幅上升，说明使用绝对变化量与要求严格单调下降是不同规则。
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-相对损失变化对不同损失量级更可比；梯度范数接近 0 是补充信号。训练和验证曲线还用于区分优化收敛与过拟合。
+同时检查绝对与相对变化有助于应对不同损失尺度。相对变化的分母接近零时需要稳定约定，不能让除零或巨大比值替代实际诊断。
+
+耐心计数应跨迭代保存，出现明显变化时按规则重置。把 stable_count 每轮重新初始化，会使“连续若干轮”的条件永远无法真正成立。
+
+梯度为零或很小也需要解释。在非凸问题中可能是局部极小、鞍点或平坦区域；梯度缺失、截断或错误 detach 则属于实现问题。
+
+训练损失稳定不表示验证误差最低。应按事先选定的指标和协议保存合适检查点，并保留最大步数、时间和非有限值等终止条件。
 :::
 
 
@@ -110,8 +126,9 @@ $$
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 耐心机制判断稳定
+### 完整循环保存连续稳定计数
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -119,30 +136,30 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-避免一次偶然的小变化导致过早停止。
+核对一个明确的数值停止条件，避免把计数每轮重置。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-tolerance = 1e-8
-patience = 10
+losses = [1.0, 0.5, 0.500000001, 0.500000002, 0.5000000021]
+tolerance, patience = 1e-8, 3
 stable_count = 0
-
-relative_change = abs(old_loss - new_loss) / max(abs(old_loss), 1e-12)
-stable_count = stable_count + 1 if relative_change < tolerance else 0
-
-if stable_count >= patience:
-    print("梯度下降已经收敛")
+for step, (old, new) in enumerate(zip(losses, losses[1:]), start=1):
+    change = abs(old - new) / max(abs(old), 1e-12)
+    stable_count = stable_count + 1 if change < tolerance else 0
+    if stable_count >= patience:
+        print(f"stop_step={step}, stable={stable_count}")
+        break
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 使用相对变化适配不同损失量级。
-- stable\_count 在变化重新变大时清零。
+- stable_count 在循环外初始化，并根据每次变化累积或重置。
+- 输出只说明构造序列满足所选变化阈值，不宣称训练已经达到最优。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-连续 10 轮相对变化小于 1e-8 后打印收敛提示。
+stop_step=4, stable=3
 :::
 
 ::::

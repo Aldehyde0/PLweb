@@ -38,28 +38,44 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-金额和次数常有长尾；小时直接编码 0～23 会错误地认为 23 与 0 很远。
+金额、次数等特征常有长尾，少数大值可能主导尺度；小时、星期和角度则具有首尾相接的周期。两种结构需要不同处理，不能把所有数字都当成普通线性坐标。
+
+变换的目标是表达合适关系，而不是让图形看上去更漂亮。每种变换都会带来假设和信息取舍，需要在任务中验证。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-偏态变换改变数值分布形状；周期编码把首尾相接的变量映射到单位圆。
+对数类变换压缩大数值间隔，log1p(x) 在零点可直接取零，适用于本例的非负金额。周期编码常将相位映射到正弦与余弦两列，使周期两端在表示中接近。
+
+数学上 log1p 的实数定义域要求 x 大于 -1；实际金额约束可以更严格。正弦和余弦应共同使用，单独一列可能把不同相位映射到同一个值。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-log1p 压缩大值而保留顺序；sin/cos 把钟表时间放在圆上，让 23 点与 0 点自然接近。
+23 点和 0 点只差一个小时，而整数编码相差 23。把一天画成圆，用圆上坐标描述时间，就能把“首尾相邻”放进模型输入。
 :::
+
+### 午夜相邻，十二小时相对
+
+用 (sin(2πh/24),cos(2πh/24)) 编码小时。23 点约为 (-0.2588,0.9659)，0 点为 (0,1)，两点距离约 0.2611；0 点与 12 点则位于圆的两端，距离为 2。
+
+金额 [0,9,99] 的 log1p 约为 [0,2.3026,4.6052]，大数值差异被压缩，但没有因此保证这些金额之间的业务关系一定适合该尺度。
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-log1p 适用于非负值；周期 T 的编码为 sin(2πx/T)、cos(2πx/T)，两列共同确定相位。
+对数变换保持合法输入的顺序，但改变距离和线性关系，不保证结果正态，也不自动修复异常数据。对含负值的特征，应先理解语义，再选择适用变换。
+
+周期 T 必须来自真实定义，例如一天 24 小时，而不是从当前数据的最大值猜测。角度、星期和月份还要明确编码起点与实际周期假设。
+
+sin/cos 表示相位，不直接表示季节趋势、节假日或跨周期的长期变化；这些信息可能需要额外特征。也不能假设所有任务都应让周期相邻点具有相同目标。
+
+有拟合参数的变换仍需训练边界，预测时使用同一约定。比较变换效果时，固定验证协议并检查极值和边界，避免只比较训练误差。
 :::
 
 
@@ -113,8 +129,9 @@ T 是周期长度。
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 金额与小时变换
+### 核对金额压缩与午夜距离
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -122,26 +139,29 @@ NumPy
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-实现文档中的 log1p 和 24 小时周期编码。
+完整给定金额和小时数据，检查两个不同变换。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```NumPy
 import numpy as np
-
-amount_log = np.log1p(amount)
-hour_sin = np.sin(2 * np.pi * hour / 24)
-hour_cos = np.cos(2 * np.pi * hour / 24)
+amount = np.array([0., 9., 99.])
+hour = np.array([23., 0.])
+angle = 2 * np.pi * hour / 24
+coordinates = np.column_stack([np.sin(angle), np.cos(angle)])
+print("log1p:", np.log1p(amount).round(4).tolist())
+print(f"midnight_distance={np.linalg.norm(coordinates[0] - coordinates[1]):.4f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- log1p 在接近 0 时更稳定。
-- 周期必须用两列，否则无法唯一表示位置。
+- 金额均为非负，因此满足本例的 log1p 定义范围。
+- 两列坐标共同描述周期位置，距离与整数小时差不是同一种度量。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-一个压缩后的金额特征，以及范围在 \[-1,1\] 的 hour\_sin/hour\_cos。
+log1p: [0.0, 2.3026, 4.6052]
+midnight_distance=0.2611
 :::
 
 ::::

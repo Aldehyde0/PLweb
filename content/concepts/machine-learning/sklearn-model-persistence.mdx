@@ -37,7 +37,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-只保存最后分类器会丢失填补、缩放、编码和特征顺序。
+训练结束后，预测服务需要恢复完全相同的变换与模型。只保存分类器、忘记标准化或特征顺序，会让加载成功的对象产生与训练流程不同的预测。
+
+模型持久化因此不仅是写出一个文件，还要保存输入契约、依赖环境和可核对样本，确保未来能够解释这个产物是什么、怎样使用。
 :::
 
 
@@ -58,7 +60,15 @@ anchorAliases:
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-保存模型、依赖版本、特征契约和数据版本；加载后用固定样本验证预测一致。
+优先保存已拟合的完整 Pipeline，让填补、编码、缩放和估计器一起恢复。保存配置不能代替已学习状态；反过来，二进制模型也不能充分解释数据版本、选择过程和适用范围。
+
+joblib 与 pickle 等格式适合受信任环境，但加载可能执行代码，不能读取来源不明的模型文件。文件扩展名、哈希或“来自模型仓库”的标签并不自动证明供应方可信，信任和完整性需要分别判断。
+
+scikit-learn 不承诺跨任意版本恢复的兼容性。应记录 Python、scikit-learn 与相关依赖版本，保留可复现环境；迁移时重新训练或按支持方式导出，并核对预测语义，而不是忽略版本警告。
+
+加载后用固定输入比较预测、类别顺序和特征数量，必要时比较概率与容差。成功 round-trip 只证明这次保存读取保持了结果，不证明模型泛化或文件未来在不同环境中仍兼容。
+
+格式取舍与加载限制可参照 [scikit-learn 模型持久化指南](https://scikit-learn.org/stable/model_persistence.html)。
 :::
 
 
@@ -81,6 +91,12 @@ $$
 
 ::::
 
+### 案例：完整 Pipeline 在临时目录往返保存
+
+下方用 Iris 拟合标准化与逻辑回归，保存整个 Pipeline，同时记录特征名和 scikit-learn 版本。加载的只是在同一进程中刚创建的可信临时文件，退出后清理，不读取外部未知产物。
+
+前三行的预测应保持一致，加载对象仍应需要 4 个输入特征。如果只保存末端分类器，新输入就缺少训练时的标准化；即使恰巧没报错，也不再是同一预测流程。这里在全数据拟合只为演示保存，不提供独立性能评价。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
@@ -97,33 +113,61 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### sklearn 模型保存与可信加载 示例
+### 保存完整 Pipeline 并验证预测一致
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+仅对本进程创建的可信临时文件做保存读取，核对整个 Pipeline 的 round-trip，不测试外部模型。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
+```Python
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import json
 import joblib
-joblib.dump(best_model,"models/wine_classifier.joblib")
-loaded=joblib.load("models/wine_classifier.joblib")
-assert (loaded.predict(sample)==best_model.predict(sample)).all()
+import numpy as np
+import sklearn
+from sklearn.datasets import load_iris
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+data = load_iris()
+model = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000))
+model.fit(data.data, data.target)
+sample = data.data[:3]
+with TemporaryDirectory() as temporary:
+    root = Path(temporary)
+    joblib.dump(model, root / "model.joblib")
+    metadata = {"sklearn_version": sklearn.__version__, "features": list(data.feature_names)}
+    (root / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+    loaded = joblib.load(root / "model.joblib")
+    same = np.array_equal(model.predict(sample), loaded.predict(sample))
+    assert same
+    print("predictions:", loaded.predict(sample).tolist())
+    print("same_predictions:", bool(same))
+    print("features:", loaded.n_features_in_)
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 模型与预处理一并保存；元数据单独记录依赖和特征名。
+- 一致性断言只验证保存恢复，不验证泛化，也不承诺跨版本兼容。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-模型文件写入，加载前后预测完全一致。
+本地 scikit-learn 1.8.0 的核对输出：
+
+```text
+predictions: [0, 0, 0]
+same_predictions: True
+features: 4
+```
 :::
 
 ::::
@@ -139,9 +183,9 @@ assert (loaded.predict(sample)==best_model.predict(sample)).all()
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 加载不可信文件
-- 只保存分类器
-- 无依赖和列名记录
+- 只保存末端模型，遗失预处理、列顺序、类别和单位契约。
+- 加载不可信的 joblib/pickle 文件，或把校验哈希等同于来源可信。
+- 假定跨版本一定兼容，加载后没有固定样本和输出语义检查。
 :::
 
 

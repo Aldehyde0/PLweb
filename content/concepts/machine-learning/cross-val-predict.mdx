@@ -36,7 +36,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-它可绘制较少训练内偏差的混淆矩阵，但不自动提供无偏超参数选择。
+有时需要每个样本的一份未被该轮模型训练过的预测，用于观察残差、混淆或构建后续开发特征。cross_val_predict 将各验证折预测放回原样本顺序，形成折外预测。
+
+这与返回每折平均分不同，也不是一个最终模型对全部数据的预测。生成结果的实际上是多个不同训练子集上的模型。
 :::
 
 
@@ -57,7 +59,13 @@ anchorAliases:
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-阈值或上层模型若使用这些预测，也需额外独立验证和严格嵌套；不能把拼接预测误称最终模型预测。
+标准使用要求每行恰好出现在一个验证折，形成完整分区。重复 K 折会让每行出现多次，某些时间划分会让早期行从未验证，因此不能不加处理地用于 cross_val_predict。
+
+method 决定返回标签、概率或决策分数。predict_proba 输出列对应类别顺序，读取正类列前必须明确标签；多分类的每行概率应与类别集合匹配，而不是随意取第二列代表“正确概率”。
+
+拼接预测计算的总体指标不一定等于每折指标的简单均值。折大小不同、F1 等非线性指标或每折类别分布不同，都可能导致差异；报告时应说明计算口径。
+
+折外预测可以用于阈值开发或上层模型，但后续选择仍会利用这些标签，不能再把同一组上的最佳结果当作独立评价。堆叠与阈值选择需要额外独立验证或正确嵌套。
 :::
 
 
@@ -80,6 +88,12 @@ $$
 
 ::::
 
+### 案例：每朵花获得一份折外正类概率
+
+取 Iris 的前两类共 100 行，按 3 折分层生成概率。每个样本由没训练过它的那个折模型预测，最终数组形状为 100 × 2，顺序与原始输入一致。
+
+如果随后在这 100 个概率上找出 F1 最好的阈值，那么这批数据已被用于选阈值，所得最高 F1 不能作为独立最终评价。下方只核对形状、类别和概率和，不做阈值优化，也没有输出部署模型。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
@@ -96,31 +110,52 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### cross\_val\_predict 示例
+### 生成完整分区上的二分类折外概率
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+完整输入、分层器与 Pipeline 生成可核对的折外概率，仅验证接口与覆盖。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-prob=cross_val_predict(pipeline,X,y,cv=5,method="predict_proba")[:,1]
-print(prob.shape)
+```Python
+import numpy as np
+from sklearn.datasets import load_iris
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import StratifiedKFold, cross_val_predict
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+X, y = load_iris(return_X_y=True)
+mask = y < 2
+X, y = X[mask], y[mask]
+cv = StratifiedKFold(3, shuffle=True, random_state=42)
+pipeline = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000))
+probability = cross_val_predict(pipeline, X, y, cv=cv, method="predict_proba")
+assert np.allclose(probability.sum(axis=1), 1.0)
+print("shape:", probability.shape)
+print("class_order:", np.unique(y).tolist())
+print("positive_probability_count:", len(probability[:, 1]))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 此数据类别是 0、1，因此第 1 列对应标签 1。
+- 每行恰好在一个验证折中出现，不能用重复 K 折替换。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-长度等于样本数的 out-of-fold 正类概率。
+本地 scikit-learn 1.8.0 的核对输出：
+
+```text
+shape: (100, 2)
+class_order: [0, 1]
+positive_probability_count: 100
+```
 :::
 
 ::::
@@ -136,8 +171,9 @@ print(prob.shape)
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 当最终模型概率
-- 用其选阈值后无独立验证
+- 把拼接预测称为同一个最终模型的预测，或直接当成独立最终测试。
+- 使用重复划分或不覆盖所有行的时间划分，却忽略每行必须恰好验证一次的要求。
+- 不核对类别列顺序，或在同一组折外标签上选阈值并报告最优分数。
 :::
 
 

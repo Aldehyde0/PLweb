@@ -41,7 +41,9 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-只调用 fit 无法保证预处理正确、比较公平、输入一致或上线可维护。
+Wine 项目的任务是根据化学测量识别三类葡萄酒来源类别，不是给酒打质量等级。这个小型数据集适合练习实验链条：数据是否一致、特征怎样处理、怎样比较模型，以及最终模型怎样被正确恢复使用。
+
+一次 fit 成功只覆盖其中一环。若测试集参与了选型、标准化在全数据拟合，或者交付时丢失特征顺序，即使分数很高也没有形成可靠的端到端项目。
 :::
 
 
@@ -62,7 +64,15 @@ anchorAliases:
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-模型选择只使用训练部分的交叉验证；测试只在最佳配置锁定后一次评价。保存完整 Pipeline。
+先固定任务与输入契约。Wine 有 178 行、13 个数值特征，标签为三类；应检查形状、类别数量、缺失和特征定义，并保留原始行标识。不同化学量纲使缩放对距离模型和正则化模型尤其相关，不能只按列数拼接未知输入。
+
+使用固定分层划分留下 20% 测试集，剩余部分用于比较与调参。基线、逻辑回归、KNN 和树模型共享同一组训练内验证折；各自需要的预处理放进 Pipeline，每折重新学习，不在全部数据上先标准化。
+
+主指标在搜索前固定为 macro F1，并保留每折结果、候选参数与时间。GridSearchCV 的 best_score_ 是选择依据，不是独立测试结果；refit 使用整个开发部分，但仍不能触碰留出的测试样本。
+
+配置锁定后评价最终测试，检查混淆矩阵与错误，并把局限写进报告。若据测试错误继续改模型，原测试结果就已经进入开发，需要另有独立验证，不能反复挑最好的测试分数。
+
+交付应保存完整已拟合 Pipeline、特征顺序、类别、版本和实验记录。恢复后先用固定输入检查预测一致，再考虑批量预测与监控；小数据集上的成绩不证明真实化学仪器、其他产地或新时期样本同样适用。
 :::
 
 
@@ -80,22 +90,28 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-模型选择只使用训练部分的交叉验证；测试只在最佳配置锁定后一次评价。保存完整 Pipeline。
+这里的箭头表示项目数据与决策流，不是损失函数或评分公式。错误分析若用于改进，应回到开发阶段；最终测试后的改动需要新的独立验证。
 :::
 
 ::::
 
+### 案例：从候选搜索到可信文件往返
+
+下方最小闭环先保留 36 行测试，142 行开发数据在同一组 5 折内比较常量基线、逻辑回归、KNN、树和随机森林。候选共 8 组配置，因此搜索需要 40 次折内拟合，再做一次开发集 refit。
+
+只有选定配置后才预测留出测试，并把已拟合流程保存到临时目录，再加载本进程刚创建的可信文件核对预测一致。加载成功不证明泛化，测试分数也仅描述该固定教学划分；没有把 Wine 类别解释为质量好坏。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 加载 Wine 并检查 178×13 数据
-2. 按 stratify 保留 20% 测试
-3. 注册 LR/KNN/树/随机森林
-4. 五折比较 Accuracy 与 macro F1
-5. 训练部分 GridSearch
-6. 最终测试
-7. joblib 保存加载
-8. 输入契约和漂移监控
+1. 审计 Wine 的 178 行、13 个特征、三类标签与数值范围，保存特征顺序。
+2. 固定分层开发/测试索引，测试集仅保留，不用于选模型。
+3. 将基线、需要缩放的模型和树模型注册为带完整预处理的候选。
+4. 在开发部分用同一组五折比较，记录 macro F1、逐折分数与计算开销。
+5. 只在开发部分搜索参数，锁定选择规则并 refit 完整流程。
+6. 评价最终测试，检查混淆与错误，说明数据范围和未验证条件。
+7. 保存可信 Pipeline、元数据和实验报告，核对加载前后预测一致。
+8. 验证推理输入契约，并为数据质量、分布与延迟标签效果设计监控。
 :::
 
 
@@ -103,38 +119,87 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 端到端 Wine 分类项目 核心代码
+### 固定协议的 Wine 搜索、测试与安全保存演示
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应项目要求中的可运行核心步骤。
+完整固定 Wine 数据、开发/测试边界与候选空间，在本机执行搜索和一次留出评价。只加载刚创建的可信临时产物，不读取外部模型。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-models={
- "lr":make_pipeline(StandardScaler(),LogisticRegression(max_iter=3000)),
- "knn":make_pipeline(StandardScaler(),KNeighborsClassifier()),
- "tree":DecisionTreeClassifier(max_depth=3,random_state=42),
- "forest":RandomForestClassifier(random_state=42),
-}
-for name,model in models.items():
-    r=cross_validate(model,X_train,y_train,cv=cv,scoring=["accuracy","f1_macro"])
-    print(name,r["test_f1_macro"].mean())
+```Python
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import json
+import joblib
+import numpy as np
+import sklearn
+from sklearn.datasets import load_wine
+from sklearn.dummy import DummyClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, f1_score
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.tree import DecisionTreeClassifier
+
+data = load_wine()
+X, y = data.data, data.target
+assert X.shape == (178, 13) and np.isfinite(X).all()
+train, test = train_test_split(np.arange(len(y)), test_size=0.2, stratify=y, random_state=42)
+cv = list(StratifiedKFold(5, shuffle=True, random_state=42).split(X[train], y[train]))
+pipeline = Pipeline([("scale", "passthrough"), ("model", DummyClassifier())])
+grid = [
+    {"scale": ["passthrough"], "model": [DummyClassifier(strategy="most_frequent")]},
+    {"scale": [StandardScaler()], "model": [LogisticRegression(max_iter=3000)], "model__C": [0.1, 1.0]},
+    {"scale": [StandardScaler()], "model": [KNeighborsClassifier()], "model__n_neighbors": [5, 9]},
+    {"scale": ["passthrough"], "model": [DecisionTreeClassifier(random_state=42)], "model__max_depth": [3, None]},
+    {"scale": ["passthrough"], "model": [RandomForestClassifier(n_estimators=50, random_state=42)]},
+]
+search = GridSearchCV(pipeline, grid, cv=cv, scoring="f1_macro", refit=True)
+search.fit(X[train], y[train])
+prediction = search.predict(X[test])
+print("train_test:", (len(train), len(test)))
+print("candidates:", len(search.cv_results_["params"]))
+print("selected:", type(search.best_estimator_.named_steps["model"]).__name__)
+print(f"selection_cv_macro_f1={search.best_score_:.3f}")
+print(f"test_accuracy={accuracy_score(y[test], prediction):.3f}")
+print(f"test_macro_f1={f1_score(y[test], prediction, average='macro'):.3f}")
+with TemporaryDirectory() as temporary:
+    root = Path(temporary)
+    joblib.dump(search.best_estimator_, root / "wine.joblib")
+    metadata = {"features": list(data.feature_names), "classes": search.classes_.tolist(), "sklearn": sklearn.__version__}
+    (root / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+    loaded = joblib.load(root / "wine.joblib")
+    assert np.array_equal(prediction, loaded.predict(X[test]))
+    print("round_trip_predictions_equal:", True)
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 固定数据协议保证模型公平比较。
-- 测试集在方案锁定前保持不可见。
+- 8 组候选共享保存的五折索引，缩放器随训练折重新拟合。
+- 选择分数和测试分数分开输出；测试没有参与 search.fit。
+- 临时保存包含整个 Pipeline，metadata 记录特征、类别与依赖，round-trip 检查不等同泛化评价。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-每个候选模型在同一训练折上的平均 macro F1。
+本地 scikit-learn 1.8.0 的核对输出；分数仅属于下方固定教学实验：
+
+```text
+train_test: (142, 36)
+candidates: 8
+selected: LogisticRegression
+selection_cv_macro_f1=0.980
+test_accuracy=0.972
+test_macro_f1=0.971
+round_trip_predictions_equal: True
+```
 :::
 
 ::::
@@ -150,9 +215,9 @@ for name,model in models.items():
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 类别误称质量等级
-- 测试集选模型
-- 只保存分类器
+- 把 Wine 标签当作质量等级，或把内置数据的分数当作真实业务认证。
+- 以测试分数挑模型、随机种子或搜索范围，随后仍声称测试独立。
+- 只保存分类器而丢失缩放、特征名和环境版本；加载不可信模型文件。
 :::
 
 

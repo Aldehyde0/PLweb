@@ -59,18 +59,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Reward Model、RLHF、RLAIF 与 RFT并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 区分反馈来源、评分模型与策略优化器，避免把 RLHF 等缩写当作单一更新公式。
+- 独立复核“奖励分差如何变为偏好概率”的输入、计算和解释。
+- 偏好分差有意义，奖励绝对零点通常不可辨识。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Reward Model、RLHF、RLAIF 与 RFT位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+区分反馈来源、评分模型与策略优化器，避免把 RLHF 等缩写当作单一更新公式。
 :::
 
 
@@ -81,38 +79,32 @@ Reward Model、RLHF、RLAIF 与 RFT位于“状态—行动—反馈—更新”
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+语言模型回答质量难以用唯一正确答案衡量，可以收集人类排序、AI 评审或可验证结果。这些反馈能训练评分器，也能直接进入某些优化目标；“谁打分”和“如何更新策略”是两条不同轴。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-RLHF 使用人类反馈，RLAIF 使用 AI 反馈；RFT 泛指通过可评分反馈进行强化微调，具体产品定义需查对应文档。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+RLHF 使用人类反馈，RLAIF 使用 AI 反馈；二者描述反馈来源。奖励模型把输入与输出映射到学习评分，策略优化再利用评分改变输出分布。RFT 常用于指利用评分或可验证反馈进行强化微调，但不同论文或产品的具体接口需分别说明。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-先定义怎样评分输出，再让策略提高得分，但评分器本身可能有偏差。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+评委可以是人，也可以是另一套程序；评分卡是奖励模型，训练者如何根据评分改进表现则是优化器。更换评委不等于更换了训练算法。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-Reward Model 近似偏好。
+偏好奖励模型常用 Bradley–Terry 形式，将优选与拒绝输出的分差经 sigmoid 变为偏好概率。它只约束相对差异，不能把奖励 4 解释成比奖励 2 “好两倍”的绝对效用。
 
-策略优化需限制偏离参考策略。
+学得奖励可能带有长度、格式和评审器偏好。策略主动优化后会改变输出分布，使奖励模型遇到训练时少见的内容；因此要留出独立评测，并比较代理分数与实际质量。
 
-可验证奖励与主观偏好具有不同噪声结构。
+可验证评分如测试通过、数学答案匹配更容易自动获取，但检查器仍可能有漏洞。PPO 或 GRPO 可使用多种评分来源；DPO 则直接使用偏好对，不要求显式训练独立奖励模型。
 :::
 
 
@@ -120,17 +112,17 @@ Reward Model 近似偏好。
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### 成对偏好的 Bradley–Terry 模型
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+P(y_w\succ y_l\mid x)=\sigma(r_\phi(x,y_w)-r_\phi(x,y_l))
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+偏好模型估计相对排序概率，不提供可直接解释的绝对真实效用。
 :::
 
 ::::
@@ -141,9 +133,9 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| rφ | 学习得到的奖励评分 |
+| σ | sigmoid 函数 |
+| yw、yl | 优选与拒绝回答 |
 :::
 
 ::::
@@ -151,30 +143,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Reward Model、RLHF、RLAIF 与 RFT的最小计算
+### 奖励分差如何变为偏好概率
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 同一问题的两个回答得分为 2 与 1。
+- 采用 sigmoid(优选分数−拒绝分数)。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 分差为 1，偏好概率约 0.731059。
+2. 给两个分数同时加 100，分差仍为 1。
+3. 模型表达相对偏好，不能从共同偏移推断绝对质量。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+评分 [2,1] 与 [102,101] 都给出同样偏好概率 0.731059。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 偏好分差有意义，奖励绝对零点通常不可辨识。
+- AI 反馈与人类反馈各有噪声和偏差，需要单独验证。
 :::
 
 
@@ -194,7 +183,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Reward Model、RLHF、RLAIF 与 RFT的本地数值骨架
+### 奖励分差如何变为偏好概率
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -202,28 +191,29 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+评分 [2,1] 与 [102,101] 都给出同样偏好概率 0.731059。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+import math
+for chosen, rejected in [(2.0, 1.0), (102.0, 101.0)]:
+    probability = 1 / (1 + math.exp(-(chosen - rejected)))
+    print(f"scores=({chosen:.0f},{rejected:.0f}) preference_probability={probability:.6f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 分差为 1，偏好概率约 0.731059。
+- 给两个分数同时加 100，分差仍为 1。
+- 模型表达相对偏好，不能从共同偏移推断绝对质量。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+scores=(2,1) preference_probability=0.731059
+scores=(102,101) preference_probability=0.731059
+```
 :::
 
 ::::
@@ -239,9 +229,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 把 RLHF、RLAIF 当成互斥的策略优化算法名称。
+- 将奖励模型分数当作校准后的绝对真实质量。
+- 训练只提高评审分数，却没有独立任务效果检查。
 :::
 
 
@@ -252,7 +242,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Ouyang 等：Training language models to follow instructions with human feedback](https://arxiv.org/abs/2203.02155)。
 :::
 
 
@@ -263,9 +253,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 把 RLHF、RLAIF 当成互斥的策略优化算法名称。
+- 将奖励模型分数当作校准后的绝对真实质量。
+- 训练只提高评审分数，却没有独立任务效果检查。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -282,11 +272,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Reward Model、RLHF、RLAIF 与 RFT是 on-policy 还是 off-policy？
+### 有可验证奖励还需要奖励模型吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+不一定。能直接计算可靠评分时，可直接供给优化器；但验证规则的覆盖与漏洞仍需检查，不能等同于真实目标已经完整定义。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -296,4 +286,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

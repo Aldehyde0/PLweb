@@ -38,18 +38,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释核心机制
-- 手算一个主要形状或公式
-- 运行完整示例并排查错误
+- 冻结骨干只让任务头接收梯度
+- 冻结骨干后为什么输出仍会随训练改变？
+- 说明：示例验证冻结机制，不证明随机骨干具有可迁移知识或能达到真实任务性能。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-掌握迁移学习与微调的输入输出与训练边界
-
-能够用 PyTorch 代码验证公式和形状
+迁移学习将预训练参数用于新任务，常见策略是冻结骨干训练新头，再以较小学习率微调部分或全部骨干。
 :::
 
 
@@ -60,30 +58,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-迁移学习与微调是该文档中连接数据表示、训练目标和工程实现的核心主题。
+新任务标注少时，从随机权重训练大型网络可能效率低。迁移学习复用已有表示，但需要验证源任务特征是否适合目标数据，而不是默认所有预训练模型都有效。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-迁移学习复用预训练表示，固定特征、全量微调或逐步解冻。
+迁移学习将预训练参数用于新任务，常见策略是冻结骨干训练新头，再以较小学习率微调部分或全部骨干。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把迁移学习与微调理解为数据在模型中的一套明确变换，而不是只记一个类名。
+先使用已经学会的视觉或语言基础，再学习当前任务的输出规则；如果领域变化很大，旧知识也可能成为偏见。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-新头通常较大学习率，预训练层较小；权重预处理是模型资产。
+冻结参数通过 requires_grad=False 阻止梯度，但新替换的任务头需要训练，优化器必须包含它。若后来解冻骨干，应同时更新参数组；只改变 requires_grad 不会修改优化器持有的参数列表。
 
-实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+任务头通常使用较大学习率，预训练骨干较小。BatchNorm 的运行统计不受 requires_grad 冻结控制，所以冻结骨干还需决定其 train/eval 策略。预训练输入尺寸、通道和均值方差也属于资产。
+
+微调结果应与冻结特征和小模型基线比较。目标域与源域差异、标签语义或输入模态变化都可能造成负迁移，不能把“使用预训练”直接当效果保证。
 :::
 
 
@@ -101,7 +101,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-迁移学习与微调的核心数学表达。
+迁移学习将预训练参数用于新任务，常见策略是冻结骨干训练新头，再以较小学习率微调部分或全部骨干。
 :::
 
 ::::
@@ -121,37 +121,43 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 迁移学习与微调数值/形状检查
+### 冻结骨干只让任务头接收梯度
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=8
-- D=64
+- 骨干为 3→4 的线性层加 ReLU
+- 新任务头为 4→2
+- 两条构造样本用于反向检查
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 按公式或模块逐步计算
-2. 核对输出 shape
+1. 冻结骨干全部参数。
+2. 优化器只接收新头参数。
+3. 计算交叉熵并反向，分别检查梯度。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出保持 batch 维并符合任务头约定
+骨干梯度均为空，任务头梯度均存在；可训练参数数为 10。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 示例验证冻结机制，不证明随机骨干具有可迁移知识或能达到真实任务性能。
 :::
+
+### 冻结骨干只让任务头接收梯度
+
+新头包含 2×4 个权重和 2 个偏置，所以总计 10 个可训练参数。代码没有下载预训练权重，只演示冻结与参数组机制，不把随机骨干称为有效预训练模型。
+
+若要继续微调，应显式解冻目标层并将其加入优化器，选择较小学习率。真实迁移效果需要在目标验证集上衡量。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认输入与目标
-2. 建立最小模块
-3. 随机张量前向
-4. 计算损失
-5. 反向与更新
-6. 验证与错误分析
+1. 冻结骨干全部参数。
+2. 优化器只接收新头参数。
+3. 计算交叉熵并反向，分别检查梯度。
 :::
 
 
@@ -159,34 +165,48 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 迁移学习与微调 · PyTorch 示例
+### 冻结骨干只让任务头接收梯度的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证迁移学习与微调的输入、计算和输出。
+使用完整构造输入核对冻结骨干只让任务头接收梯度，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-for p in model.parameters():p.requires_grad=False
-in_features=model.fc.in_features
-model.fc=nn.Linear(in_features,5)
-optimizer=torch.optim.AdamW(model.fc.parameters(),lr=1e-3)
+```python
+import torch
+from torch import nn
+torch.manual_seed(7)
+backbone = nn.Sequential(nn.Linear(3, 4), nn.ReLU())
+head = nn.Linear(4, 2)
+for p in backbone.parameters():
+    p.requires_grad_(False)
+opt = torch.optim.AdamW(head.parameters(), lr=1e-3)
+x = torch.ones(2, 3)
+loss = nn.CrossEntropyLoss()(head(backbone(x)), torch.tensor([0, 1]))
+opt.zero_grad(set_to_none=True)
+loss.backward()
+print("backbone frozen:", all(p.grad is None for p in backbone.parameters()))
+print("head gradients:", all(p.grad is not None for p in head.parameters()))
+print("trainable:", sum(p.numel() for p in head.parameters()))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码显式标注输入和输出
-- 使用框架稳定实现
-- 结果通过 shape 或数值检查
+- 随机骨干仅用于机制检查，不冒充预训练。
+- 优化器明确只包含任务头。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印与页面说明一致的张量形状或损失。
+```text
+backbone frozen: True
+head gradients: True
+trainable: 10
+```
 :::
 
 ::::
@@ -194,8 +214,8 @@ optimizer=torch.optim.AdamW(model.fc.parameters(),lr=1e-3)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 迁移学习与微调
-- 教学与项目基线
+- 少样本视觉与文本任务微调
+- 比较冻结特征和全模型微调
 :::
 
 
@@ -216,18 +236,17 @@ optimizer=torch.optim.AdamW(model.fc.parameters(),lr=1e-3)
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 迁移学习与微调最先检查什么？
+### 冻结骨干后为什么输出仍会随训练改变？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-先检查输入输出 shape、dtype 和数据边界。
+训练模式的 BatchNorm 会继续更新统计，Dropout 也会随机；冻结参数只阻止梯度更新，不等于冻结全部前向行为。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 何时使用测试集？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-全部设计锁定后最终评估。
+示例验证冻结机制，不证明随机骨干具有可迁移知识或能达到真实任务性能。
 :::
-

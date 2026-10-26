@@ -36,29 +36,46 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-假设常不完全真实，但参数少、速度快，小数据也可作为概率基线。
+概率分类可以先学各类别下数据长什么样，再结合类别先验反推类别。朴素贝叶斯用条件独立简化联合分布，使参数量随特征数线性增长。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-模型假设给定类别后特征条件独立，并为每类每特征估计均值和方差。
+高斯朴素贝叶斯假设给定类别后各特征条件独立，每类每特征服从一个高斯分布，利用先验与这些似然计算后验类别概率。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把每项特征对各类别的匹配证据相乘，再乘类别本身常见程度。
+先问“如果属于这一类，出现这些特征有多合理”，再比较各类解释，而不是直接学一条分界线。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-实际用对数相加避免下溢；概率可能未校准，特征相关性会重复计算证据。
+训练为每类估计样本比例、特征均值与方差。预测对每类累加 log prior 与各维高斯 log likelihood，再在类别间归一化。使用对数避免多项小概率相乘下溢，平滑项则避免零方差除零。
+
+“朴素”独立是给定类别之后的条件独立，既不要求全体数据边际独立，也不表示这种假设通常完全真实。重复或强相关特征会重复计入证据，使输出概率过度自信，即使类别排序尚可。
+
+GaussianNB 适用于连续高斯近似特征，文本计数更常用 MultinomialNB，二元出现特征可考虑 BernoulliNB。选择变体应匹配输入统计，概率校准与真实分布变化仍需验证。
 :::
+
+### 一维高斯似然得到 sigmoid 形后验
+
+- 类别 0 样本为 -1、1，类别 1 样本为 1、3
+- 均值分别为 0、2，方差均为 1，先验各 0.5
+- 查询 x=1.5
+
+正类概率约为 0.731059，负类约为 0.268941。
+
+这里两类方差相同，所以对数似然差中的二次项抵消，形成线性分数。若方差不同，边界可以是二次的，不应把高斯朴素贝叶斯都视为线性分类器。
+
+代码保留默认极小方差平滑，打印六位小数便于比较。样本只是构造高斯参数的输入，不是大样本估计精度或校准的证据。
+
 
 
 ## 数学表达 {#formulas}
@@ -70,12 +87,12 @@ anchorAliases:
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-log P(C|x)=log P(C)+Σⱼlog P(xⱼ|C)+const
+\log P(c\mid x)=\log P(c)+\sum_j\log\mathcal N(x_j;\mu_{cj},\sigma^2_{cj})-\log P(x)
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-实际用对数相加避免下溢；概率可能未校准，特征相关性会重复计算证据。
+最后一项对类别相同，可在 argmax 时省略；计算后验概率时仍需归一化。
 :::
 
 ::::
@@ -83,11 +100,9 @@ $$
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 估计先验
-2. 按类估计均值方差
-3. 计算各特征似然
-4. 对数求和
-5. 归一化或 argmax
+1. 根据计数、二元或连续输入选择贝叶斯变体。
+2. 仅用训练部分估计先验、均值、方差与平滑。
+3. 核对对数似然和类别顺序，再验证区分能力与校准。
 :::
 
 
@@ -95,33 +110,41 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 高斯朴素贝叶斯 实现
+### 一维高斯似然得到 sigmoid 形后验的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的训练与预测逻辑。
+使用完整构造输入核对一维高斯似然得到 sigmoid 形后验，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
+```python
+import numpy as np
 from sklearn.naive_bayes import GaussianNB
-model=GaussianNB().fit(X_train,y_train)
-print(model.theta_.shape, model.var_.shape)
-print(model.predict_proba(X_test[:2]))
+x = np.array([[-1.], [1.], [1.], [3.]])
+y = np.array([0, 0, 1, 1])
+model = GaussianNB().fit(x, y)
+print("means:", model.theta_.flatten().tolist())
+print("variances:", [round(v, 6) for v in model.var_.flatten()])
+print("posterior:", [round(v, 6) for v in model.predict_proba([[1.5]])[0]])
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码先建立符合输入要求的估计器。
-- 参数应在交叉验证中选择，测试集不参与。
+- 每类均值和方差能直接手算。
+- 后验顺序对应 classes_ 为 0、1。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-输出每类每特征统计量形状和两条样本概率。
+```text
+means: [0.0, 2.0]
+variances: [np.float64(1.0), np.float64(1.0)]
+posterior: [np.float64(0.268941), np.float64(0.731059)]
+```
 :::
 
 ::::
@@ -129,8 +152,8 @@ print(model.predict_proba(X_test[:2]))
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 小数据分类
-- 快速概率基线
+- 小数据的快速概率基线
+- 对比生成式与判别式分类思路
 :::
 
 

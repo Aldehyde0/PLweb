@@ -37,28 +37,44 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-一次训练无法精确拆分偏差方差，但训练/验证差距、多折波动和学习曲线提供诊断信号。
+模型表现不好，可能是很多训练集上都学不到主要趋势，也可能是对训练样本的小变化过于敏感。偏差与方差提供不同解释，但真实任务中无法只看一次拟合就精确分离它们。
+
+学习曲线通过改变数据量或训练过程，比较训练与验证表现，帮助提出诊断假设；它需要与数据质量、优化状态及划分设计结合。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-偏差是模型系统性不足，方差是对训练样本变化过于敏感，不可消除噪声构成误差下限。
+在常见平方误差分析中，偏差描述模型平均预测与目标规律之间的系统差异，方差描述更换训练数据后预测的波动，另外还存在无法仅靠模型消除的噪声。
+
+学习曲线不是偏差方差的直接测量仪。它显示某个指标随训练样本量或轮数变化的情况，相关曲线形态可以提供线索，但不能替代对问题来源的检查。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-偏差是总用过于简单的答案，方差是换一套练习题就完全改变解法。
+许多模型始终预测得差不多、却整体偏离目标，可以直观理解为偏差较大；不同训练样本让预测大幅摆动，则提示对数据敏感。稳定地错与不稳定地对，都需要不同改进。
 :::
+
+### 固定输入上的三次模型预测
+
+设某个输入的无噪声目标为 10。第一组模型预测 [6,6,6]，平均为 6，平方偏差为 16，方差为 0；第二组预测 [6,10,14]，平均为 10，平方偏差为 0，平均平方波动为 32/3≈10.6667。
+
+这个构造例子只展示固定输入上的分解。它不是从真实学习曲线估计出的性能，也不表示波动模型一定更好；真实数据还可能包含不可约噪声。
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-两曲线都低且靠近提示高偏差；训练高验证低且差距随数据缩小，更多代表性数据可能有效。
+要先明确纵轴方向：误差越低越好，准确率或 R² 等得分通常越高越好。不能把两套图形规则的“高、低”混用；训练与验证还必须采用同一定义。
+
+训练和验证都表现差且接近，可能是表达能力或特征信息不足，也可能是优化失败。训练很好而验证较差，可能是高方差，也要排查分布差异、泄漏和标签质量。
+
+增加有代表性的数据有时能降低波动，但不能凭空提供缺失的关键信息。如果任务规律超出模型表达能力，仅增加相似数据未必解决系统偏差。
+
+经典分解有特定假设，通常针对固定输入、平方损失和对训练数据的重复抽样期望。分类错误、交叉熵或实际单次验证差距，不能不加说明地直接等同于这三个分量。
 :::
 
 
@@ -96,33 +112,42 @@ $$
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 偏差、方差与学习曲线：最小可验证示例
+### 核对固定输入上的平方误差分解
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-Python
+NumPy
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-把正文原理映射为可检查的代码行为。
+把偏差、波动与总平方误差算在同一组构造预测上。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```Python
-from sklearn.model_selection import learning_curve
-sizes, train, valid = learning_curve(model, X, y, cv=5)
-print(train.mean(1), valid.mean(1))
+```NumPy
+import numpy as np
+target = 10.0
+groups = {"biased": [6., 6., 6.], "variable": [6., 10., 14.]}
+for name, values in groups.items():
+    predictions = np.array(values)
+    bias2 = (predictions.mean() - target) ** 2
+    variance = predictions.var()
+    mse = np.mean((predictions - target) ** 2)
+    assert np.isclose(mse, bias2 + variance)
+    print(f"{name}: bias2={bias2:.4f} var={variance:.4f} mse={mse:.4f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 先确认输入形状和数据边界。
-- 把输出与公式或定义逐项对照。
+- 固定目标没有额外观测噪声，因此该有限预测组的 MSE 可以直接分为平方均值偏差与组内方差。
+- 这里没有画真实学习曲线，也没有把一次训练与验证差距冒充精确偏差方差。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-输出不同训练样本量对应的平均训练和验证分数。
+biased: bias2=16.0000 var=0.0000 mse=16.0000
+variable: bias2=0.0000 var=10.6667 mse=10.6667
 :::
 
 ::::

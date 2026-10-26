@@ -40,29 +40,45 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-树能表达非线性和交互且无需标准化，但贪心、对数据变化敏感并易生成深层噪声规则。
+一些关系更适合“先问一个问题，再走到下一条规则”的结构。决策树用轴对齐条件递归划分空间，既能表达非线性，也容易在深层记住噪声。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-树由判断节点和叶子组成；每个判断把样本分为左右子集并继续递归。
+决策树由内部条件节点和叶节点组成。分类树选择使子集更纯的切分，叶子输出类别分布；回归树通常减少平方误差，叶子输出训练目标均值。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-连续提出最能把类别分开的“是否小于阈值”问题。
+每次问一个能最大减少混杂的问题，直到剩余样本足够相似，或达到停止条件。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-候选阈值通常来自相邻不同值中点，选择 Gain 最大者。max\_depth、min\_samples\_leaf 和 ccp\_alpha 控制复杂度。
+对数值特征，候选阈值常在相邻不同取值之间。分类可用 Gini 或熵，增益需用子节点样本比例加权，不能只取两个子节点不纯度的简单平均。训练贪心选择当前最优，不保证整棵树全局最优。
+
+分类叶子中的样本比例常作为概率输出，但小叶子的比例不稳定，也不自动校准。max_depth、min_samples_leaf 和代价复杂度剪枝 ccp_alpha 控制规则复杂度；参数应在训练验证协议内选择。
+
+树通常不依赖标准化，因为单调缩放仍保留取值顺序，但它对样本扰动与相关特征选择可能敏感。单树轴对齐边界表达斜线可能需要很多切分，回归叶子也不擅长超出训练目标范围的线性外推。
 :::
+
+### 四样本树桩的 Gini 下降
+
+- 特征为 1、2、3、4
+- 类别为 0、0、1、1
+
+深度为 1 的树选择阈值 2.5，四个构造训练点均得到对应类别。
+
+若阈值为 1.5，左侧一条纯净，右侧三条中混有两类，增益更小。加权可防止把很小纯叶子与大混杂节点错误地等权对待。
+
+训练点全部分对只是这个简单树桩的机制验证。真实数据继续加深会把少数异常点切成专属叶子，因此应查看独立验证与每叶样本数量。
+
 
 
 ## 数学表达 {#formulas}
@@ -74,12 +90,12 @@ anchorAliases:
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-Gain=I(parent)-Σc(nc/n)I(childc)
+\operatorname{Gain}=I(P)-\frac{n_L}{n}I(L)-\frac{n_R}{n}I(R),\quad I_{Gini}=1-\sum_c p_c^2
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-候选阈值通常来自相邻不同值中点，选择 Gain 最大者。max\_depth、min\_samples\_leaf 和 ccp\_alpha 控制复杂度。
+左右子节点不纯度按样本数量加权；本例使用未加样本权重的分类 Gini。
 :::
 
 ::::
@@ -87,12 +103,9 @@ $$
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 排序候选特征值
-2. 生成阈值
-3. 计算左右不纯度
-4. 选最大增益
-5. 递归
-6. 按停止条件生成叶
+1. 明确分类或回归目标及节点不纯度。
+2. 枚举候选特征和阈值，选择加权下降最大的切分。
+3. 通过叶子规模、深度和剪枝控制容量，并独立验证。
 :::
 
 
@@ -100,32 +113,41 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 决策树 实现
+### 四样本树桩的 Gini 下降的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的训练与预测逻辑。
+使用完整构造输入核对四样本树桩的 Gini 下降，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
+```python
+import numpy as np
 from sklearn.tree import DecisionTreeClassifier
-model=DecisionTreeClassifier(max_depth=3,min_samples_leaf=5,random_state=42)
-model.fit(X_train,y_train)
+x = np.array([[1.], [2.], [3.], [4.]])
+y = np.array([0, 0, 1, 1])
+model = DecisionTreeClassifier(max_depth=1, random_state=7).fit(x, y)
+print(f"threshold={model.tree_.threshold[0]:.1f} root_gini={model.tree_.impurity[0]:.1f}")
+print("predictions:", model.predict(x).tolist())
+print("leaves:", model.get_n_leaves())
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码先建立符合输入要求的估计器。
-- 参数应在交叉验证中选择，测试集不参与。
+- 数据和深度上限明确。
+- 只验证树桩切分，不把训练拟合当测试效果。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-得到受深度和叶节点样本限制的分类树。
+```text
+threshold=2.5 root_gini=0.5
+predictions: [0, 0, 1, 1]
+leaves: 2
+```
 :::
 
 ::::
@@ -133,8 +155,8 @@ model.fit(X_train,y_train)
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 规则型表格任务
-- 可视化决策
+- 表格数据的非线性基线
+- 通过可读条件分析局部规则
 :::
 
 

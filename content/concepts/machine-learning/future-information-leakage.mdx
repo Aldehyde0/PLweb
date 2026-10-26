@@ -40,28 +40,44 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-预测贷款违约时使用发放后的催收次数、预测流失时使用未来 7 天行为，都会把结果线索直接放入输入。
+时间任务中的泄漏不一定直接来自目标列。一条事件虽然发生在过去，但如果系统到预测之后才收到或确认它，当时也不能用来生成特征。
+
+只按事件时间过滤，或者只保证训练行号早于测试行号，仍可能让延迟数据、回填字段和未来聚合进入预测。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-未来信息泄漏是特征在训练样本中可见，但在真实预测时点不可获得，或其计算窗口越过预测时点。
+未来信息泄漏是预测流程使用了该预测时点尚不可获得的信息。需要区分事件发生时间、数据到达或确认时间，以及模型实际作出决策的时间。
+
+一个特征的合法定义应明确统计窗口与可用性条件。离线构造必须模拟当时真正能看到的状态，而不是从最终完整表倒推一个更“干净”的过去。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-这不是模型聪明，而是题目把未来答案印在了当前特征上。
+一张历史账单后来被补录，并不意味着当年的预测者已经看到了它。回放系统需要还原当时的信息边界，而不是把今天完整的记录当作一直存在。
 :::
+
+### 发生在昨天，不表示今天已经能用
+
+构造预测时点为 1 月 2 日：事件 1 在 1 月 1 日发生并当日入库，可用；事件 2 同日在过去发生，却要到 1 月 3 日才入库，此时不能用；事件 3 发生在 1 月 5 日，当然属于未来。
+
+若再有一条 11 月 1 日的旧事件，它虽然已可用，也不属于过去 30 天窗口。正确计数必须同时检查窗口下界、预测前边界和可用时间。
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-每个特征必须标记事件时间、可用时间和计算窗口。划分方式也要模拟线上：过去训练、未来验证；同一实体的历史聚合不能跨越预测时点。
+给每项特征写出事件时间、可用时间、窗口起止和更新时间。聚合必须同时满足窗口与可用性要求，未来补录的过去事件不能无条件纳入旧预测。
+
+统计“过去 30 天”需要上下边界。仅过滤所有早于预测的事件，却把更早历史也算进来，会让特征名称与实际计算不一致。
+
+验证应采用能模拟部署的信息顺序。预测新实体还可能需要群组隔离；同一实体的跨时间聚合也不能读取验证期之后的记录。
+
+标签生成、人工审核和事后状态常具有延迟。使用这些列前应确认当时是否可见；即使它们不直接等于标签，也可能把结果提前透露给模型。
 :::
 
 
@@ -80,8 +96,9 @@ anchorAliases:
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### 按时间构造过去窗口
+### 同时过滤事件窗口与数据可用时间
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -89,26 +106,31 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-表达特征截止时间必须早于预测时点。
+修正只过滤过去事件、却忽略窗口与延迟到达的做法。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-cutoff = prediction_time
-history = events[events["event_time"] < cutoff]
-features = history.groupby("user_id").agg(
-    past_30d_count=("event_id", "count"),
-)
+import pandas as pd
+events = pd.DataFrame({"event_id": [1, 2, 3, 4],
+    "event_time": pd.to_datetime(["2026-01-01", "2026-01-01", "2026-01-05", "2025-11-01"]),
+    "available_time": pd.to_datetime(["2026-01-01", "2026-01-03", "2026-01-05", "2025-11-01"])})
+cutoff = pd.Timestamp("2026-01-02")
+history = events[(events.event_time >= cutoff - pd.Timedelta(days=30))
+    & (events.event_time < cutoff) & (events.available_time <= cutoff)]
+print("kept_ids:", history.event_id.tolist())
+print("past_30d_count:", len(history))
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 先按预测时点截断，再聚合。
-- 真实项目还需限定过去 30 天的开始时间。
+- 所有时间均为构造数据，实际系统还需明确时区与到达语义。
+- 事件 2 被可用时间排除，事件 3 被未来边界排除，事件 4 被窗口下界排除。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-每个用户只由预测时点之前的事件生成特征。
+kept_ids: [1]
+past_30d_count: 1
 :::
 
 ::::

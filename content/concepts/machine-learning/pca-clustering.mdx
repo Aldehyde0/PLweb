@@ -24,37 +24,52 @@ preserved: {}
 ## 通俗直觉 {#intuition}
 
 :::field{path="explanation" type="text"}
-把高维数据投影到最能保留变化的几条轴上，方便观察但不保证类别分得最好。
+PCA 先把数据旋转到主要变化轴上，再保留其中几维；聚类则根据某种相似性或密度把样本组织成组。两者可以串联，但目标不同，二维散点图也只是原数据的一种投影。
+
+可以把点云想成一块薄板：从正面看可能分成两层，从侧面看两层完全重叠。投影适合看结构，也会遮住某些结构，尤其当区分类别的信息恰好处于低方差方向。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="principle" type="text"}
-第一主成分使投影方差最大，后续主成分与之前方向正交；聚类编号本身没有类别语义。
+PCA 使用中心化数据，依次选择投影方差最大的正交方向。特征单位不同时，大方差可能主要反映计量尺度；是否先标准化取决于任务，PCA 本身不会自动做单位方差缩放。
+
+若在降维后运行 K-Means，距离变成保留方向上的距离。被丢弃轴的差异不再参与分组，因此得到的簇可能与原空间不同；保留 99% 方差也不能保证保留了业务上区分群体的那 1%。
+
+聚类编号只标识分组，0 与 1 可以互换，不意味着健康与异常或低价值与高价值。解释时要回到原始特征、代表样本和外部证据，并检查不同种子、维数和缩放下的稳定性。
+
+若 PCA 是下游预测或交叉验证流程的一部分，应只在训练折拟合均值与方向；若仅做全体样本的探索性可视化，也应明确其探索性质，不把图形分离当作独立测试结果。
 :::
+
+### 保留 99.8% 方差却丢掉水平行差异
+
+构造八个点，横坐标都是 -3、-1、1、3，分别放在 y=0.1 与 y=-0.1 两行。均值为零，第一维总体方差为 5，第二维为 0.01，交叉协方差为零。因此第一主成分沿横轴，保留方差比例为 5/(5+0.01)，约 0.998004。
+
+如果业务想区分上下两行，这个差异全部在被丢弃的纵轴；投影后每个横坐标对应的上下点变成同一点。即使 K-Means 在投影上形成稳定的左右两簇，也没有解决原来的上下分组目标。是否标准化或保留第二维，应从目标和数据含义决定，而不是只追求高保留率。
+
 
 
 ## 数学公式 {#formulas}
 
 :::field{path="formula.expression" type="math"}
 $$
-v₁ = argmax||v||=1 Var(Xv)
+v_1=\arg\max_{\lVert v\rVert=1}\operatorname{Var}(X_cv),\qquad Z=X_cV_k
 $$
 :::
 
 :::field{path="formula.description" type="text"}
-第一主成分是在单位方向中投影方差最大的方向。
+X_c 为中心化数据，V_k 为保留方向。后续聚类如果使用 Z，就只根据保留子空间计算相似性。
 :::
 
 
 ## 工作流程 {#algorithm-steps}
 
 :::field{path="workflow" type="list"}
-- 明确输入、输出与评价方式
-- 建立简单基线
-- 实现并检查关键中间量
-- 在验证数据上诊断和迭代
+- 先明确是探索图形、压缩数据还是为下游聚类建立表示。
+- 根据单位与业务确定缩放，拟合 PCA 并查看保留方差。
+- 对比原空间与投影空间的距离、分组和代表样本。
+- 用原始特征及外部证据解释簇，检查维数与随机种子稳定性。
 :::
 
 
@@ -65,39 +80,58 @@ Python
 :::
 
 :::field{path="code.source" type="code" trailing="0"}
-```Python
+```python
+import numpy as np
 from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
-
-X_scaled = StandardScaler().fit_transform(X)
-X_2d = PCA(n_components=2).fit_transform(X_scaled)
-print(X_2d.shape)
+from sklearn.cluster import KMeans
+x = np.array([[a, b] for b in [0.1, -0.1] for a in [-3., -1., 1., 3.]])
+pca = PCA(n_components=1, svd_solver="full")
+z = pca.fit_transform(x)
+clusters = KMeans(n_clusters=2, random_state=7, n_init=10).fit(z)
+print(f"retained_variance={pca.explained_variance_ratio_[0]:.6f}")
+print(f"opposite_row_projection_gap={np.max(np.abs(z[:4] - z[4:])):.6f}")
+print("projected_cluster_centers:", np.round(np.sort(clusters.cluster_centers_.flatten()), 6).tolist())
+print("same_horizontal_row_split:", bool(len(set(clusters.labels_[:4])) > 1))
 ```
 :::
 
 :::field{path="code.highlights" type="list"}
-- 先检查数据和张量形状
-- 把会学习参数的步骤限制在训练数据内
+- 全部八条输入明确定义，第一维变化远大于第二维。
+- PCA 保留一维，K-Means 使用固定种子和显式 n_init。
+- 比较投影前不同水平行的对应点，而不把簇编号当类别语义。
 :::
 
 :::field{path="codeExplanation" type="text"}
-先标准化再做 PCA，避免大尺度特征主导方差方向。
+本例没有标准化，刻意展示原单位下最大方差的目标。保留方差约 99.8%，但两条水平行在一维投影后完全重叠，K-Means 转而按左右位置分组。输出是构造数据的实际计算，不是某真实群体的分析结论。
+
+预期输出：
+
+```text
+retained_variance=0.998004
+opposite_row_projection_gap=0.000000
+projected_cluster_centers: [-2.0, 2.0]
+same_horizontal_row_split: True
+```
 :::
 
 
 ## 应用场景 {#applications}
 
 :::field{path="applications" type="list"}
-- 建立可靠训练流程
-- 诊断模型行为
+- 高维样本的探索性可视化。
+- 在保留子空间建立聚类并检查信息损失。
+- 用原始特征与外部证据解释无语义的簇编号。
 :::
 
 
 ## 常见误区 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只记接口而不检查数据边界
-- 只看单次分数而忽略泛化
+- 将二维投影中的分离或重叠当作原空间结论。
+- 认为高解释方差必然保留业务分组信息。
+- 未说明单位就让大尺度特征主导主成分。
+- 把聚类编号直接命名为真实类别。
+- 只挑一个漂亮的图，不检查维数、缩放与种子稳定性。
 :::
 
 

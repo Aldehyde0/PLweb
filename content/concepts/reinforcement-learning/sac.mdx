@@ -56,18 +56,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Soft Actor-Critic（SAC）并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 将期望收益与策略熵一起优化，理解随机 actor 和温度参数的作用。
+- 独立复核“两动作 soft 价值中的熵贡献”的输入、计算和解释。
+- 本例是离散期望算术，连续版本需要采样密度与变换修正。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Soft Actor-Critic（SAC）位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+将期望收益与策略熵一起优化，理解随机 actor 和温度参数的作用。
 :::
 
 
@@ -78,38 +76,32 @@ Soft Actor-Critic（SAC）位于“状态—行动—反馈—更新”学习链
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+连续控制中，多个动作都可能有不错收益。过早只保留一个动作会削弱探索，也可能更容易追逐 critic 的局部误差。SAC 通过最大熵目标保留随机性，再从 replay 复用经验。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-SAC 学习随机策略，并把 entropy 纳入目标。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+Soft Actor-Critic 是最大熵 off-policy actor-critic 方法，目标同时奖励回报与条件动作熵。常见连续版本使用随机重参数化 actor、双 Q、目标 critic 与可学习温度；离散 SAC 也存在，但不能把两者损失细节无条件混用。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-不仅追求高分，也保留多样选择，避免过早确定。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+不只问“这个动作分数高不高”，也问“保留合理选择余地是否值得”。温度控制对多样性的重视程度；它不是环境温度，也不是学习率。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-Replay 提高样本效率。
+soft bootstrap 通常含 min Q(s′,a′)−α log π(a′|s′)。因为 log 概率常为负，减去它会提供正的熵贡献；actor 则最小化 α log π−Q，符号必须与优化方向一致。
 
-温度 α 控制熵。
+连续动作常用 Gaussian 经 tanh 限幅，计算 log density 时需要 Jacobian 修正。忽略变换会让熵、温度和 actor 梯度都对应错误分布；密度大于 1 也并非概率非法。
 
-常用于连续动作。
+自动温度调节追踪目标熵，但目标熵是设计选择，并非真实任务最佳随机性的保证。部署用均值动作还是采样动作、训练和评测是否相同，都应记录。固定离线 replay 仍会有覆盖与外推风险。
 :::
 
 
@@ -148,30 +140,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Soft Actor-Critic（SAC）的最小计算
+### 两动作 soft 价值中的熵贡献
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 为便于手算使用离散策略 π=[0.5,0.5]，双 Q 最小值为 1、3。
+- 温度 α=0.2，奖励 0，折扣 0.9。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 期望 Q 为 2。
+2. 熵为 ln2，soft 价值为 2+0.2 ln2≈2.138629。
+3. bootstrap 目标为 0.9×2.138629≈1.924766。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+熵贡献约 0.138629，soft 目标约 1.924766。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 本例是离散期望算术，连续版本需要采样密度与变换修正。
+- 熵贡献提高的是最大熵目标，不是额外获得的环境奖励。
 :::
 
 
@@ -190,7 +179,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Soft Actor-Critic（SAC）的本地数值骨架
+### 两动作 soft 价值中的熵贡献
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -198,28 +187,29 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+熵贡献约 0.138629，soft 目标约 1.924766。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+import math
+probabilities, min_q = [0.5, 0.5], [1.0, 3.0]
+alpha, gamma = 0.2, 0.9
+soft_value = sum(p * (q - alpha * math.log(p)) for p, q in zip(probabilities, min_q))
+print(f"soft_value={soft_value:.6f}, target={gamma*soft_value:.6f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 期望 Q 为 2。
+- 熵为 ln2，soft 价值为 2+0.2 ln2≈2.138629。
+- bootstrap 目标为 0.9×2.138629≈1.924766。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+soft_value=2.138629, target=1.924766
+```
 :::
 
 ::::
@@ -235,9 +225,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- soft target 的 log 概率项符号写反。
+- tanh 后仍使用未变换 Gaussian 的 log density。
+- 认为自动温度调节可以替代数据覆盖与安全约束。
 :::
 
 
@@ -248,7 +238,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [OpenAI Spinning Up：SAC](https://spinningup.openai.com/en/latest/algorithms/sac.html)。
 :::
 
 
@@ -259,9 +249,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- soft target 的 log 概率项符号写反。
+- tanh 后仍使用未变换 Gaussian 的 log density。
+- 认为自动温度调节可以替代数据覆盖与安全约束。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -278,11 +268,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Soft Actor-Critic（SAC）是 on-policy 还是 off-policy？
+### 温度 α 越高回报越好吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-本页算法/方法按 off-policy 组织。
+不一定。较高温度更重视熵，可能改善探索，也可能让策略持续选择低收益动作；环境回报与最大熵训练目标应分别评价。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -292,4 +282,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

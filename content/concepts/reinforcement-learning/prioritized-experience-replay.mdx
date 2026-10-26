@@ -55,18 +55,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Prioritized Experience Replay并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 优先复习高残差样本，同时处理非均匀采样引入的权重偏差。
+- 独立复核“优先采样概率与逆概率权重”的输入、计算和解释。
+- 权重校正采样分布，并不消除 TD 目标本身的估计误差。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Prioritized Experience Replay位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+优先复习高残差样本，同时处理非均匀采样引入的权重偏差。
 :::
 
 
@@ -77,38 +75,32 @@ Prioritized Experience Replay位于“状态—行动—反馈—更新”学习
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+均匀 replay 可能反复抽到已很容易预测的转移，却很少抽到重要的新错误。PER 根据优先级调整抽样概率，让高残差转移更常出现；但训练分布也随之改变，不能无视采样偏差。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-PER 使采样概率与 priority 相关。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+比例式 PER 通常令优先级为绝对 TD error 加小正数，再取指数 α 形成采样概率。训练损失使用与采样概率相关的重要性权重，β 控制修正程度。优先级需在重新计算误差后刷新，避免永远沿用过时判断。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-错得多的题优先复习，但要修正这种偏科采样。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+错题本会多练常错题，但如果只练噪声很大的错题，可能忽略整体题目分布。重要性权重减少高频题对总体目标的过度支配。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-priority 常取 \|δ\|+ε。
+α=0 对应均匀抽样；α 越大越集中于高优先级样本。小正数保证低误差样本仍有机会被抽到，不能把当前残差小误解成永远不需要学习。
 
-重要性采样权重缓解偏差。
+若目标仍是均匀数据平均，理想单样本修正包含 1/(N P(i))；常用 β 次幂及批内或全缓冲归一化控制尺度。β 小于 1 时是部分修正，不应声称严格消除了偏差。
 
-需更新 priority。
+高 TD error 可能来自真正新信息，也可能来自奖励噪声、异常记录或永远不可预测的转移。只追残差会过度抽样噪声，需检查优先级分布、有效样本量和覆盖。
 :::
 
 
@@ -116,17 +108,17 @@ priority 常取 \|δ\|+ε。
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### 比例式 PER
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+P(i)=\frac{p_i^\alpha}{\sum_jp_j^\alpha},\qquad w_i=(N P(i))^{-\beta}
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+常用 p 为绝对 TD error 加 ε；实际还可能归一化 w。
 :::
 
 ::::
@@ -137,9 +129,10 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| p_i | 正优先级 |
+| α | 优先采样强度 |
+| β | 重要性修正程度 |
+| N | 缓冲中的样本数 |
 :::
 
 ::::
@@ -147,30 +140,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Prioritized Experience Replay的最小计算
+### 优先采样概率与逆概率权重
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 两个样本优先级为 1、3，α=1。
+- 缓冲大小 N=2，β=1；本例不做最大值归一化。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 采样概率为 0.25、0.75。
+2. 重要性权重为 1/(2×0.25)=2 与 1/(2×0.75)=2/3。
+3. 加权后的期望贡献概率均为 0.5。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+样本概率为 0.250、0.750，权重为 2.000、0.667。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 权重校正采样分布，并不消除 TD 目标本身的估计误差。
+- 实际实现常归一化权重，损失整体尺度会随之变化。
 :::
 
 
@@ -188,7 +178,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Prioritized Experience Replay的本地数值骨架
+### 优先采样概率与逆概率权重
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -196,28 +186,30 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+样本概率为 0.250、0.750，权重为 2.000、0.667。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+priority = [1.0, 3.0]
+probabilities = [p / sum(priority) for p in priority]
+weights = [1 / (len(priority) * p) for p in probabilities]
+for p, weight in zip(probabilities, weights):
+    print(f"P={p:.3f}, weight={weight:.3f}, contribution={p*weight:.3f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 采样概率为 0.25、0.75。
+- 重要性权重为 1/(2×0.25)=2 与 1/(2×0.75)=2/3。
+- 加权后的期望贡献概率均为 0.5。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+P=0.250, weight=2.000, contribution=0.500
+P=0.750, weight=0.667, contribution=0.500
+```
 :::
 
 ::::
@@ -233,9 +225,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 使用优先采样，却仍宣称训练等价于均匀平均。
+- 抽样后不刷新优先级，长期追逐陈旧残差。
+- 把高残差直接当作有益学习价值或高回报。
 :::
 
 
@@ -246,7 +238,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Schaul 等：Prioritized Experience Replay](https://arxiv.org/abs/1511.05952)。
 :::
 
 
@@ -257,9 +249,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 使用优先采样，却仍宣称训练等价于均匀平均。
+- 抽样后不刷新优先级，长期追逐陈旧残差。
+- 把高残差直接当作有益学习价值或高回报。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -276,11 +268,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Prioritized Experience Replay是 on-policy 还是 off-policy？
+### PER 总能提升样本效率吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+不保证。若高残差主要是不可约噪声或异常数据，优先采样会浪费预算；还需要考虑优先级维护和树结构采样的开销。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -290,4 +282,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

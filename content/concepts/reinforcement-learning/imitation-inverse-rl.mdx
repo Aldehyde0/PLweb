@@ -55,18 +55,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 定义Imitation Learning 与 Inverse RL并复述输入输出。
-- 从公式计算一个最小数值例子。
-- 说明它与相邻算法的区别、失败模式和适用场景。
+- 区分模仿动作与推断奖励，并认识状态偏移和奖励不可辨识。
+- 独立复核“同一最优动作可以由不同奖励解释”的输入、计算和解释。
+- 行为克隆直接拟合动作，不要求唯一恢复奖励。
 :::
 
 
 ## 为什么重要 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Imitation Learning 与 Inverse RL位于“状态—行动—反馈—更新”学习链中的关键位置。
-
-掌握它能帮助学习者判断算法使用的数据、策略归属和稳定性边界。
+区分模仿动作与推断奖励，并认识状态偏移和奖励不可辨识。
 :::
 
 
@@ -77,36 +75,32 @@ Imitation Learning 与 Inverse RL位于“状态—行动—反馈—更新”�
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-强化学习面对序贯决策：动作会改变之后能看到的状态和奖励，因此样本通常并非独立同分布。
-
-同一算法的效果取决于环境、探索策略、函数近似、随机种子和评测协议，单次曲线不足以下结论。
+专家驾驶记录可以直接教网络在给定图像下输出方向盘角度，也可以用于推断专家重视的行驶目标。前者容易实现，后者更接近解释动机，但仅凭行为通常无法唯一确定真实奖励。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-行为克隆做监督学习；Inverse RL 推断解释专家轨迹的奖励。
-
-本页使用“问题定义—数学目标—更新过程—代码—失败诊断”的顺序组织，避免只记算法缩写。
+行为克隆用专家状态动作做监督学习，拟合专家策略。逆强化学习从示范行为推断能解释示范的奖励或成本，再通过规划或强化学习得到策略。模仿学习是更宽的目标范畴，既可直接学策略，也可经过奖励建模。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-一个学动作，一个猜专家为什么这样做。
-
-把价值看作“未来累计收益的估计”，把策略看作“在状态下如何选动作的规则”；算法差异主要在估计谁、使用谁生成的数据以及如何更新。
+照着厨师每一步手势学是行为克隆；推测厨师在平衡味道、速度和成本，再按这些目标自己做，是逆强化学习。相同手势可能来自不同目标，因此推测不唯一。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-行为克隆有 compounding error。
+行为克隆只在专家访问分布上训练。小动作偏差可能让学习者进入专家没来过的状态，继续犯错并累积偏移；DAgger 类方法通过学习者访问状态再询问专家来缓解，但需要额外交互与标注。
 
-奖励不可辨识。
+逆强化学习中，许多奖励函数可以使同一策略最优，常数平移和势函数变换也可能保留行为。因而奖励解释依赖先验、函数类与理性假设，不能称为从示范恢复了唯一真实意图。
+
+数据没有奖励时可做模仿，但普通离线价值学习还需要奖励或可计算评分。专家数据可能不覆盖错误恢复动作，部署前要专门验证偏离示范后的恢复与约束。
 :::
 
 
@@ -114,17 +108,17 @@ Imitation Learning 与 Inverse RL位于“状态—行动—反馈—更新”�
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 折扣回报
+### 行为克隆的监督目标
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-G_t=R_{t+1}+\gamma G_{t+1}
+\mathcal L_{BC}(\theta)=-\mathbb E_{(s,a)\sim\mathcal D_E}\log\pi_\theta(a\mid s)
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-当前回报由下一奖励与折扣后的未来回报组成。
+这是直接模仿专家动作的目标；逆强化学习另外推断奖励，两者不应混为一个损失。
 :::
 
 ::::
@@ -135,9 +129,9 @@ $$
 :::field{path="variableDefinitions" type="table"}
 | 变量 | 含义 |
 | --- | --- |
-| G\_t | 从时刻 t 开始的折扣累计回报。 |
-| R\_\{t+1\} | 执行动作后收到的下一步奖励。 |
-| γ | 折扣因子，通常位于 \[0,1)。 |
+| D_E | 专家状态动作示范 |
+| πθ | 学习者动作分布 |
+| a | 专家在状态 s 的动作 |
 :::
 
 ::::
@@ -145,30 +139,27 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### Imitation Learning 与 Inverse RL的最小计算
+### 同一最优动作可以由不同奖励解释
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- 即时奖励为 1
-- 下一状态估计为 2
-- 折扣因子 γ=0.9
-- 当前估计为 0.5
+- 一个单步环境只有动作 A、B。
+- 候选奖励一为 [2,1]，候选奖励二为 [20,0]；专家选择 A。
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 计算 bootstrap 目标：1+0.9×2=2.8。
-2. 目标与当前估计差为 2.8−0.5=2.3。
-3. 若学习率 α=0.1，新估计为 0.5+0.1×2.3=0.73。
+1. 两套奖励中 A 都严格优于 B。
+2. 仅看到专家选 A，无法区分奖励差是 1 还是 20。
+3. 更多状态与示范可以增加约束，但仍需假设与正则。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-一次更新后估计从 0.5 变为 0.73；是否收敛需要持续采样与满足相应条件。
+两套不同奖励均解释动作 A；示范并不唯一确定奖励尺度或偏好强度。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-- 较大 α 更新快但噪声和震荡更强。
-- 较大 γ 更重视远期奖励，但误差传播范围更长。
-- 使用真实回报与 bootstrap 目标会带来不同偏差—方差权衡。
+- 行为克隆直接拟合动作，不要求唯一恢复奖励。
+- 逆强化学习的奖励解释需说明可辨识假设。
 :::
 
 
@@ -186,7 +177,7 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Imitation Learning 与 Inverse RL的本地数值骨架
+### 同一最优动作可以由不同奖励解释
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
@@ -194,28 +185,29 @@ Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-用确定性数组展示状态、更新和结果，不连接远程环境，也不在网页内执行。
+两套不同奖励均解释动作 A；示范并不唯一确定奖励尺度或偏好强度。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
 ```Python
-rewards = [0.0, 0.0, 1.0]
-gamma = 0.9
-G = 0.0
-for reward in reversed(rewards):
-    G = reward + gamma * G
-print(round(G, 3))
+candidate_rewards = [(2.0, 1.0), (20.0, 0.0)]
+for rewards in candidate_rewards:
+    best = max(range(2), key=rewards.__getitem__)
+    print(f"rewards={rewards}, expert_action={'AB'[best]}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- rewards 是一条固定轨迹的即时奖励。
-- 从后向前递推对应折扣回报公式。
-- 输出用于核对概念，不代表完整训练系统。
+- 两套奖励中 A 都严格优于 B。
+- 仅看到专家选 A，无法区分奖励差是 1 还是 20。
+- 更多状态与示范可以增加约束，但仍需假设与正则。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-0.81
+```text
+rewards=(2.0, 1.0), expert_action=A
+rewards=(20.0, 0.0), expert_action=A
+```
 :::
 
 ::::
@@ -231,9 +223,9 @@ print(round(G, 3))
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 只报告最好的一次随机种子
-- 训练回报与评测回报混用
-- 终止状态仍错误 bootstrap
+- 用专家分布上的动作准确率代表闭环控制可靠。
+- 声称示范唯一确定了人的真实奖励。
+- 没有奖励却直接套用需要 TD target 的离线 RL。
 :::
 
 
@@ -244,7 +236,7 @@ print(round(G, 3))
 ## 扩展内容说明 {#extension}
 
 :::field{path="extensionNotes" type="paragraphs"}
-未找到可直接映射的本地强化学习文档；中文直觉、数值例子、代码和交互演示属于扩展解释，算法定义与公式以所列教材或原论文为依据。
+本页数值均为解释机制的构造案例，不能解读为真实训练或基准性能。定义和适用条件参见 [Ross 等：A Reduction of Imitation Learning and Structured Prediction to No-Regret Online Learning](https://proceedings.mlr.press/v15/ross11a.html)。
 :::
 
 
@@ -255,9 +247,9 @@ print(round(G, 3))
 ## 失败模式、风险与性能 {#failure-performance}
 
 :::field{path="failureModes" type="list"}
-- 探索不足
-- 目标漂移
-- 函数近似不稳定
+- 用专家分布上的动作准确率代表闭环控制可靠。
+- 声称示范唯一确定了人的真实奖励。
+- 没有奖励却直接套用需要 TD target 的离线 RL。
 :::
 
 :::field{path="securityRisks" type="list"}
@@ -274,11 +266,11 @@ print(round(G, 3))
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### Imitation Learning 与 Inverse RL是 on-policy 还是 off-policy？
+### 没有环境奖励还能学习策略吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-这是基础或比较概念，具体归属取决于所讨论算法。
+可以从示范做行为克隆，或在额外假设下推断奖励；但这不意味着可以无条件恢复最优策略或唯一真实目标。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
@@ -288,4 +280,3 @@ print(round(G, 3))
 :::field{path="commonQuestions.1.answer" type="text"}
 不会。所有图表使用固定种子或解析公式在浏览器本地计算，不执行页面中的示例代码。
 :::
-

@@ -37,29 +37,46 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-不同预处理要求必须由各自 Pipeline 体现，不能为了统一而省略必要步骤。
+KNN、贝叶斯和 SVM 的优势取决于数据表示与约束。拿不同划分或不同预处理的最高分比较，会把协议差异误当模型差异。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-模型比较不是只看最高平均分，还要比较尺度需求、训练/预测成本、稳定性、概率和解释方式。
+模型家族比较在相同独立划分、指标和预算下，评估各家族的预测、波动、计算、概率语义及部署行为。预处理可不同，但必须各自在训练折学习。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-让每位选手使用合法装备、在同一赛道和计分规则下比赛。
+公平比较比赛成绩需要同一赛道，但选手仍可使用各自合规装备；不能为表面统一而故意省去某模型需要的缩放。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-固定折、指标和随机种子；报告平均、标准差和耗时；测试集不参与候选选择。
+KNN 依赖局部距离，把主要成本放在预测；高斯贝叶斯依赖类条件分布假设，参数少且推理快；SVM 依赖间隔与核，尺度和核参数尤其关键。它们不是同一目标的三种名称。
+
+固定同一组交叉验证折，对每个模型分别用 Pipeline 处理拟合变换，再记录逐折指标。不要只保留最好一折；均值与波动说明不同方面，折间分数又并非完全独立，因此简单标准差不是严格置信区间。
+
+若用交叉验证调很多超参数，最终性能估计可能还需要嵌套验证或独立测试。训练时间、延迟、内存与校准也应实际测量；不能从算法标签直接给出某项目的耗时结论。
 :::
+
+### 相同三折上的受控小型对照
+
+- 构造十二个一维样本，前六个为负类、后六个为正类
+- 固定三折 StratifiedKFold
+- KNN 与 SVM 在各自 Pipeline 中缩放，GNB 使用其高斯特征模型
+
+代码实际产生三组逐折分数；只对应这个构造数据，不能作为真实任务排名。
+
+本例类别沿一条轴分开，刻意保持简单以验证比较协议。即使三家分数相同，也不意味着真实数据中三者等价，而是这套小数据没有足够区分力。
+
+真实选择还要给定时延或概率要求。例如预测量很大时 KNN 的查询成本可能成为约束；需要概率时不能把 SVM 分数直接与 GNB 概率同口径比较。
+
 
 
 ## 数学表达 {#formulas}
@@ -71,12 +88,12 @@ anchorAliases:
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-选择 = 性能 + 波动 + 成本 + 解释 + 部署约束
+\overline s=\frac1K\sum_{k=1}^K s_k
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-固定折、指标和随机种子；报告平均、标准差和耗时；测试集不参与候选选择。
+这是同一验证协议下逐折分数的算术平均；同时保留分数分布与实际资源测量，不能把多目标选择缩成无单位的随意加法。
 :::
 
 ::::
@@ -84,12 +101,9 @@ $$
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 注册候选 Pipeline
-2. 固定 StratifiedKFold
-3. cross\_validate 多指标
-4. 比较均值/波动/耗时
-5. 锁定模型
-6. 最终测试
+1. 预先固定划分、指标、候选和资源约束。
+2. 为每个候选建立必要的训练内预处理 Pipeline。
+3. 保留逐折结果与资源测量，锁定方案后再测试。
 :::
 
 
@@ -97,33 +111,51 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### KNN、贝叶斯与 SVM 对比 实现
+### 相同三折上的受控小型对照的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的训练与预测逻辑。
+使用完整构造输入核对相同三折上的受控小型对照，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-models={"knn":knn,"gnb":gnb,"svm":svm}
-for name,model in models.items():
-    scores=cross_val_score(model,X,y,cv=cv)
-    print(name,scores.mean(),scores.std())
+```python
+import numpy as np
+from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.svm import SVC
+x = np.array([-6., -5., -4., -3., -2., -1., 1., 2., 3., 4., 5., 6.]).reshape(-1, 1)
+y = np.array([0] * 6 + [1] * 6)
+cv = StratifiedKFold(3, shuffle=True, random_state=7)
+models = {
+    "KNN": make_pipeline(StandardScaler(), KNeighborsClassifier(3)),
+    "GNB": GaussianNB(),
+    "SVM": make_pipeline(StandardScaler(), SVC(kernel="linear", C=1)),
+}
+for name, model in models.items():
+    scores = cross_val_score(model, x, y, cv=cv, scoring="accuracy")
+    print(name, [round(v, 3) for v in scores.tolist()])
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码先建立符合输入要求的估计器。
-- 参数应在交叉验证中选择，测试集不参与。
+- 数据、折、模型和评价指标全部显式定义。
+- 逐折分数为实际运行结果，但只针对构造案例。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-每个模型的交叉验证平均分和标准差。
+```text
+KNN [1.0, 1.0, 1.0]
+GNB [1.0, 1.0, 1.0]
+SVM [1.0, 1.0, 1.0]
+```
 :::
 
 ::::
@@ -131,8 +163,8 @@ for name,model in models.items():
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 算法选型
-- 基线比较
+- 建立分类模型基线表
+- 按延迟、概率与数据结构选候选
 :::
 
 

@@ -35,18 +35,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 解释核心机制
-- 手算一个主要形状或公式
-- 运行完整示例并排查错误
+- CPU 上验证 AMP 关闭后的完整训练步
+- AMP 时可以先裁剪再 unscale 吗？
+- 说明：本页 CPU 代码验证回退流程，未测量或宣称 CUDA 性能收益。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-掌握自动混合精度 AMP的输入输出与训练边界
-
-能够用 PyTorch 代码验证公式和形状
+自动混合精度由 autocast 按设备和算子选择 dtype；float16 训练常配合 GradScaler 对损失缩放，降低小梯度下溢风险。bfloat16 的指数范围不同，通常不需要同样的缩放策略。
 :::
 
 
@@ -57,30 +55,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-自动混合精度 AMP是该文档中连接数据表示、训练目标和工程实现的核心主题。
+浮点精度会影响显存、吞吐和数值范围。AMP 根据算子选择适合的精度，而不是简单把模型和所有输入一律转成半精度。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-AMP 为适合操作选择低精度，并用 GradScaler 缓解 float16 梯度下溢。
+自动混合精度由 autocast 按设备和算子选择 dtype；float16 训练常配合 GradScaler 对损失缩放，降低小梯度下溢风险。bfloat16 的指数范围不同，通常不需要同样的缩放策略。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-把自动混合精度 AMP理解为数据在模型中的一套明确变换，而不是只记一个类名。
+不同工序使用不同精度的量尺：大矩阵乘法可用更便宜的尺，敏感累加与损失计算保留更稳的精度。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-它可能省显存和提速，但效果依赖硬件，异常时应关闭定位。
+autocast 通常包住前向和损失，不包住整个优化器逻辑。模型参数往往仍保留 float32 主副本；实际算子是否降精度由支持策略决定，不能从上下文名称推断每个输出 dtype。
 
-实现时必须同时检查 shape、dtype、mask 或模式切换，并用验证集而不是测试集选择配置。
+GradScaler 先将损失乘缩放因子，再反向；在更新前还原梯度，检测非有限值并按需跳过更新、调整缩放。若需要裁剪，必须先 unscale，再按原梯度尺度裁剪。
+
+CUDA float16、CPU bfloat16 的支持和加速效果不同。CPU 示例可以明确关闭 AMP，验证同一训练路径的回退；它不能证明 GPU 加速，也不能在没有 CUDA 的机器上伪造吞吐数字。
 :::
 
 
@@ -98,7 +98,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-自动混合精度 AMP的核心数学表达。
+自动混合精度由 autocast 按设备和算子选择 dtype；float16 训练常配合 GradScaler 对损失缩放，降低小梯度下溢风险。bfloat16 的指数范围不同，通常不需要同样的缩放策略。
 :::
 
 ::::
@@ -118,37 +118,43 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 自动混合精度 AMP数值/形状检查
+### CPU 上验证 AMP 关闭后的完整训练步
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- N=8
-- D=64
+- 单权重线性层初值 1
+- x=2，目标=6，学习率 0.1
+- autocast 与 GradScaler 均显式关闭
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 按公式或模块逐步计算
-2. 核对输出 shape
+1. 前向平方损失为 16。
+2. scaler 在关闭状态下透传操作。
+3. 更新后权重为 2.6。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-输出保持 batch 维并符合任务头约定
+CPU 回退使用 float32，得到与普通 SGD 相同的一步更新。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- 本页 CPU 代码验证回退流程，未测量或宣称 CUDA 性能收益。
 :::
+
+### CPU 上验证 AMP 关闭后的完整训练步
+
+示例故意不启用不受当前硬件支持的 CUDA 算子。实际切换到 CUDA 时，应把模型与输入迁到同一设备，再按 float16 或 bfloat16 配方启用 autocast 与缩放。
+
+衡量 AMP 应在相同任务预算下同时观察数值稳定性、显存和耗时。单次小矩阵计算的快慢无法代表大网络吞吐，也不能把训练能运行当成精度没有影响。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 确认输入与目标
-2. 建立最小模块
-3. 随机张量前向
-4. 计算损失
-5. 反向与更新
-6. 验证与错误分析
+1. 前向平方损失为 16。
+2. scaler 在关闭状态下透传操作。
+3. 更新后权重为 2.6。
 :::
 
 
@@ -156,34 +162,45 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 自动混合精度 AMP · PyTorch 示例
+### CPU 上验证 AMP 关闭后的完整训练步的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证自动混合精度 AMP的输入、计算和输出。
+使用完整构造输入核对CPU 上验证 AMP 关闭后的完整训练步，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-use_amp=device.type=='cuda'
-scaler=torch.amp.GradScaler('cuda',enabled=use_amp)
-with torch.amp.autocast('cuda',enabled=use_amp):loss=criterion(model(x),y)
-scaler.scale(loss).backward();scaler.step(optimizer);scaler.update()
+```python
+import torch
+from torch import nn
+model = nn.Linear(1, 1, bias=False)
+with torch.no_grad():
+    model.weight.fill_(1.)
+opt = torch.optim.SGD(model.parameters(), lr=0.1)
+scaler = torch.amp.GradScaler("cpu", enabled=False)
+opt.zero_grad(set_to_none=True)
+with torch.amp.autocast("cpu", enabled=False):
+    loss = (model(torch.tensor([[2.]])) - 6).square().mean()
+scaler.scale(loss).backward()
+scaler.step(opt)
+scaler.update()
+print(f"dtype={model.weight.dtype} loss={loss.item():.1f} weight={model.weight.item():.1f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码显式标注输入和输出
-- 使用框架稳定实现
-- 结果通过 shape 或数值检查
+- 全部在 CPU 上可运行。
+- 明确关闭 AMP，不把普通精度结果称为混合精度效果。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-打印与页面说明一致的张量形状或损失。
+```text
+dtype=torch.float32 loss=16.0 weight=2.6
+```
 :::
 
 ::::
@@ -191,8 +208,8 @@ scaler.scale(loss).backward();scaler.step(optimizer);scaler.update()
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 自动混合精度 AMP
-- 教学与项目基线
+- CUDA 训练的显存与吞吐优化
+- 通过关闭 AMP 定位数值异常
 :::
 
 
@@ -212,18 +229,17 @@ scaler.scale(loss).backward();scaler.step(optimizer);scaler.update()
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### 自动混合精度 AMP最先检查什么？
+### AMP 时可以先裁剪再 unscale 吗？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-先检查输入输出 shape、dtype 和数据边界。
+不应这样做。梯度仍乘着动态缩放因子，裁剪阈值就不再对应真实梯度尺度，应先 scaler.unscale_(optimizer)。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 何时使用测试集？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-全部设计锁定后最终评估。
+本页 CPU 代码验证回退流程，未测量或宣称 CUDA 性能收益。
 :::
-

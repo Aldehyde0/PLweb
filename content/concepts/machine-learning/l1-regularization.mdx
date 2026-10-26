@@ -40,28 +40,44 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-高维、小样本和噪声特征会造成不稳定大权重。L1 同时拟合与做嵌入式特征选择。
+当很多特征可能冗余、训练样本相对有限时，单纯降低训练误差容易得到复杂或不稳定的权重。L1 在数据损失之外惩罚权重绝对值，能在某些优化问题中产生精确零系数。
+
+稀疏性有助于压缩模型或形成特征子集，但“某列为零”只描述当前建模过程，不能直接解释成该因素在现实中没有作用。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-L1 范数为 Σ\|wⱼ\|；线性回归加入 L1 称 Lasso。零点不可导，使用次梯度、坐标下降或近端方法。
+L1 惩罚是权重绝对值之和，强度参数控制它与数据拟合项的权衡。截距是否受惩罚、损失如何归一化，需要根据具体模型和接口说明。
+
+L1 与 L2 不同：前者的非光滑零点可以产生阈值效应，后者通常连续缩小系数。不能因为二者都叫正则化就认为参数数值可直接对照。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-每个非零权重都要付固定边际成本，小贡献权重更容易被压成零。
+L1 更像要求模型为每项非零使用支付代价：微弱的贡献可能被压到零，足够强的贡献才留下。这个比喻不代表可以脱离特征单位或其他特征的关系来判断价值。
 :::
+
+### 一个可手算的阈值子问题
+
+构造目标 0.5×(w−a)²+0.5×|w|。a 依次为 0.1、1、-2 时，最优 w 依次为 0、0.5、-1.5：小于阈值的弱量被压为零，其余按符号收缩。
+
+这展示的是特定二次子问题的解析结构，不是说所有 Lasso 模型都能对原始相关系数直接套一次阈值。实际多特征问题还要处理损失耦合、尺度与收敛。
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-先标准化；λ 越大稀疏越强但可能欠拟合。零权重只表示当前模型未使用，不代表无现实因果。
+在可分离的二次子问题中，L1 的解表现为软阈值：绝对值较小的量变为零，其余向零缩小同样幅度。一般模型仍需要正确的优化器或坐标更新，不能把普通梯度符号随意相减就保证稀疏。
+
+特征尺度影响同一预测贡献所需的权重，因此通常要把缩放与选择放进同一训练管线。全数据先标准化再交叉验证，仍然会泄漏验证信息。
+
+强度过大可能删掉有用信号并欠拟合，强度过小可能几乎不限制复杂度。应在训练内部验证，并同时检查预测表现、保留列数与跨折稳定性。
+
+相关特征可能互相替代，使单次稀疏清单不稳定。解释结果时要结合数据和模型条件；零系数不是因果排除证据。
 :::
 
 
@@ -99,34 +115,36 @@ $$
 ## 代码实现 {#code}
 
 ::::code-example{index="0"}
+
 :::field{path="codeExamples.0.title" type="text"}
-### L1 正则化与稀疏性 示例
+### 直接核对软阈值的三个区域
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+NumPy
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的可靠评价或训练流程。
+用固定二次子问题说明精确零值的来源。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-from sklearn.linear_model import LassoCV
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
-model=make_pipeline(StandardScaler(),LassoCV(cv=5,max_iter=20000))
+```NumPy
+import numpy as np
+a = np.array([0.1, 1.0, -2.0])
+strength = 0.5
+w = np.sign(a) * np.maximum(np.abs(a) - strength, 0.0)
+print("solution:", w.tolist())
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 数据边界和划分方式是代码含义的一部分。
-- 结果应报告平均、波动或业务对应的指标。
+- 这是已给定二次子问题的解析解，不是完整多特征回归训练。
+- 阈值来自本例目标的系数，换损失归一化后不能照搬。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-交叉验证选出 alpha，并产生可能稀疏的 coef\_。
+solution: [0.0, 0.5, -1.5]
 :::
 
 ::::

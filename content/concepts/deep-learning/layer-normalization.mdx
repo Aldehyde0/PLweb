@@ -37,18 +37,16 @@ anchorAliases:
 ## 学习目标 {#learning-objectives}
 
 :::field{path="learningObjectives" type="list"}
-- 识别统计维
-- 匹配尾部形状
-- 比较 Pre/Post Norm
+- 两个 token 各自标准化
+- LayerNorm(D) 为什么适合变长序列？
+- 说明：LayerNorm 不会自动屏蔽 padding，也不保证保存所有绝对幅度信息。
 :::
 
 
 ## 为什么需要这个概念 {#importance}
 
 :::field{path="importance" type="paragraphs"}
-Transformer 核心组件
-
-理解 normalized\_shape
+LayerNorm 对输入指定的尾部维度计算均值与有偏方差，再用可选的逐元素缩放和偏移变换。LayerNorm(D) 对每个位置的 D 个特征独立计算。
 :::
 
 
@@ -59,30 +57,32 @@ Transformer 核心组件
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-序列和小 batch 场景不适合依赖 batch 统计。
+序列长度和 batch 大小会变化，在线推理甚至只有一个样本。LayerNorm 不依赖同批样本的统计，因而常用于序列与 Transformer 隐藏表示。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-LayerNorm 不维护 running stats，训练和评估对同一输入公式相同。
+LayerNorm 对输入指定的尾部维度计算均值与有偏方差，再用可选的逐元素缩放和偏移变换。LayerNorm(D) 对每个位置的 D 个特征独立计算。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-每个 token 自己在隐藏维上校准，不借用其他样本。
+每个 token 自己建立一把特征刻度尺。同批换了另一句话，当前 token 的标准化基准不会因此改变。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-对 \[N,L,D\] 使用 LayerNorm(D)，每个 n,l 独立对 D 维统计。
+若输入为 $[N,L,D]$ 且 normalized_shape=D，统计轴只有最后一维，均值形状可理解为 $[N,L,1]$。若指定 (L,D)，则同时跨两个尾轴统计，语义和参数形状都改变，不能看名字相同就混用。
 
-normalized\_shape 必须匹配输入尾部维度；仍有可训练 γ/β。
+LayerNorm 默认有与 normalized_shape 一致的 affine 参数，因而标准化输出不保证训练后仍为零均值单位方差。默认不维护 BatchNorm 那样的运行均值与方差，所以单独的 LayerNorm 在 train 与 eval 下计算相同。
+
+在残差块中，Pre-LN 和 Post-LN 的归一化位置不同，会影响梯度路径和训练配方。LayerNorm 并不会识别 padding，若随后对序列求平均，仍需用有效位置 mask 排除填充。
 :::
 
 
@@ -100,7 +100,7 @@ $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-每个 token 对 D 维归一化。
+LayerNorm 对输入指定的尾部维度计算均值与有偏方差，再用可选的逐元素缩放和偏移变换。LayerNorm(D) 对每个位置的 D 个特征独立计算。
 :::
 
 ::::
@@ -120,35 +120,43 @@ $$
 ## 完整数值示例 {#numerical-example}
 
 :::field{path="numericalExample.title" type="text"}
-### 序列 LN
+### 两个 token 各自标准化
 :::
 
 :::field{path="numericalExample.given" type="list"}
-- \[8,20,128\]
+- 输入 shape 为 (1,2,2)
+- 两个 token 分别为 (1,3)、(10,14)
+- 不使用 affine 参数
 :::
 
 :::field{path="numericalExample.steps" type="ordered"}
-1. 每个 token 用 128 个数
-2. 8×20 组统计
+1. 第一个 token 均值为 2，标准差近似 1。
+2. 第二个 token 均值为 12，标准差近似 2。
+3. 各自标准化后都近似为 (-1,1)。
 :::
 
 :::field{path="numericalExample.result" type="text"}
-160 组均值
+输出 shape 保持 (1,2,2)，训练与评估模式的最大差为 0。
 :::
 
 :::field{path="numericalExample.comparison" type="list"}
-
+- LayerNorm 不会自动屏蔽 padding，也不保证保存所有绝对幅度信息。
 :::
+
+### 两个 token 各自标准化
+
+虽然第二个 token 的绝对值大很多，LayerNorm 主要保留其内部相对结构。若任务必须使用原始幅度作为信号，需要考虑归一化位置和残差是否保留了相关信息。
+
+如果写成 LayerNorm((2,2))，就会把两个 token 合在一起求统计，并且学习 2×2 的 affine 参数。这不是对原操作的等价写法。
+
 
 
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 选择尾部维
-2. 逐样本统计
-3. 归一化
-4. 仿射
-5. 残差结构放置
+1. 第一个 token 均值为 2，标准差近似 1。
+2. 第二个 token 均值为 12，标准差近似 2。
+3. 各自标准化后都近似为 (-1,1)。
 :::
 
 
@@ -156,33 +164,42 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Layer Normalization · PyTorch 示例
+### 两个 token 各自标准化的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-PyTorch
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-验证Layer Normalization的输入、计算和输出。
+使用完整构造输入核对两个 token 各自标准化，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```PyTorch
-ln=nn.LayerNorm(128)
-x=torch.randn(8,20,128)
-print(ln(x).shape)
+```python
+import torch
+from torch import nn
+x = torch.tensor([[[1., 3.], [10., 14.]]])
+ln = nn.LayerNorm(2, elementwise_affine=False)
+ln.train()
+a = ln(x)
+ln.eval()
+b = ln(x)
+print([[round(v, 4) for v in row] for row in a[0].tolist()])
+print("mode max diff:", (a - b).abs().max().item())
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 最后一维匹配 128
-- 不依赖 batch
-- shape 不变
+- 两个 token 使用不同绝对范围。
+- 关闭 affine 以直接核对标准化输出。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-torch.Size(\[8,20,128\])。
+```text
+[[-1.0, 1.0], [-1.0, 1.0]]
+mode max diff: 0.0
+```
 :::
 
 ::::
@@ -190,8 +207,8 @@ torch.Size(\[8,20,128\])。
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- Transformer
-- 小 batch 序列
+- Transformer 子层归一化
+- 小批量序列隐藏状态处理
 :::
 
 
@@ -211,18 +228,17 @@ torch.Size(\[8,20,128\])。
 ## 常见问题 {#common-questions}
 
 :::field{path="commonQuestions.0.question" type="text"}
-### LayerNorm eval 会变吗？
+### LayerNorm(D) 为什么适合变长序列？
 :::
 
 :::field{path="commonQuestions.0.answer" type="text"}
-公式不变。
+统计和参数只依赖末维 D，长度 L 可以变化；若把 L 也放进 normalized_shape，就失去这一性质。
 :::
 
 :::field{path="commonQuestions.1.question" type="text"}
-### 为何 Transformer 常用 LN？
+### 这个示例能说明什么边界？
 :::
 
 :::field{path="commonQuestions.1.answer" type="text"}
-不依赖 batch 组成。
+LayerNorm 不会自动屏蔽 padding，也不保证保存所有绝对幅度信息。
 :::
-

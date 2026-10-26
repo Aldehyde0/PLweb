@@ -37,28 +37,32 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-单棵树对训练样本变化敏感；多个错误不完全相关的树平均后方差下降。
+单棵深树可能因为训练数据里多了一条记录，就选择不同的早期划分，连带改变许多后续预测。这种对样本扰动敏感的模型具有较高方差。Bagging 让多个模型看到不同的自助样本，再汇总预测，试图减少这种不稳定性。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-Bootstrap Aggregating 允许有放回抽样，每个基学习器看到不同样本集合。
+Bagging 即 bootstrap aggregating。每个基学习器通常从大小为 n 的训练集中有放回抽取 n 次，独立拟合自己的模型；同一记录可重复出现，另一些记录则完全不出现。回归汇总平均预测，分类可以投票或平均概率后选类别。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-让多位略有不同的评审独立判断，再汇总意见。
+多人评审只有在错误不完全相同时，汇总才可能更稳定。把同一个评审的答案复制一百遍，不会增加独立信息；模型数量与有效多样性需要分别考虑。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-基模型需要有能力且保持差异。树越相关，平均收益越小。
+Bootstrap 不是把数据不重叠地分成 B 份。每个模型仍能看到接近原样本量的抽样次数，但重复会让独特记录数减少；大样本下单棵树约遗漏 36.8% 的记录，只是渐近期望而非每次精确比例。
+
+相同方差、相同两两相关系数的简化假设下，平均模型的方差含有相关性形成的下限。因此 bagging 特别适合不稳定的树，若基模型本来很稳定或都犯同一系统性错误，收益可能有限，也不能凭平均消除偏差。
+
+一条记录的袋外预测只能汇总训练时未见该记录的基模型。OOB 可用于近似验证，却不能修复时间泄漏、同人多条记录跨边界等问题；若在 OOB 上反复调参，仍需独立最终评测。
 :::
 
 
@@ -66,29 +70,35 @@ Bootstrap Aggregating 允许有放回抽样，每个基学习器看到不同样�
 
 ::::formula{index="0"}
 :::field{path="formulas.0.label" type="text"}
-### 核心表达
+### 回归预测平均
 :::
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-分类 ŷ=mode{h₁(x)…hB(x)}；回归 ŷ=(1/B)Σhᵦ(x)
+\hat f(x)=\frac1B\sum_{b=1}^{B}h_b(x)
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-基模型需要有能力且保持差异。树越相关，平均收益越小。
+B 是基模型数量；分类常对类别概率平均后取最大，具体需查看估计器约定。
 :::
 
 ::::
 
+## 手算与场景核对 {#worked-example}
+
+构造四条训练记录，某棵树抽样索引为 `[0,0,2,3]`。记录 0 被重复使用，记录 1 是这棵树唯一的袋外记录。一次抽样漏掉指定记录的概率为 3/4，四次都漏掉的概率为 $(3/4)^4=0.31640625$；只有样本数趋大时才接近 $e^{-1}$。
+
+若三棵回归树对新点预测为 2、4、6，平均为 4；这一步降低模型间波动，并没有凭空证明 4 接近未知真值。
+
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 生成 B 个 bootstrap 样本
-2. 独立训练基模型
-3. 收集预测
-4. 投票/平均
-5. 用 OOB 或 CV 评价
+1. 仅从训练划分建立 bootstrap 样本，保留抽样索引。
+2. 在各自样本上独立训练基模型，允许并行。
+3. 对新输入统一获得概率或回归预测。
+4. 按预先确定的规则聚合，并说明平局处理。
+5. 若做 OOB，只使用未见相应记录的模型；再按任务边界验证。
 :::
 
 
@@ -96,32 +106,40 @@ $$
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### Bagging 实现
+### 核对有放回样本、袋外记录与平均预测
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的训练与预测逻辑。
+展示抽样语义和聚合，未训练真实数据模型。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
-from sklearn.ensemble import BaggingClassifier
-from sklearn.tree import DecisionTreeClassifier
-model=BaggingClassifier(DecisionTreeClassifier(),n_estimators=100,random_state=42)
+```Python
+sample_indices = [0, 0, 2, 3]
+out_of_bag = sorted(set(range(4)) - set(sample_indices))
+predictions = [2.0, 4.0, 6.0]
+print(f"OOB={out_of_bag}")
+print(f"omission_probability={(3/4)**4:.8f}")
+print(f"averaged_prediction={sum(predictions)/len(predictions):.3f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码先建立符合输入要求的估计器。
-- 参数应在交叉验证中选择，测试集不参与。
+- 重复索引说明 bootstrap 有放回。
+- 袋外集合按每棵树分别定义，不能混用所有树的训练记录。
+- 最后一行只验证平均算术，不是泛化误差。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-得到由 100 棵 bootstrap 树组成的 Bagging 分类器。
+```text
+OOB=[1]
+omission_probability=0.31640625
+averaged_prediction=4.000
+```
 :::
 
 ::::
@@ -129,19 +147,25 @@ model=BaggingClassifier(DecisionTreeClassifier(),n_estimators=100,random_state=4
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 降低树方差
-- 并行集成
+- 以高方差树为基模型，提高小扰动下预测稳定性。
+- 在允许独立模型并行训练时复用算力，结合 OOB 做初步诊断。
 :::
 
 
 ## 常见错误 {#pitfalls}
 
 :::field{path="pitfalls" type="list"}
-- 基模型高度相关
-- 把 OOB 完全替代业务测试
+- 把 bootstrap 当作无放回切分，或让验证数据进入抽样池。
+- 基模型高度相关，却只增加数量而不检查误差来源。
+- OOB 仍存在实体或时间相关性，却宣称等于独立业务测试。
 :::
 
 
 ## 与其他概念的关系 {#related}
 
 <ConceptRelated />
+
+
+## 资料与假设 {#source-notes}
+
+参见 [scikit-learn：Bagging](https://scikit-learn.org/stable/modules/ensemble.html#bagging-meta-estimator)。 本页数值均为构造例；涉及模型分数时仅说明给定数据与协议下的计算。

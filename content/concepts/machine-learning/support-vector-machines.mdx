@@ -36,29 +36,45 @@ anchorAliases:
 ## 背景与问题 {#background}
 
 :::field{path="background" type="paragraphs"}
-中小型高维数据常表现良好，但对尺度和参数敏感，大数据训练成本可能较高。
+多个边界都能分开训练点时，SVM 偏好离最近点更远的边界。这个间隔偏好与软间隔错误惩罚共同决定模型，而核方法进一步改变距离空间。
 :::
 
 
 ## 概念定义 {#definition}
 
 :::field{path="definition" type="paragraphs"}
-SVM 的边界由最靠近间隔的支持向量决定；C 控制错误惩罚，RBF gamma 控制局部影响范围。
+支持向量机寻找最大间隔边界，软间隔允许一定违例。支持向量是对边界有约束作用的训练点；核函数以相似度隐式表达非线性特征空间。
 :::
 
 
 ## 直观理解 {#intuition}
 
 :::field{path="intuition" type="paragraphs"}
-不仅分开两类，还在两侧留出尽量宽的安全走廊。
+在两类之间放一条尽量宽的路，同时允许少数难点进入路内，而不是为每个噪声点把路弯得很复杂。
 :::
 
 
 ## 核心原理 {#core-principle}
 
 :::field{path="corePrinciple" type="paragraphs"}
-C 小正则更强、边界更平滑；gamma 大影响更局部。两者和标准化必须在 Pipeline 内交叉验证。
+线性软间隔目标由权重范数和 hinge 违例惩罚组成。标签常写为 ±1，间隔条件是 y×score 不小于 1。C 越大越重视违例，C 越小则更强地偏向较小权重；这不保证训练准确率总呈严格单调。
+
+RBF 核为 exp(-gamma×距离平方)。gamma 大使单点影响更局部，可能形成复杂边界；gamma 小产生更宽相似范围。尺度直接改变距离，所以 StandardScaler 与 C、gamma 搜索应在同一个交叉验证 Pipeline 内。
+
+SVC 的 decision_function 不是默认校准概率，启用概率估计还带来额外计算与验证问题。核 SVM 大样本训练成本可能高，线性 SVM 或其他基线可能更合适，需连同预测成本和支持向量数量一起比较。
 :::
+
+### 一维最大间隔由最近两点决定
+
+- 负类位置为 -2、-1，正类为 1、2
+- 使用线性 SVC，C=1000
+
+四条预测分别为 -1、-1、1、1，支持向量为 -1 和 1。
+
+距离边界更远的 -2 和 2 没有收紧当前间隔，因此不必都成为支持向量。若在间隔附近加入噪声点，软间隔惩罚会参与权衡，不能仍机械套用这个边界。
+
+RBF 情况没有同样简单的原空间直线间隔解释。相隔 2 时，gamma=0.25 的相似度为 exp(-1)，gamma=4 则为 exp(-16)，可见同样数据在不同核尺度下相似程度差很多。
+
 
 
 ## 数学表达 {#formulas}
@@ -70,12 +86,12 @@ C 小正则更强、边界更平滑；gamma 大影响更局部。两者和标准
 
 :::field{path="formulas.0.expression" type="math"}
 $$
-min ½||w||²+CΣξᵢ；Krbf(x,x′)=exp(-γ||x-x′||²)
+\min_{w,b}\frac12\lVert w\rVert^2+C\sum_i\max(0,1-y_i(w^Tx_i+b)),\quad K(x,x^\prime)=e^{-\gamma\lVert x-x^\prime\rVert^2}
 $$
 :::
 
 :::field{path="formulas.0.description" type="text"}
-C 小正则更强、边界更平滑；gamma 大影响更局部。两者和标准化必须在 Pipeline 内交叉验证。
+左侧为线性二分类 hinge 目标，右侧为 RBF 核；核化改变表示空间，不能把两者混成同一个原空间线性函数。
 :::
 
 ::::
@@ -83,11 +99,9 @@ C 小正则更强、边界更平滑；gamma 大影响更局部。两者和标准
 ## 计算与实现步骤 {#algorithm-steps}
 
 :::field{path="algorithmSteps" type="ordered"}
-1. 标准化
-2. 选择核
-3. 设 C/gamma 对数范围
-4. 分层 CV
-5. 检查支持向量与验证稳定性
+1. 先定义可比较的特征尺度和合法划分。
+2. 在线性与核候选中交叉验证 C、gamma 等参数。
+3. 核查支持向量、验证误差和训练预测成本。
 :::
 
 
@@ -95,33 +109,44 @@ C 小正则更强、边界更平滑；gamma 大影响更局部。两者和标准
 
 ::::code-example{index="0"}
 :::field{path="codeExamples.0.title" type="text"}
-### 支持向量机 实现
+### 一维最大间隔由最近两点决定的最小验证
 :::
 
 :::field{path="codeExamples.0.language" type="text"}
-scikit-learn
+Python
 :::
 
 :::field{path="codeExamples.0.purpose" type="text"}
-对应文档中的训练与预测逻辑。
+使用完整构造输入核对一维最大间隔由最近两点决定，输出只表示本例计算。
 :::
 
 :::field{path="codeExamples.0.source" type="code" trailing="0"}
-```scikit-learn
+```python
+import math
+import numpy as np
 from sklearn.svm import SVC
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
-model=make_pipeline(StandardScaler(),SVC(kernel="rbf",C=1,gamma="scale"))
+x = np.array([[-2.], [-1.], [1.], [2.]])
+y = np.array([-1, -1, 1, 1])
+model = SVC(kernel="linear", C=1000).fit(x, y)
+print("support vectors:", model.support_vectors_.flatten().tolist())
+print("predictions:", model.predict(x).tolist())
+for gamma in [0.25, 4.]:
+    print(f"gamma={gamma:.2f} similarity_at_distance_2={math.exp(-gamma * 4):.8f}")
 ```
 :::
 
 :::field{path="codeExamples.0.explanation" type="list"}
-- 代码先建立符合输入要求的估计器。
-- 参数应在交叉验证中选择，测试集不参与。
+- 对称小数据使间隔可手算。
+- RBF 数值只解释相似度，未冒充核模型效果。
 :::
 
 :::field{path="codeExamples.0.expectedOutput" type="text"}
-得到标准化加 RBF SVM 的分类 Pipeline。
+```text
+support vectors: [-1.0, 1.0]
+predictions: [-1, -1, 1, 1]
+gamma=0.25 similarity_at_distance_2=0.36787944
+gamma=4.00 similarity_at_distance_2=0.00000011
+```
 :::
 
 ::::
@@ -129,8 +154,8 @@ model=make_pipeline(StandardScaler(),SVC(kernel="rbf",C=1,gamma="scale"))
 ## 实际应用 {#applications}
 
 :::field{path="applications" type="list"}
-- 中小分类
-- 高维特征
+- 中小型分类问题的间隔基线
+- 比较线性与核表示的效果和成本
 :::
 
 
