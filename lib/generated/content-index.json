@@ -59184,5 +59184,2960 @@
         "name": "ArticleFlags"
       }
     ]
+  },
+  "ai-infra-overview": {
+    "concept": {
+      "id": "ai-infra-overview",
+      "slug": "ai-infra-overview",
+      "title": "AI Infra：从模型到可靠服务",
+      "category": "artificial-intelligence",
+      "difficulty": "入门",
+      "summary": "用数据、计算、训练、推理和运维五层结构理解 AI 基础设施，并建立可以逐步实践的学习路线。",
+      "prerequisites": [
+        "generative-ai"
+      ],
+      "relatedConcepts": [
+        "training-engineering",
+        "llm-and-agent"
+      ],
+      "explanation": "把一个 7B 模型用于学习问答：只计算 BF16 权重约需 14 GB，但服务还要放 KV Cache、运行时缓冲和临时张量。即使权重能加载，仍不能据此宣布显卡能支持 32 个长上下文请求。 进一步扩大到多卡也会引入通信和调度成本。学习 Infra 的起点是列清资源账，而不是先选择一套最大的集群工具。",
+      "principle": "一个 AI 系统可以按数据、计算、训练、推理和运维五层观察。数据层保证样本可追溯、供给及时；计算层关注设备执行与数据搬运；训练层组织梯度同步和故障恢复；推理层管理请求、缓存与生成；运维层记录服务是否持续满足目标。 优化应从工作负载和测量出发。GPU 利用率低可能是数据等待、CPU 分词、网络通信或小批量造成的；利用率高也可能只是大量失败重试。每次只改变一个主要因素，并同时检查质量与端到端结果。",
+      "formula": {
+        "expression": "—",
+        "description": "—"
+      },
+      "workflow": [
+        "阅读 GPU 算力与带宽 和 显存预算，先解释一个模型能否装下。",
+        "训练路线：从 数据流水线 到 并行训练、集合通信、ZeRO 与 FSDP、检查点恢复，最后学习 内核与编译。",
+        "推理路线：依次学习 prefill 与 decode、KV Cache、连续批处理、量化 和 服务部署。",
+        "进入 压测、集群调度 和 监控与 SLO，评估优化是否对用户有效。",
+        "用 推理容量规划实验 串联预算、排队、指标与上线判断。",
+        "这是一张路线图，不要求一次学完。没有 GPU 时先完成容量计算、日志分析与合成实验；有设备后再替换为实际运行数据。创建人工智能方向的学习计划时，新概念会按目录一并纳入，并沿用原有学习标记、笔记和复习流程。"
+      ],
+      "code": {
+        "language": "Python",
+        "source": "",
+        "highlights": []
+      },
+      "codeExplanation": "",
+      "applications": [
+        "个人部署：在购置显卡前估算模型、上下文和并发需求。",
+        "训练实验：判断扩展 GPU 数量是否值得，并保证中断后能恢复。",
+        "团队服务：把“速度更快”转为指定负载下可检查的延迟、质量与成本目标。"
+      ],
+      "pitfalls": [
+        "只报 GPU 型号或模型参数量，没有输入长度、输出长度和并发条件。",
+        "把一次运行成功视为容量、可靠性与质量都已验证。",
+        "把模型质量下降当成吞吐优化的合理代价，却没有记录质量门槛。",
+        "在没有测量瓶颈时同时引入分片、量化、编译和多级缓存，导致收益无法归因。"
+      ]
+    },
+    "longForm": {
+      "id": "ai-infra-overview",
+      "slug": "ai-infra-overview",
+      "title": "AI Infra：从模型到可靠服务",
+      "category": "artificial-intelligence",
+      "difficulty": "入门",
+      "summary": "用数据、计算、训练、推理和运维五层结构理解 AI 基础设施，并建立可以逐步实践的学习路线。",
+      "prerequisites": [
+        "generative-ai"
+      ],
+      "relatedConcepts": [
+        "training-engineering",
+        "llm-and-agent"
+      ],
+      "definition": [
+        "AI Infrastructure（AI Infra，AI 基础设施）是支撑模型数据处理、训练、评估、部署和持续运行的软硬件系统。它协调 GPU、CPU、内存、存储与网络，让模型在给定质量、延迟、可靠性和成本约束下工作。",
+        "模型算法决定“学什么、如何推断”；应用决定“为用户完成什么任务”；Infra 决定“用哪些资源稳定地完成这些计算”。三者相互影响：更长上下文改变缓存需求，服务延迟预算又会限制模型和并行方案的选择。"
+      ],
+      "background": [
+        "模型在笔记本上回答一次问题，不代表它能持续为多人服务。请求变长后显存可能耗尽；并发增加后首个 token 可能迟迟不来；一次训练中断也可能丢掉数小时进度。这些问题需要把模型放进完整系统中研究。",
+        "本专题以 Transformer 语言模型为主要例子。调度、数据版本、检查点和监控同样适用于其他模型，但 KV Cache、prefill 与 decode 等概念主要针对自回归生成。"
+      ],
+      "intuition": [
+        "把一个 7B 模型用于学习问答：只计算 BF16 权重约需 14 GB，但服务还要放 KV Cache、运行时缓冲和临时张量。即使权重能加载，仍不能据此宣布显卡能支持 32 个长上下文请求。",
+        "进一步扩大到多卡也会引入通信和调度成本。学习 Infra 的起点是列清资源账，而不是先选择一套最大的集群工具。"
+      ],
+      "corePrinciple": [
+        "一个 AI 系统可以按数据、计算、训练、推理和运维五层观察。数据层保证样本可追溯、供给及时；计算层关注设备执行与数据搬运；训练层组织梯度同步和故障恢复；推理层管理请求、缓存与生成；运维层记录服务是否持续满足目标。",
+        "优化应从工作负载和测量出发。GPU 利用率低可能是数据等待、CPU 分词、网络通信或小批量造成的；利用率高也可能只是大量失败重试。每次只改变一个主要因素，并同时检查质量与端到端结果。"
+      ],
+      "algorithmSteps": [
+        "阅读 GPU 算力与带宽 和 显存预算，先解释一个模型能否装下。",
+        "训练路线：从 数据流水线 到 并行训练、集合通信、ZeRO 与 FSDP、检查点恢复，最后学习 内核与编译。",
+        "推理路线：依次学习 prefill 与 decode、KV Cache、连续批处理、量化 和 服务部署。",
+        "进入 压测、集群调度 和 监控与 SLO，评估优化是否对用户有效。",
+        "用 推理容量规划实验 串联预算、排队、指标与上线判断。",
+        "这是一张路线图，不要求一次学完。没有 GPU 时先完成容量计算、日志分析与合成实验；有设备后再替换为实际运行数据。创建人工智能方向的学习计划时，新概念会按目录一并纳入，并沿用原有学习标记、笔记和复习流程。"
+      ],
+      "applications": [
+        "个人部署：在购置显卡前估算模型、上下文和并发需求。",
+        "训练实验：判断扩展 GPU 数量是否值得，并保证中断后能恢复。",
+        "团队服务：把“速度更快”转为指定负载下可检查的延迟、质量与成本目标。"
+      ],
+      "pitfalls": [
+        "只报 GPU 型号或模型参数量，没有输入长度、输出长度和并发条件。",
+        "把一次运行成功视为容量、可靠性与质量都已验证。",
+        "把模型质量下降当成吞吐优化的合理代价，却没有记录质量门槛。",
+        "在没有测量瓶颈时同时引入分片、量化、编译和多级缓存，导致收益无法归因。"
+      ],
+      "extensionNotes": [],
+      "formulas": [],
+      "variableDefinitions": [],
+      "codeExamples": [],
+      "codeExplanation": [],
+      "sourceDocuments": [],
+      "sourceSections": []
+    },
+    "sections": [
+      {
+        "id": "learning-objectives",
+        "title": "学习目标"
+      },
+      {
+        "id": "prerequisites",
+        "title": "学习前需要掌握"
+      },
+      {
+        "id": "background",
+        "title": "背景与问题"
+      },
+      {
+        "id": "definition",
+        "title": "概念定义"
+      },
+      {
+        "id": "intuition",
+        "title": "直观理解"
+      },
+      {
+        "id": "core-principle",
+        "title": "核心原理"
+      },
+      {
+        "id": "algorithm-steps",
+        "title": "学习路线与实践步骤"
+      },
+      {
+        "id": "applications",
+        "title": "实际应用"
+      },
+      {
+        "id": "pitfalls",
+        "title": "常见错误"
+      },
+      {
+        "id": "related",
+        "title": "与其他概念的关系"
+      },
+      {
+        "id": "further-reading",
+        "title": "继续阅读"
+      }
+    ],
+    "order": 1000,
+    "directory": "AI Infra",
+    "file": "content/concepts/artificial-intelligence/ai-infra-overview.mdx",
+    "searchText": "AI Infra：从模型到可靠服务\n用数据、计算、训练、推理和运维五层结构理解 AI 基础设施，并建立可以逐步实践的学习路线。\n学习目标 {#learning-objectives}\n区分模型能力、应用编排和基础设施分别负责的问题。根据内存、带宽、通信、排队和可靠性约束定位问题。选择一条适合自己设备条件的训练或推理学习路线。\n学习前需要掌握 {#prerequisites}\n背景与问题 {#background}\n模型在笔记本上回答一次问题，不代表它能持续为多人服务。请求变长后显存可能耗尽；并发增加后首个 token 可能迟迟不来；一次训练中断也可能丢掉数小时进度。这些问题需要把模型放进完整系统中研究。\n本专题以 Transformer 语言模型为主要例子。调度、数据版本、检查点和监控同样适用于其他模型，但 KV Cache、prefill 与 decode 等概念主要针对自回归生成。\n概念定义 {#definition}\nAI Infrastructure（AI Infra，AI 基础设施）是支撑模型数据处理、训练、评估、部署和持续运行的软硬件系统。它协调 GPU、CPU、内存、存储与网络，让模型在给定质量、延迟、可靠性和成本约束下工作。\n模型算法决定“学什么、如何推断”；应用决定“为用户完成什么任务”；Infra 决定“用哪些资源稳定地完成这些计算”。三者相互影响：更长上下文改变缓存需求，服务延迟预算又会限制模型和并行方案的选择。\n直观理解 {#intuition}\n把一个 7B 模型用于学习问答：只计算 BF16 权重约需 14 GB，但服务还要放 KV Cache、运行时缓冲和临时张量。即使权重能加载，仍不能据此宣布显卡能支持 32 个长上下文请求。\n进一步扩大到多卡也会引入通信和调度成本。学习 Infra 的起点是列清资源账，而不是先选择一套最大的集群工具。\n核心原理 {#core-principle}\n一个 AI 系统可以按数据、计算、训练、推理和运维五层观察。数据层保证样本可追溯、供给及时；计算层关注设备执行与数据搬运；训练层组织梯度同步和故障恢复；推理层管理请求、缓存与生成；运维层记录服务是否持续满足目标。\n优化应从工作负载和测量出发。GPU 利用率低可能是数据等待、CPU 分词、网络通信或小批量造成的；利用率高也可能只是大量失败重试。每次只改变一个主要因素，并同时检查质量与端到端结果。\n层次要回答的问题常见证据数据GPU 是否在等样本？读盘、分词和取 batch 耗时计算算力还是搬运限制速度？算子时间、显存带宽、峰值显存训练多卡是否减少了完成时间？有效 token/s、通信占比、恢复耗时推理并发下还能及时回答吗？TTFT、TPOT、排队、成功率运维质量和服务目标是否持续达标？质量回归、SLO、成本与版本记录\n学习路线与实践步骤 {#algorithm-steps}\n阅读 GPU 算力与带宽 和 显存预算，先解释一个模型能否装下。训练路线：从 数据流水线 到 并行训练、集合通信、ZeRO 与 FSDP、检查点恢复，最后学习 内核与编译。推理路线：依次学习 prefill 与 decode、KV Cache、连续批处理、量化 和 服务部署。进入 压测、集群调度 和 监控与 SLO，评估优化是否对用户有效。用 推理容量规划实验 串联预算、排队、指标与上线判断。\n这是一张路线图，不要求一次学完。没有 GPU 时先完成容量计算、日志分析与合成实验；有设备后再替换为实际运行数据。创建人工智能方向的学习计划时，新概念会按目录一并纳入，并沿用原有学习标记、笔记和复习流程。\n实际应用 {#applications}\n个人部署：在购置显卡前估算模型、上下文和并发需求。训练实验：判断扩展 GPU 数量是否值得，并保证中断后能恢复。团队服务：把“速度更快”转为指定负载下可检查的延迟、质量与成本目标。\n常见错误 {#pitfalls}\n只报 GPU 型号或模型参数量，没有输入长度、输出长度和并发条件。把一次运行成功视为容量、可靠性与质量都已验证。把模型质量下降当成吞吐优化的合理代价，却没有记录质量门槛。在没有测量瓶颈时同时引入分片、量化、编译和多级缓存，导致收益无法归因。\n与其他概念的关系 {#related}\n继续阅读 {#further-reading}\nPyTorch 分布式概览 展示训练侧工具的分工；本专题后续文章会把这些工具放回资源预算与服务目标中理解。",
+    "anchorAliases": {},
+    "demos": []
+  },
+  "gpu-memory-bandwidth": {
+    "concept": {
+      "id": "gpu-memory-bandwidth",
+      "slug": "gpu-memory-bandwidth",
+      "title": "GPU：算力、显存与带宽瓶颈",
+      "category": "artificial-intelligence",
+      "difficulty": "入门",
+      "summary": "区分计算吞吐、显存容量与数据搬运速度，用算术强度解释 GPU 为什么没有跑满。",
+      "prerequisites": [
+        "ai-infra-overview"
+      ],
+      "relatedConcepts": [
+        "llm-memory-budget",
+        "gpu-kernels-compilation",
+        "pytorch-tensor-shape-device"
+      ],
+      "explanation": "假设一个算子做 100 GFLOP 运算并读取 10 GB 数据，算术强度是 10 FLOP/byte。对一块假想的 100 TFLOP/s、1 TB/s GPU，计算至少需 1 ms，读数据至少需 10 ms，因此搬运约束更强。这是教学假设，不对应某张显卡的实测成绩。",
+      "principle": "算术强度衡量每搬运一字节能做多少运算。忽略重叠与额外开销时，Roofline 给出吞吐上界；现实还会受到算子形状、精度、并行度、kernel 启动和缓存命中的影响。 大矩阵乘法可复用数据，容易增加算术强度；小 batch 的生成常需为很少的新 token 读取大量权重，更容易受带宽限制。不要把这一趋势解释为所有 prefill 必然计算受限、所有 decode 必然带宽受限，实际瓶颈仍需 profiling。",
+      "formula": {
+        "expression": "I=\\frac{F}{D},\\qquad P_{\\mathrm{attainable}}\\leq\\min(P_{\\mathrm{peak}},B I)",
+        "description": ""
+      },
+      "workflow": [
+        "记录模型、精度、batch、序列长度和设备拓扑。",
+        "先分开统计数据加载、主机传输、GPU 计算和通信时间。",
+        "在 profiler 中找主要算子，再分析其运算量与搬运量。",
+        "只修改一个因素，如 batch、数据布局或算子融合，复测延迟和内存峰值。",
+        "对异步 GPU 操作使用设备事件或正确同步；直接计时 CPU 调用可能只测到提交任务的时间。"
+      ],
+      "code": {
+        "language": "Python",
+        "source": "flops = 100e9\nbytes_moved = 10e9\npeak_flops = 100e12\nbandwidth = 1e12\ncompute_ms = flops / peak_flops * 1000\nmemory_ms = bytes_moved / bandwidth * 1000\nprint(f\"compute={compute_ms:.1f} ms, memory={memory_ms:.1f} ms\")\nprint(f\"lower_bound={max(compute_ms, memory_ms):.1f} ms\")",
+        "highlights": []
+      },
+      "codeExplanation": "",
+      "applications": [
+        "判断增加 batch、算子融合或升级网络分别可能改善哪类等待。",
+        "比较设备时同时查看精度对应算力、容量、带宽和互联条件。"
+      ],
+      "pitfalls": [
+        "混用十进制 GB 与二进制 GiB，或把 bit/s 当成 byte/s。",
+        "引用稀疏低精度峰值，却拿它预测普通 BF16 稠密计算。",
+        "只看 GPU utilization，没有判断时间花在有效计算还是通信等待。"
+      ]
+    },
+    "longForm": {
+      "id": "gpu-memory-bandwidth",
+      "slug": "gpu-memory-bandwidth",
+      "title": "GPU：算力、显存与带宽瓶颈",
+      "category": "artificial-intelligence",
+      "difficulty": "入门",
+      "summary": "区分计算吞吐、显存容量与数据搬运速度，用算术强度解释 GPU 为什么没有跑满。",
+      "prerequisites": [
+        "ai-infra-overview"
+      ],
+      "relatedConcepts": [
+        "llm-memory-budget",
+        "gpu-kernels-compilation",
+        "pytorch-tensor-shape-device"
+      ],
+      "definition": [
+        "显存容量决定能同时存放多少权重、激活和缓存；显存带宽决定 GPU 与其高带宽内存之间每秒能搬运多少数据；计算吞吐表示每秒能完成多少浮点运算。三者单位分别是 GB 或 GiB、GB/s 或 TB/s、FLOP/s。",
+        "CPU 内存到 GPU 的 PCIe 传输、卡间的 NVLink 或 PCIe、节点间网络属于不同数据路径，不能用显存带宽代替它们的实际吞吐。"
+      ],
+      "background": [
+        "一块峰值算力更高的 GPU，在逐 token 生成中未必同比更快。矩阵计算需要不断读取权重和中间数据；如果处理器等数据的时间更长，增加算力不会直接消除等待。"
+      ],
+      "intuition": [
+        "假设一个算子做 100 GFLOP 运算并读取 10 GB 数据，算术强度是 10 FLOP/byte。对一块假想的 100 TFLOP/s、1 TB/s GPU，计算至少需 1 ms，读数据至少需 10 ms，因此搬运约束更强。这是教学假设，不对应某张显卡的实测成绩。"
+      ],
+      "corePrinciple": [
+        "算术强度衡量每搬运一字节能做多少运算。忽略重叠与额外开销时，Roofline 给出吞吐上界；现实还会受到算子形状、精度、并行度、kernel 启动和缓存命中的影响。",
+        "大矩阵乘法可复用数据，容易增加算术强度；小 batch 的生成常需为很少的新 token 读取大量权重，更容易受带宽限制。不要把这一趋势解释为所有 prefill 必然计算受限、所有 decode 必然带宽受限，实际瓶颈仍需 profiling。"
+      ],
+      "algorithmSteps": [
+        "记录模型、精度、batch、序列长度和设备拓扑。",
+        "先分开统计数据加载、主机传输、GPU 计算和通信时间。",
+        "在 profiler 中找主要算子，再分析其运算量与搬运量。",
+        "只修改一个因素，如 batch、数据布局或算子融合，复测延迟和内存峰值。",
+        "对异步 GPU 操作使用设备事件或正确同步；直接计时 CPU 调用可能只测到提交任务的时间。"
+      ],
+      "applications": [
+        "判断增加 batch、算子融合或升级网络分别可能改善哪类等待。",
+        "比较设备时同时查看精度对应算力、容量、带宽和互联条件。"
+      ],
+      "pitfalls": [
+        "混用十进制 GB 与二进制 GiB，或把 bit/s 当成 byte/s。",
+        "引用稀疏低精度峰值，却拿它预测普通 BF16 稠密计算。",
+        "只看 GPU utilization，没有判断时间花在有效计算还是通信等待。"
+      ],
+      "extensionNotes": [],
+      "formulas": [
+        {
+          "label": "数学表达",
+          "expression": "I=\\frac{F}{D},\\qquad P_{\\mathrm{attainable}}\\leq\\min(P_{\\mathrm{peak}},B I)",
+          "description": ""
+        }
+      ],
+      "variableDefinitions": [],
+      "codeExamples": [
+        {
+          "title": "代码示例",
+          "language": "python",
+          "purpose": "",
+          "source": "flops = 100e9\nbytes_moved = 10e9\npeak_flops = 100e12\nbandwidth = 1e12\ncompute_ms = flops / peak_flops * 1000\nmemory_ms = bytes_moved / bandwidth * 1000\nprint(f\"compute={compute_ms:.1f} ms, memory={memory_ms:.1f} ms\")\nprint(f\"lower_bound={max(compute_ms, memory_ms):.1f} ms\")",
+          "explanation": [],
+          "expectedOutput": ""
+        }
+      ],
+      "codeExplanation": [],
+      "sourceDocuments": [],
+      "sourceSections": []
+    },
+    "sections": [
+      {
+        "id": "learning-objectives",
+        "title": "学习目标"
+      },
+      {
+        "id": "prerequisites",
+        "title": "学习前需要掌握"
+      },
+      {
+        "id": "background",
+        "title": "背景与问题"
+      },
+      {
+        "id": "definition",
+        "title": "概念定义"
+      },
+      {
+        "id": "intuition",
+        "title": "直观理解"
+      },
+      {
+        "id": "core-principle",
+        "title": "核心原理"
+      },
+      {
+        "id": "algorithm-steps",
+        "title": "计算与实践步骤"
+      },
+      {
+        "id": "code",
+        "title": "代码实现"
+      },
+      {
+        "id": "applications",
+        "title": "实际应用"
+      },
+      {
+        "id": "pitfalls",
+        "title": "常见错误"
+      },
+      {
+        "id": "related",
+        "title": "与其他概念的关系"
+      },
+      {
+        "id": "further-reading",
+        "title": "继续阅读"
+      }
+    ],
+    "order": 1001,
+    "directory": "AI Infra",
+    "file": "content/concepts/artificial-intelligence/gpu-memory-bandwidth.mdx",
+    "searchText": "GPU：算力、显存与带宽瓶颈\n区分计算吞吐、显存容量与数据搬运速度，用算术强度解释 GPU 为什么没有跑满。\n学习目标 {#learning-objectives}\n分清 FLOP/s、字节和字节每秒，避免把容量当速度。用 Roofline 的简化上界判断计算与带宽约束。区分 GPU 显存访问、主机传输和跨卡通信。\n学习前需要掌握 {#prerequisites}\n背景与问题 {#background}\n一块峰值算力更高的 GPU，在逐 token 生成中未必同比更快。矩阵计算需要不断读取权重和中间数据；如果处理器等数据的时间更长，增加算力不会直接消除等待。\n概念定义 {#definition}\n显存容量决定能同时存放多少权重、激活和缓存；显存带宽决定 GPU 与其高带宽内存之间每秒能搬运多少数据；计算吞吐表示每秒能完成多少浮点运算。三者单位分别是 GB 或 GiB、GB/s 或 TB/s、FLOP/s。\nCPU 内存到 GPU 的 PCIe 传输、卡间的 NVLink 或 PCIe、节点间网络属于不同数据路径，不能用显存带宽代替它们的实际吞吐。\n直观理解 {#intuition}\n假设一个算子做 100 GFLOP 运算并读取 10 GB 数据，算术强度是 10 FLOP/byte。对一块假想的 100 TFLOP/s、1 TB/s GPU，计算至少需 1 ms，读数据至少需 10 ms，因此搬运约束更强。这是教学假设，不对应某张显卡的实测成绩。\n核心原理 {#core-principle}\n算术强度衡量每搬运一字节能做多少运算。忽略重叠与额外开销时，Roofline 给出吞吐上界；现实还会受到算子形状、精度、并行度、kernel 启动和缓存命中的影响。\nI=\\frac{F}{D},\\qquad P_{\\mathrm{attainable}}\\leq\\min(P_{\\mathrm{peak}},B I)\n符号含义与单位$F$运算量，FLOP；本文乘与加各算一次$D$从所分析内存层次搬运的数据，byte$I$算术强度，FLOP/byte$B$对应内存层次的带宽，byte/s$P$计算吞吐，FLOP/s\n大矩阵乘法可复用数据，容易增加算术强度；小 batch 的生成常需为很少的新 token 读取大量权重，更容易受带宽限制。不要把这一趋势解释为所有 prefill 必然计算受限、所有 decode 必然带宽受限，实际瓶颈仍需 profiling。\n计算与实践步骤 {#algorithm-steps}\n记录模型、精度、batch、序列长度和设备拓扑。先分开统计数据加载、主机传输、GPU 计算和通信时间。在 profiler 中找主要算子，再分析其运算量与搬运量。只修改一个因素，如 batch、数据布局或算子融合，复测延迟和内存峰值。对异步 GPU 操作使用设备事件或正确同步；直接计时 CPU 调用可能只测到提交任务的时间。\n代码实现 {#code}\n以下只计算理论下界，Python 标准库即可运行，不会测量真实 GPU。\nflops = 100e9\nbytes_moved = 10e9\npeak_flops = 100e12\nbandwidth = 1e12\ncompute_ms = flops / peak_flops * 1000\nmemory_ms = bytes_moved / bandwidth * 1000\nprint(f\"compute={compute_ms:.1f} ms, memory={memory_ms:.1f} ms\")\nprint(f\"lower_bound={max(compute_ms, memory_ms):.1f} ms\")\n预期输出为 compute=1.0 ms, memory=10.0 ms，下一行为 lower_bound=10.0 ms。真实耗时通常更高，不能把这个数当成基准测试。\n实际应用 {#applications}\n判断增加 batch、算子融合或升级网络分别可能改善哪类等待。比较设备时同时查看精度对应算力、容量、带宽和互联条件。\n常见错误 {#pitfalls}\n混用十进制 GB 与二进制 GiB，或把 bit/s 当成 byte/s。引用稀疏低精度峰值，却拿它预测普通 BF16 稠密计算。只看 GPU utilization，没有判断时间花在有效计算还是通信等待。\n与其他概念的关系 {#related}\n继续阅读 {#further-reading}\nNVIDIA CUDA 编程指南 可用于理解线程执行、内存层次与数据访问。阅读时注意文档标记的版本及后继指南入口。",
+    "anchorAliases": {},
+    "demos": []
+  },
+  "llm-memory-budget": {
+    "concept": {
+      "id": "llm-memory-budget",
+      "slug": "llm-memory-budget",
+      "title": "大模型显存预算：权重、训练状态与缓存",
+      "category": "artificial-intelligence",
+      "difficulty": "进阶",
+      "summary": "分别为推理和训练建立显存账本，计算权重与 Adam 状态，并为激活、KV Cache 和运行时预留空间。",
+      "prerequisites": [
+        "gpu-memory-bandwidth"
+      ],
+      "relatedConcepts": [
+        "kv-cache-paged-attention",
+        "zero-fsdp",
+        "automatic-mixed-precision"
+      ],
+      "explanation": "用恰好 70 亿个参数做算例，BF16 每个参数 2 byte，权重为 14 GB，约 13.04 GiB。24 GiB 显卡减去这部分后，剩余约 10.96 GiB 仍要容纳缓存、激活、工作空间与碎片，不能全部分配给 KV Cache。",
+      "principle": "$P$ 是参数个数，$b_w$ 是每参数存储字节数，各内存项均用 byte。BF16/FP16 为 2 byte，FP32 为 4 byte；4-bit 权重的理想值为 0.5 byte，但实际还包括量化元数据和未量化层。 训练算例假设：BF16 权重 2 byte、BF16 梯度 2 byte、FP32 主权重 4 byte、Adam 两个 FP32 状态共 8 byte，合计 16 byte/参数，即 112 GB，约 104.31 GiB。这个数尚未包含激活与临时空间，也不是所有框架的固定实现；若梯度为 FP32、没有主权重或使用分片，必须重算。 激活取决于层数、长度、微批量和保存策略；KV Cache 取决于层数、KV 头数、上下文长度与活跃序列数。分布式分片改变每张卡的驻留量，但临时聚合仍会形成峰值。",
+      "formula": {
+        "expression": "M_{\\mathrm{weights}}=P b_w,\\qquad\nM_{\\mathrm{infer,peak}}\\approx P b_w+M_{KV}+M_{\\mathrm{activation}}+M_{\\mathrm{runtime}}",
+        "description": ""
+      },
+      "workflow": [
+        "从模型配置读取实际参数量、层数、KV 头数与 head dimension。",
+        "明确推理或训练，以及权重、梯度和优化器各自精度。",
+        "分项估算，单独列出未知项，保留运行时余量。",
+        "用目标长度与并发压测，记录 allocated、reserved 和设备总用量的差别。",
+        "OOM 时先识别是哪一项增长，再选择缩短上下文、减小 batch、量化、激活重计算或分片。"
+      ],
+      "code": {
+        "language": "Python",
+        "source": "parameters = 7_000_000_000\ngib = 2**30\nweight_bytes = parameters * 2\ntraining_state_bytes = parameters * (2 + 2 + 4 + 8)\nprint(f\"BF16 weights: {weight_bytes / gib:.2f} GiB\")\nprint(f\"training states: {training_state_bytes / gib:.2f} GiB\")\nprint(f\"24 GiB minus weights: {24 - weight_bytes / gib:.2f} GiB\")",
+        "highlights": []
+      },
+      "codeExplanation": "",
+      "applications": [
+        "为模型选型、训练微批量和服务并发建立第一版容量表。",
+        "对比量化、激活重计算与状态分片分别节省哪一项内存。"
+      ],
+      "pitfalls": [
+        "用权重文件大小直接预测训练峰值或最大并发。",
+        "把 PyTorch reserved 与 allocated 相加，重复计算缓存分配器管理的显存。",
+        "在没有实测余量时把剩余显存全部承诺给新请求。"
+      ]
+    },
+    "longForm": {
+      "id": "llm-memory-budget",
+      "slug": "llm-memory-budget",
+      "title": "大模型显存预算：权重、训练状态与缓存",
+      "category": "artificial-intelligence",
+      "difficulty": "进阶",
+      "summary": "分别为推理和训练建立显存账本，计算权重与 Adam 状态，并为激活、KV Cache 和运行时预留空间。",
+      "prerequisites": [
+        "gpu-memory-bandwidth"
+      ],
+      "relatedConcepts": [
+        "kv-cache-paged-attention",
+        "zero-fsdp",
+        "automatic-mixed-precision"
+      ],
+      "definition": [
+        "显存预算是在给定模型、数值格式、序列长度、batch 与并行策略下，枚举同时存活的设备数据及其峰值。推理通常包括权重、KV Cache、激活和运行时；训练还包括梯度、优化器状态，并可能保存 FP32 主权重。"
+      ],
+      "background": [
+        "下载文件大小、模型参数量和运行峰值显存不是同一个量。量化模型可能附带缩放因子；训练需要梯度和优化器状态；服务需要为不断增长的上下文保存缓存。"
+      ],
+      "intuition": [
+        "用恰好 70 亿个参数做算例，BF16 每个参数 2 byte，权重为 14 GB，约 13.04 GiB。24 GiB 显卡减去这部分后，剩余约 10.96 GiB 仍要容纳缓存、激活、工作空间与碎片，不能全部分配给 KV Cache。"
+      ],
+      "corePrinciple": [
+        "$P$ 是参数个数，$b_w$ 是每参数存储字节数，各内存项均用 byte。BF16/FP16 为 2 byte，FP32 为 4 byte；4-bit 权重的理想值为 0.5 byte，但实际还包括量化元数据和未量化层。",
+        "训练算例假设：BF16 权重 2 byte、BF16 梯度 2 byte、FP32 主权重 4 byte、Adam 两个 FP32 状态共 8 byte，合计 16 byte/参数，即 112 GB，约 104.31 GiB。这个数尚未包含激活与临时空间，也不是所有框架的固定实现；若梯度为 FP32、没有主权重或使用分片，必须重算。",
+        "激活取决于层数、长度、微批量和保存策略；KV Cache 取决于层数、KV 头数、上下文长度与活跃序列数。分布式分片改变每张卡的驻留量，但临时聚合仍会形成峰值。"
+      ],
+      "algorithmSteps": [
+        "从模型配置读取实际参数量、层数、KV 头数与 head dimension。",
+        "明确推理或训练，以及权重、梯度和优化器各自精度。",
+        "分项估算，单独列出未知项，保留运行时余量。",
+        "用目标长度与并发压测，记录 allocated、reserved 和设备总用量的差别。",
+        "OOM 时先识别是哪一项增长，再选择缩短上下文、减小 batch、量化、激活重计算或分片。"
+      ],
+      "applications": [
+        "为模型选型、训练微批量和服务并发建立第一版容量表。",
+        "对比量化、激活重计算与状态分片分别节省哪一项内存。"
+      ],
+      "pitfalls": [
+        "用权重文件大小直接预测训练峰值或最大并发。",
+        "把 PyTorch reserved 与 allocated 相加，重复计算缓存分配器管理的显存。",
+        "在没有实测余量时把剩余显存全部承诺给新请求。"
+      ],
+      "extensionNotes": [],
+      "formulas": [
+        {
+          "label": "数学表达",
+          "expression": "M_{\\mathrm{weights}}=P b_w,\\qquad\nM_{\\mathrm{infer,peak}}\\approx P b_w+M_{KV}+M_{\\mathrm{activation}}+M_{\\mathrm{runtime}}",
+          "description": ""
+        }
+      ],
+      "variableDefinitions": [],
+      "codeExamples": [
+        {
+          "title": "代码示例",
+          "language": "python",
+          "purpose": "",
+          "source": "parameters = 7_000_000_000\ngib = 2**30\nweight_bytes = parameters * 2\ntraining_state_bytes = parameters * (2 + 2 + 4 + 8)\nprint(f\"BF16 weights: {weight_bytes / gib:.2f} GiB\")\nprint(f\"training states: {training_state_bytes / gib:.2f} GiB\")\nprint(f\"24 GiB minus weights: {24 - weight_bytes / gib:.2f} GiB\")",
+          "explanation": [],
+          "expectedOutput": ""
+        }
+      ],
+      "codeExplanation": [],
+      "sourceDocuments": [],
+      "sourceSections": []
+    },
+    "sections": [
+      {
+        "id": "learning-objectives",
+        "title": "学习目标"
+      },
+      {
+        "id": "prerequisites",
+        "title": "学习前需要掌握"
+      },
+      {
+        "id": "background",
+        "title": "背景与问题"
+      },
+      {
+        "id": "definition",
+        "title": "概念定义"
+      },
+      {
+        "id": "intuition",
+        "title": "直观理解"
+      },
+      {
+        "id": "core-principle",
+        "title": "核心原理"
+      },
+      {
+        "id": "algorithm-steps",
+        "title": "计算与实践步骤"
+      },
+      {
+        "id": "code",
+        "title": "代码实现"
+      },
+      {
+        "id": "applications",
+        "title": "实际应用"
+      },
+      {
+        "id": "pitfalls",
+        "title": "常见错误"
+      },
+      {
+        "id": "related",
+        "title": "与其他概念的关系"
+      }
+    ],
+    "order": 1002,
+    "directory": "AI Infra",
+    "file": "content/concepts/artificial-intelligence/llm-memory-budget.mdx",
+    "searchText": "大模型显存预算：权重、训练状态与缓存\n分别为推理和训练建立显存账本，计算权重与 Adam 状态，并为激活、KV Cache 和运行时预留空间。\n学习目标 {#learning-objectives}\n估算不同精度下的权重大小并正确换算 GB/GiB。说明训练比推理多存哪些状态。用分项预算解释“权重能装下，服务仍然 OOM”。\n学习前需要掌握 {#prerequisites}\n背景与问题 {#background}\n下载文件大小、模型参数量和运行峰值显存不是同一个量。量化模型可能附带缩放因子；训练需要梯度和优化器状态；服务需要为不断增长的上下文保存缓存。\n概念定义 {#definition}\n显存预算是在给定模型、数值格式、序列长度、batch 与并行策略下，枚举同时存活的设备数据及其峰值。推理通常包括权重、KV Cache、激活和运行时；训练还包括梯度、优化器状态，并可能保存 FP32 主权重。\n直观理解 {#intuition}\n用恰好 70 亿个参数做算例，BF16 每个参数 2 byte，权重为 14 GB，约 13.04 GiB。24 GiB 显卡减去这部分后，剩余约 10.96 GiB 仍要容纳缓存、激活、工作空间与碎片，不能全部分配给 KV Cache。\n核心原理 {#core-principle}\nM_{\\mathrm{weights}}=P b_w,\\qquad\nM_{\\mathrm{infer,peak}}\\approx P b_w+M_{KV}+M_{\\mathrm{activation}}+M_{\\mathrm{runtime}}\n$P$ 是参数个数，$b_w$ 是每参数存储字节数，各内存项均用 byte。BF16/FP16 为 2 byte，FP32 为 4 byte；4-bit 权重的理想值为 0.5 byte，但实际还包括量化元数据和未量化层。\n训练算例假设：BF16 权重 2 byte、BF16 梯度 2 byte、FP32 主权重 4 byte、Adam 两个 FP32 状态共 8 byte，合计 16 byte/参数，即 112 GB，约 104.31 GiB。这个数尚未包含激活与临时空间，也不是所有框架的固定实现；若梯度为 FP32、没有主权重或使用分片，必须重算。\n激活取决于层数、长度、微批量和保存策略；KV Cache 取决于层数、KV 头数、上下文长度与活跃序列数。分布式分片改变每张卡的驻留量，但临时聚合仍会形成峰值。\n计算与实践步骤 {#algorithm-steps}\n从模型配置读取实际参数量、层数、KV 头数与 head dimension。明确推理或训练，以及权重、梯度和优化器各自精度。分项估算，单独列出未知项，保留运行时余量。用目标长度与并发压测，记录 allocated、reserved 和设备总用量的差别。OOM 时先识别是哪一项增长，再选择缩短上下文、减小 batch、量化、激活重计算或分片。\n代码实现 {#code}\nparameters = 7_000_000_000\ngib = 2**30\nweight_bytes = parameters * 2\ntraining_state_bytes = parameters * (2 + 2 + 4 + 8)\nprint(f\"BF16 weights: {weight_bytes / gib:.2f} GiB\")\nprint(f\"training states: {training_state_bytes / gib:.2f} GiB\")\nprint(f\"24 GiB minus weights: {24 - weight_bytes / gib:.2f} GiB\")\n预期依次输出 BF16 weights: 13.04 GiB、training states: 104.31 GiB、24 GiB minus weights: 10.96 GiB。最后一项是扣除权重后的余额，尚不是可用缓存预算。\n实际应用 {#applications}\n为模型选型、训练微批量和服务并发建立第一版容量表。对比量化、激活重计算与状态分片分别节省哪一项内存。\n常见错误 {#pitfalls}\n用权重文件大小直接预测训练峰值或最大并发。把 PyTorch reserved 与 allocated 相加，重复计算缓存分配器管理的显存。在没有实测余量时把剩余显存全部承诺给新请求。\n与其他概念的关系 {#related}",
+    "anchorAliases": {},
+    "demos": []
+  },
+  "training-data-pipeline": {
+    "concept": {
+      "id": "training-data-pipeline",
+      "slug": "training-data-pipeline",
+      "title": "训练数据流水线：分片、打包与可复现读取",
+      "category": "artificial-intelligence",
+      "difficulty": "进阶",
+      "summary": "把清洗、分词、分片、采样和预取连接起来，避免 GPU 等数据，并记录训练实际看过的 token。",
+      "prerequisites": [
+        "ai-infra-overview",
+        "pytorch-dataset-dataloader"
+      ],
+      "relatedConcepts": [
+        "distributed-training-parallelism",
+        "training-checkpoints-recovery",
+        "sequence-padding-and-masks"
+      ],
+      "explanation": "三个样本长度分别为 6、3、3 token，统一补到 8 会产生 24 个位置，其中只有 12 个是原始 token，位置利用率 50%。若按长度分桶或合理 packing，可减少无效计算，但必须保留样本边界和训练目标。",
+      "principle": "离线处理适合重复使用的清洗、去重与分词，在线部分负责 shuffle、采样、构造 batch 和预取。先划分训练/验证数据，再拟合需要统计信息的处理步骤；同源文档跨集合重复仍可能造成泄漏。 Packing 将短样本组合为更长序列。是否允许跨文档 attention，取决于训练任务与实现；独立样本通常需要边界处理。Padding 的 attention mask 控制可见位置，loss mask 控制哪些目标参与损失，不能混为一谈；语言模型还需检查标签右移与 padding 位置被忽略。 分布式读取需要按 rank 和 worker 划分消费范围。可迭代数据集若每个 worker 都从头遍历，会重复读数据；恢复训练时还需要记录采样器、shuffle 种子和消费位置。仅记录 epoch，不能说明本轮已经读取哪里。",
+      "formula": {
+        "expression": "—",
+        "description": "—"
+      },
+      "workflow": [
+        "创建数据 manifest：文件列表、校验和、清洗规则、tokenizer 标识与 train/validation 划分。",
+        "分别测读盘、解码、分词、取 batch 与传输耗时，确认瓶颈。",
+        "给样本保留稳定 ID，检查 rank/worker 间覆盖和重复。",
+        "调整 worker、预取、固定内存和分桶；每次记录吞吐与主机内存峰值。",
+        "抽样查看 input、label、mask 和有效 token 数，再进行长时间训练。"
+      ],
+      "code": {
+        "language": "Python",
+        "source": "lengths = [6, 3, 3]\nblock_size = 8\npadding_positions = len(lengths) * block_size\nreal_tokens = sum(lengths)\nprint(f\"real={real_tokens}, padded={padding_positions}\")\nprint(f\"position_utilization={real_tokens / padding_positions:.0%}\")",
+        "highlights": []
+      },
+      "codeExplanation": "",
+      "applications": [
+        "为语言模型微调构建可复用、可追溯的数据缓存。",
+        "定位低 GPU 利用率究竟来自样本供给还是计算本身。"
+      ],
+      "pitfalls": [
+        "把 padding token 当成正常目标计算 loss。",
+        "只记录样本数，不记录有效 token 数与采样权重。",
+        "修改 tokenizer 或清洗规则后继续复用旧缓存，却没有变更版本。"
+      ]
+    },
+    "longForm": {
+      "id": "training-data-pipeline",
+      "slug": "training-data-pipeline",
+      "title": "训练数据流水线：分片、打包与可复现读取",
+      "category": "artificial-intelligence",
+      "difficulty": "进阶",
+      "summary": "把清洗、分词、分片、采样和预取连接起来，避免 GPU 等数据，并记录训练实际看过的 token。",
+      "prerequisites": [
+        "ai-infra-overview",
+        "pytorch-dataset-dataloader"
+      ],
+      "relatedConcepts": [
+        "distributed-training-parallelism",
+        "training-checkpoints-recovery",
+        "sequence-padding-and-masks"
+      ],
+      "definition": [
+        "训练数据流水线将原始资料变为模型输入，包含去重、质量与权限检查、数据划分、分词、分片存储、采样、批构建、预取和主机到设备传输。数据版本应能定位到实际文件、处理规则和 tokenizer 版本。"
+      ],
+      "background": [
+        "训练 step 用 80 ms 计算，却花 120 ms 等待数据，增加 GPU 峰值算力很难解决吞吐问题。另一方面，盲目增加 worker 可能抢占 CPU、耗尽内存，或使样本被重复消费。"
+      ],
+      "intuition": [
+        "三个样本长度分别为 6、3、3 token，统一补到 8 会产生 24 个位置，其中只有 12 个是原始 token，位置利用率 50%。若按长度分桶或合理 packing，可减少无效计算，但必须保留样本边界和训练目标。"
+      ],
+      "corePrinciple": [
+        "离线处理适合重复使用的清洗、去重与分词，在线部分负责 shuffle、采样、构造 batch 和预取。先划分训练/验证数据，再拟合需要统计信息的处理步骤；同源文档跨集合重复仍可能造成泄漏。",
+        "Packing 将短样本组合为更长序列。是否允许跨文档 attention，取决于训练任务与实现；独立样本通常需要边界处理。Padding 的 attention mask 控制可见位置，loss mask 控制哪些目标参与损失，不能混为一谈；语言模型还需检查标签右移与 padding 位置被忽略。",
+        "分布式读取需要按 rank 和 worker 划分消费范围。可迭代数据集若每个 worker 都从头遍历，会重复读数据；恢复训练时还需要记录采样器、shuffle 种子和消费位置。仅记录 epoch，不能说明本轮已经读取哪里。"
+      ],
+      "algorithmSteps": [
+        "创建数据 manifest：文件列表、校验和、清洗规则、tokenizer 标识与 train/validation 划分。",
+        "分别测读盘、解码、分词、取 batch 与传输耗时，确认瓶颈。",
+        "给样本保留稳定 ID，检查 rank/worker 间覆盖和重复。",
+        "调整 worker、预取、固定内存和分桶；每次记录吞吐与主机内存峰值。",
+        "抽样查看 input、label、mask 和有效 token 数，再进行长时间训练。"
+      ],
+      "applications": [
+        "为语言模型微调构建可复用、可追溯的数据缓存。",
+        "定位低 GPU 利用率究竟来自样本供给还是计算本身。"
+      ],
+      "pitfalls": [
+        "把 padding token 当成正常目标计算 loss。",
+        "只记录样本数，不记录有效 token 数与采样权重。",
+        "修改 tokenizer 或清洗规则后继续复用旧缓存，却没有变更版本。"
+      ],
+      "extensionNotes": [],
+      "formulas": [],
+      "variableDefinitions": [],
+      "codeExamples": [
+        {
+          "title": "代码示例",
+          "language": "python",
+          "purpose": "",
+          "source": "lengths = [6, 3, 3]\nblock_size = 8\npadding_positions = len(lengths) * block_size\nreal_tokens = sum(lengths)\nprint(f\"real={real_tokens}, padded={padding_positions}\")\nprint(f\"position_utilization={real_tokens / padding_positions:.0%}\")",
+          "explanation": [],
+          "expectedOutput": ""
+        }
+      ],
+      "codeExplanation": [],
+      "sourceDocuments": [],
+      "sourceSections": []
+    },
+    "sections": [
+      {
+        "id": "learning-objectives",
+        "title": "学习目标"
+      },
+      {
+        "id": "prerequisites",
+        "title": "学习前需要掌握"
+      },
+      {
+        "id": "background",
+        "title": "背景与问题"
+      },
+      {
+        "id": "definition",
+        "title": "概念定义"
+      },
+      {
+        "id": "intuition",
+        "title": "直观理解"
+      },
+      {
+        "id": "core-principle",
+        "title": "核心原理"
+      },
+      {
+        "id": "algorithm-steps",
+        "title": "计算与实践步骤"
+      },
+      {
+        "id": "worked-example",
+        "title": "小型核对"
+      },
+      {
+        "id": "applications",
+        "title": "实际应用"
+      },
+      {
+        "id": "pitfalls",
+        "title": "常见错误"
+      },
+      {
+        "id": "related",
+        "title": "与其他概念的关系"
+      },
+      {
+        "id": "further-reading",
+        "title": "继续阅读"
+      }
+    ],
+    "order": 1003,
+    "directory": "AI Infra",
+    "file": "content/concepts/artificial-intelligence/training-data-pipeline.mdx",
+    "searchText": "训练数据流水线：分片、打包与可复现读取\n把清洗、分词、分片、采样和预取连接起来，避免 GPU 等数据，并记录训练实际看过的 token。\n学习目标 {#learning-objectives}\n解释离线处理与在线取 batch 的分工。分清 packing、padding、attention mask 与 loss mask。避免多 worker 或多 rank 重复读取同一批样本。\n学习前需要掌握 {#prerequisites}\n背景与问题 {#background}\n训练 step 用 80 ms 计算，却花 120 ms 等待数据，增加 GPU 峰值算力很难解决吞吐问题。另一方面，盲目增加 worker 可能抢占 CPU、耗尽内存，或使样本被重复消费。\n概念定义 {#definition}\n训练数据流水线将原始资料变为模型输入，包含去重、质量与权限检查、数据划分、分词、分片存储、采样、批构建、预取和主机到设备传输。数据版本应能定位到实际文件、处理规则和 tokenizer 版本。\n直观理解 {#intuition}\n三个样本长度分别为 6、3、3 token，统一补到 8 会产生 24 个位置，其中只有 12 个是原始 token，位置利用率 50%。若按长度分桶或合理 packing，可减少无效计算，但必须保留样本边界和训练目标。\n核心原理 {#core-principle}\n离线处理适合重复使用的清洗、去重与分词，在线部分负责 shuffle、采样、构造 batch 和预取。先划分训练/验证数据，再拟合需要统计信息的处理步骤；同源文档跨集合重复仍可能造成泄漏。\nPacking 将短样本组合为更长序列。是否允许跨文档 attention，取决于训练任务与实现；独立样本通常需要边界处理。Padding 的 attention mask 控制可见位置，loss mask 控制哪些目标参与损失，不能混为一谈；语言模型还需检查标签右移与 padding 位置被忽略。\n分布式读取需要按 rank 和 worker 划分消费范围。可迭代数据集若每个 worker 都从头遍历，会重复读数据；恢复训练时还需要记录采样器、shuffle 种子和消费位置。仅记录 epoch，不能说明本轮已经读取哪里。\n计算与实践步骤 {#algorithm-steps}\n创建数据 manifest：文件列表、校验和、清洗规则、tokenizer 标识与 train/validation 划分。分别测读盘、解码、分词、取 batch 与传输耗时，确认瓶颈。给样本保留稳定 ID，检查 rank/worker 间覆盖和重复。调整 worker、预取、固定内存和分桶；每次记录吞吐与主机内存峰值。抽样查看 input、label、mask 和有效 token 数，再进行长时间训练。\n小型核对 {#worked-example}\nlengths = [6, 3, 3]\nblock_size = 8\npadding_positions = len(lengths) * block_size\nreal_tokens = sum(lengths)\nprint(f\"real={real_tokens}, padded={padding_positions}\")\nprint(f\"position_utilization={real_tokens / padding_positions:.0%}\")\n输出 real=12, padded=24 和 position_utilization=50%。这里统计原始 token 位置，不等于右移标签后的有效预测目标数；也没有实现 packing 或验证跨文档 mask。\n实际应用 {#applications}\n为语言模型微调构建可复用、可追溯的数据缓存。定位低 GPU 利用率究竟来自样本供给还是计算本身。\n常见错误 {#pitfalls}\n把 padding token 当成正常目标计算 loss。只记录样本数，不记录有效 token 数与采样权重。修改 tokenizer 或清洗规则后继续复用旧缓存，却没有变更版本。\n与其他概念的关系 {#related}\n继续阅读 {#further-reading}\nPyTorch DataLoader 文档 介绍 worker、sampler、内存固定及 IterableDataset 的分工。",
+    "anchorAliases": {},
+    "demos": []
+  },
+  "distributed-training-parallelism": {
+    "concept": {
+      "id": "distributed-training-parallelism",
+      "slug": "distributed-training-parallelism",
+      "title": "分布式训练：数据、张量与流水线并行",
+      "category": "artificial-intelligence",
+      "difficulty": "挑战",
+      "summary": "根据模型是否装得下、通信拓扑与全局 batch，选择 DP、TP、PP 及其组合，理解扩卡的收益与代价。",
+      "prerequisites": [
+        "llm-memory-budget",
+        "training-data-pipeline",
+        "backpropagation"
+      ],
+      "relatedConcepts": [
+        "gpu-collectives-topology",
+        "zero-fsdp",
+        "training-checkpoints-recovery"
+      ],
+      "explanation": "用 8 张卡构成 TP=2、PP=2、DP=2，逻辑上有两个模型副本，每个副本占四张卡。微批量为 4、累积 8 次时，全局 batch 是 4×8×2=64 个样本；不能再把 TP 和 PP 乘进去，它们处理的是同一个副本的计算。",
+      "principle": "这里 $A$ 为每次优化器更新的梯度累积次数；第二式假设这三个并行维度组成完整设备网格，未额外计入专家并行等维度。样本长度不同时，还要报告每次更新的有效 token 数。 TP 常需要逐层集合通信，对低延迟高带宽互联敏感；PP 需要平衡各阶段计算与显存，并用足够微批量减少流水线气泡；DP 的梯度通信可与部分反向计算重叠，但扩卡收益仍取决于本地计算量和网络。 强扩展保持总工作量不变，弱扩展保持每卡工作量近似不变。比较加速比时要说明口径；固定训练目标时，还要关注达到相同质量所花的总时间，而不是仅比较每步耗时。",
+      "formula": {
+        "expression": "B_{\\mathrm{global}}=B_{\\mathrm{micro}}\\,A\\,N_{DP},\\qquad\nN_{\\mathrm{GPU}}=N_{DP}N_{TP}N_{PP}",
+        "description": ""
+      },
+      "workflow": [
+        "先测单卡显存和 step 时间，确认容量与性能限制。",
+        "能装下时建立 DP 基线；装不下时根据状态、激活与层结构考虑分片、TP 或 PP。",
+        "把高频通信放在更快的互联域内，并确认设备分组。",
+        "记录全局 batch、学习率、有效 token、通信时间和扩展效率。",
+        "检查梯度累积时损失缩放与同步频率，确保优化器更新语义符合预期。"
+      ],
+      "code": {
+        "language": "Python",
+        "source": "gpus, tensor_parallel, pipeline_parallel = 8, 2, 2\ndata_parallel = gpus // (tensor_parallel * pipeline_parallel)\nmicro_batch, accumulation = 4, 8\nassert gpus % (tensor_parallel * pipeline_parallel) == 0\nprint(f\"DP={data_parallel}\")\nprint(f\"global_batch={micro_batch * accumulation * data_parallel}\")",
+        "highlights": []
+      },
+      "codeExplanation": "",
+      "applications": [
+        "为多卡微调或预训练选择可解释的设备网格。",
+        "诊断卡数翻倍后吞吐增长很小，或 loss 轨迹发生变化。"
+      ],
+      "pitfalls": [
+        "在扩卡时不小心改变全局 batch，却仍把质量差异归因于通信。",
+        "所有 rank 读相同样本，或在不同 rank 上以不同顺序执行 collective。",
+        "把梯度累积当作减少全部训练状态内存的方法；它主要允许减小微批量激活。"
+      ]
+    },
+    "longForm": {
+      "id": "distributed-training-parallelism",
+      "slug": "distributed-training-parallelism",
+      "title": "分布式训练：数据、张量与流水线并行",
+      "category": "artificial-intelligence",
+      "difficulty": "挑战",
+      "summary": "根据模型是否装得下、通信拓扑与全局 batch，选择 DP、TP、PP 及其组合，理解扩卡的收益与代价。",
+      "prerequisites": [
+        "llm-memory-budget",
+        "training-data-pipeline",
+        "backpropagation"
+      ],
+      "relatedConcepts": [
+        "gpu-collectives-topology",
+        "zero-fsdp",
+        "training-checkpoints-recovery"
+      ],
+      "definition": [
+        "数据并行（DP）让多个副本处理不同样本，再同步梯度；张量并行（TP）把层内矩阵或张量计算切到多卡；流水线并行（PP）把模型的不同层放在不同设备，用微批量在阶段间流动。",
+        "DDP 是常见的数据并行实现。它通常在每个 rank 保留完整参数和优化器状态，所以增加 DDP 卡数并不能直接解决单卡模型状态放不下的问题。"
+      ],
+      "background": [
+        "模型能放进单卡时，多卡可能用于提高吞吐；模型单卡放不下时，则必须先解决容量问题。这两种场景需要的并行方案并不相同。"
+      ],
+      "intuition": [
+        "用 8 张卡构成 TP=2、PP=2、DP=2，逻辑上有两个模型副本，每个副本占四张卡。微批量为 4、累积 8 次时，全局 batch 是 4×8×2=64 个样本；不能再把 TP 和 PP 乘进去，它们处理的是同一个副本的计算。"
+      ],
+      "corePrinciple": [
+        "这里 $A$ 为每次优化器更新的梯度累积次数；第二式假设这三个并行维度组成完整设备网格，未额外计入专家并行等维度。样本长度不同时，还要报告每次更新的有效 token 数。",
+        "TP 常需要逐层集合通信，对低延迟高带宽互联敏感；PP 需要平衡各阶段计算与显存，并用足够微批量减少流水线气泡；DP 的梯度通信可与部分反向计算重叠，但扩卡收益仍取决于本地计算量和网络。",
+        "强扩展保持总工作量不变，弱扩展保持每卡工作量近似不变。比较加速比时要说明口径；固定训练目标时，还要关注达到相同质量所花的总时间，而不是仅比较每步耗时。"
+      ],
+      "algorithmSteps": [
+        "先测单卡显存和 step 时间，确认容量与性能限制。",
+        "能装下时建立 DP 基线；装不下时根据状态、激活与层结构考虑分片、TP 或 PP。",
+        "把高频通信放在更快的互联域内，并确认设备分组。",
+        "记录全局 batch、学习率、有效 token、通信时间和扩展效率。",
+        "检查梯度累积时损失缩放与同步频率，确保优化器更新语义符合预期。"
+      ],
+      "applications": [
+        "为多卡微调或预训练选择可解释的设备网格。",
+        "诊断卡数翻倍后吞吐增长很小，或 loss 轨迹发生变化。"
+      ],
+      "pitfalls": [
+        "在扩卡时不小心改变全局 batch，却仍把质量差异归因于通信。",
+        "所有 rank 读相同样本，或在不同 rank 上以不同顺序执行 collective。",
+        "把梯度累积当作减少全部训练状态内存的方法；它主要允许减小微批量激活。"
+      ],
+      "extensionNotes": [],
+      "formulas": [
+        {
+          "label": "数学表达",
+          "expression": "B_{\\mathrm{global}}=B_{\\mathrm{micro}}\\,A\\,N_{DP},\\qquad\nN_{\\mathrm{GPU}}=N_{DP}N_{TP}N_{PP}",
+          "description": ""
+        }
+      ],
+      "variableDefinitions": [],
+      "codeExamples": [
+        {
+          "title": "代码示例",
+          "language": "python",
+          "purpose": "",
+          "source": "gpus, tensor_parallel, pipeline_parallel = 8, 2, 2\ndata_parallel = gpus // (tensor_parallel * pipeline_parallel)\nmicro_batch, accumulation = 4, 8\nassert gpus % (tensor_parallel * pipeline_parallel) == 0\nprint(f\"DP={data_parallel}\")\nprint(f\"global_batch={micro_batch * accumulation * data_parallel}\")",
+          "explanation": [],
+          "expectedOutput": ""
+        }
+      ],
+      "codeExplanation": [],
+      "sourceDocuments": [],
+      "sourceSections": []
+    },
+    "sections": [
+      {
+        "id": "learning-objectives",
+        "title": "学习目标"
+      },
+      {
+        "id": "prerequisites",
+        "title": "学习前需要掌握"
+      },
+      {
+        "id": "background",
+        "title": "背景与问题"
+      },
+      {
+        "id": "definition",
+        "title": "概念定义"
+      },
+      {
+        "id": "intuition",
+        "title": "直观理解"
+      },
+      {
+        "id": "core-principle",
+        "title": "核心原理"
+      },
+      {
+        "id": "algorithm-steps",
+        "title": "计算与实践步骤"
+      },
+      {
+        "id": "code",
+        "title": "代码实现"
+      },
+      {
+        "id": "applications",
+        "title": "实际应用"
+      },
+      {
+        "id": "pitfalls",
+        "title": "常见错误"
+      },
+      {
+        "id": "related",
+        "title": "与其他概念的关系"
+      },
+      {
+        "id": "further-reading",
+        "title": "继续阅读"
+      }
+    ],
+    "order": 1004,
+    "directory": "AI Infra",
+    "file": "content/concepts/artificial-intelligence/distributed-training-parallelism.mdx",
+    "searchText": "分布式训练：数据、张量与流水线并行\n根据模型是否装得下、通信拓扑与全局 batch，选择 DP、TP、PP 及其组合，理解扩卡的收益与代价。\n学习目标 {#learning-objectives}\n说明 DP、TP、PP 分别切分数据、层内计算与模型层。正确计算带梯度累积的全局 batch。区分容量扩展和训练加速两个目标。\n学习前需要掌握 {#prerequisites}\n背景与问题 {#background}\n模型能放进单卡时，多卡可能用于提高吞吐；模型单卡放不下时，则必须先解决容量问题。这两种场景需要的并行方案并不相同。\n概念定义 {#definition}\n数据并行（DP）让多个副本处理不同样本，再同步梯度；张量并行（TP）把层内矩阵或张量计算切到多卡；流水线并行（PP）把模型的不同层放在不同设备，用微批量在阶段间流动。\nDDP 是常见的数据并行实现。它通常在每个 rank 保留完整参数和优化器状态，所以增加 DDP 卡数并不能直接解决单卡模型状态放不下的问题。\n直观理解 {#intuition}\n用 8 张卡构成 TP=2、PP=2、DP=2，逻辑上有两个模型副本，每个副本占四张卡。微批量为 4、累积 8 次时，全局 batch 是 4×8×2=64 个样本；不能再把 TP 和 PP 乘进去，它们处理的是同一个副本的计算。\n核心原理 {#core-principle}\nB_{\\mathrm{global}}=B_{\\mathrm{micro}}\\,A\\,N_{DP},\\qquad\nN_{\\mathrm{GPU}}=N_{DP}N_{TP}N_{PP}\n这里 $A$ 为每次优化器更新的梯度累积次数；第二式假设这三个并行维度组成完整设备网格，未额外计入专家并行等维度。样本长度不同时，还要报告每次更新的有效 token 数。\nTP 常需要逐层集合通信，对低延迟高带宽互联敏感；PP 需要平衡各阶段计算与显存，并用足够微批量减少流水线气泡；DP 的梯度通信可与部分反向计算重叠，但扩卡收益仍取决于本地计算量和网络。\n强扩展保持总工作量不变，弱扩展保持每卡工作量近似不变。比较加速比时要说明口径；固定训练目标时，还要关注达到相同质量所花的总时间，而不是仅比较每步耗时。\n计算与实践步骤 {#algorithm-steps}\n先测单卡显存和 step 时间，确认容量与性能限制。能装下时建立 DP 基线；装不下时根据状态、激活与层结构考虑分片、TP 或 PP。把高频通信放在更快的互联域内，并确认设备分组。记录全局 batch、学习率、有效 token、通信时间和扩展效率。检查梯度累积时损失缩放与同步频率，确保优化器更新语义符合预期。\n代码实现 {#code}\ngpus, tensor_parallel, pipeline_parallel = 8, 2, 2\ndata_parallel = gpus // (tensor_parallel * pipeline_parallel)\nmicro_batch, accumulation = 4, 8\nassert gpus % (tensor_parallel * pipeline_parallel) == 0\nprint(f\"DP={data_parallel}\")\nprint(f\"global_batch={micro_batch * accumulation * data_parallel}\")\n输出 DP=2 和 global_batch=64。这是拓扑和 batch 账本，没有启动分布式训练。\n实际应用 {#applications}\n为多卡微调或预训练选择可解释的设备网格。诊断卡数翻倍后吞吐增长很小，或 loss 轨迹发生变化。\n常见错误 {#pitfalls}\n在扩卡时不小心改变全局 batch，却仍把质量差异归因于通信。所有 rank 读相同样本，或在不同 rank 上以不同顺序执行 collective。把梯度累积当作减少全部训练状态内存的方法；它主要允许减小微批量激活。\n与其他概念的关系 {#related}\n继续阅读 {#further-reading}\nPyTorch Distributed Overview 对照 DDP、FSDP 与张量、流水线并行的适用边界。",
+    "anchorAliases": {},
+    "demos": []
+  },
+  "gpu-collectives-topology": {
+    "concept": {
+      "id": "gpu-collectives-topology",
+      "slug": "gpu-collectives-topology",
+      "title": "GPU 集合通信与互联拓扑",
+      "category": "artificial-intelligence",
+      "difficulty": "挑战",
+      "summary": "通过 AllReduce、AllGather 与 ReduceScatter 理解梯度同步、参数分片，以及跨节点通信为何影响扩展效率。",
+      "prerequisites": [
+        "distributed-training-parallelism"
+      ],
+      "relatedConcepts": [
+        "zero-fsdp",
+        "gpu-memory-bandwidth",
+        "gpu-cluster-scheduling"
+      ],
+      "explanation": "rank 0 的梯度是 [1, 3]，rank 1 是 [5, 7]。求和 AllReduce 后两者都得到 [6, 10]；若需要平均梯度，再除以 2 得到 [3, 5]。必须确认上层框架是否已做平均，避免再次除法。",
+      "principle": "通信时间可粗略拆成启动延迟和数据传输时间。小消息更容易受延迟影响，大消息更容易受有效带宽影响；梯度分桶可以减少小消息数量，但过大的桶可能推迟通信开始，减少与计算重叠。 在理想 ring AllReduce 中，$N$ 个 rank 每个持有 $S$ byte，单 rank 发送的数据量约为 $2(N-1)S/N$。这个流量估算不是延迟公式；它忽略拓扑、协议、链路竞争与实现选择，也不表示真实训练总通信量只有这么多。 TP 往往发生频繁的层内通信，通常优先放在高速互联域；跨节点 DP 也必须测量真实网络。设备编号相邻不保证物理路径相同，应核对 GPU、网卡和 NUMA 关系。",
+      "formula": {
+        "expression": "—",
+        "description": "—"
+      },
+      "workflow": [
+        "用小张量验证各 rank 的输入、归约类型和输出符合预期。",
+        "核对驱动、通信库、进程组、网络接口与 rank 到设备映射。",
+        "分别测小消息和大消息，逐步从单节点扩大到多节点。",
+        "对比计算时间、通信时间和等待最慢 rank 的时间。",
+        "遇到挂起时检查所有 rank 是否以相同顺序参与 collective，以及是否有某个 rank 提前异常退出。"
+      ],
+      "code": {
+        "language": "Python",
+        "source": "rank_gradients = [[1, 3], [5, 7]]\nsummed = [sum(column) for column in zip(*rank_gradients)]\naveraged = [value / len(rank_gradients) for value in summed]\nprint(f\"sum={summed}\")\nprint(f\"mean={averaged}\")",
+        "highlights": []
+      },
+      "codeExplanation": "",
+      "applications": [
+        "理解 DDP 的梯度同步和分片训练中的参数聚合。",
+        "区分网络慢、负载不均和 collective 调用顺序不一致造成的等待。"
+      ],
+      "pitfalls": [
+        "只在 rank 0 调用 collective，其他 rank 没有参与。",
+        "用理论网卡速率当作端到端有效吞吐，不考虑协议与拓扑。",
+        "在正常训练中频繁插入全局 barrier，破坏原本的计算通信重叠。"
+      ]
+    },
+    "longForm": {
+      "id": "gpu-collectives-topology",
+      "slug": "gpu-collectives-topology",
+      "title": "GPU 集合通信与互联拓扑",
+      "category": "artificial-intelligence",
+      "difficulty": "挑战",
+      "summary": "通过 AllReduce、AllGather 与 ReduceScatter 理解梯度同步、参数分片，以及跨节点通信为何影响扩展效率。",
+      "prerequisites": [
+        "distributed-training-parallelism"
+      ],
+      "relatedConcepts": [
+        "zero-fsdp",
+        "gpu-memory-bandwidth",
+        "gpu-cluster-scheduling"
+      ],
+      "definition": [
+        "集合通信是同一进程组中多个 rank 协同执行的数据操作。AllReduce 对各 rank 的同形张量进行求和等归约并把完整结果给所有 rank；AllGather 把每个 rank 的分片汇集成完整张量；ReduceScatter 先归约，再让每个 rank 保留结果的一部分。",
+        "NCCL 是常用于 NVIDIA GPU 的集合通信库。通信语义、算法实现与物理互联是三个层次；同一 AllReduce 可采用不同算法，并不固定对应某一种拓扑。"
+      ],
+      "background": [
+        "四卡单机训练扩展良好，换成两台机器后却变慢，可能是数据交换进入了更慢的网络路径。知道“使用 NCCL”仍不足以判断通信是否合理，还要知道每步交换什么、交换多大以及经过哪里。"
+      ],
+      "intuition": [
+        "rank 0 的梯度是 [1, 3]，rank 1 是 [5, 7]。求和 AllReduce 后两者都得到 [6, 10]；若需要平均梯度，再除以 2 得到 [3, 5]。必须确认上层框架是否已做平均，避免再次除法。"
+      ],
+      "corePrinciple": [
+        "通信时间可粗略拆成启动延迟和数据传输时间。小消息更容易受延迟影响，大消息更容易受有效带宽影响；梯度分桶可以减少小消息数量，但过大的桶可能推迟通信开始，减少与计算重叠。",
+        "在理想 ring AllReduce 中，$N$ 个 rank 每个持有 $S$ byte，单 rank 发送的数据量约为 $2(N-1)S/N$。这个流量估算不是延迟公式；它忽略拓扑、协议、链路竞争与实现选择，也不表示真实训练总通信量只有这么多。",
+        "TP 往往发生频繁的层内通信，通常优先放在高速互联域；跨节点 DP 也必须测量真实网络。设备编号相邻不保证物理路径相同，应核对 GPU、网卡和 NUMA 关系。"
+      ],
+      "algorithmSteps": [
+        "用小张量验证各 rank 的输入、归约类型和输出符合预期。",
+        "核对驱动、通信库、进程组、网络接口与 rank 到设备映射。",
+        "分别测小消息和大消息，逐步从单节点扩大到多节点。",
+        "对比计算时间、通信时间和等待最慢 rank 的时间。",
+        "遇到挂起时检查所有 rank 是否以相同顺序参与 collective，以及是否有某个 rank 提前异常退出。"
+      ],
+      "applications": [
+        "理解 DDP 的梯度同步和分片训练中的参数聚合。",
+        "区分网络慢、负载不均和 collective 调用顺序不一致造成的等待。"
+      ],
+      "pitfalls": [
+        "只在 rank 0 调用 collective，其他 rank 没有参与。",
+        "用理论网卡速率当作端到端有效吞吐，不考虑协议与拓扑。",
+        "在正常训练中频繁插入全局 barrier，破坏原本的计算通信重叠。"
+      ],
+      "extensionNotes": [],
+      "formulas": [],
+      "variableDefinitions": [],
+      "codeExamples": [
+        {
+          "title": "代码示例",
+          "language": "python",
+          "purpose": "",
+          "source": "rank_gradients = [[1, 3], [5, 7]]\nsummed = [sum(column) for column in zip(*rank_gradients)]\naveraged = [value / len(rank_gradients) for value in summed]\nprint(f\"sum={summed}\")\nprint(f\"mean={averaged}\")",
+          "explanation": [],
+          "expectedOutput": ""
+        }
+      ],
+      "codeExplanation": [],
+      "sourceDocuments": [],
+      "sourceSections": []
+    },
+    "sections": [
+      {
+        "id": "learning-objectives",
+        "title": "学习目标"
+      },
+      {
+        "id": "prerequisites",
+        "title": "学习前需要掌握"
+      },
+      {
+        "id": "background",
+        "title": "背景与问题"
+      },
+      {
+        "id": "definition",
+        "title": "概念定义"
+      },
+      {
+        "id": "intuition",
+        "title": "直观理解"
+      },
+      {
+        "id": "core-principle",
+        "title": "核心原理"
+      },
+      {
+        "id": "algorithm-steps",
+        "title": "排查与实践步骤"
+      },
+      {
+        "id": "code",
+        "title": "代码实现"
+      },
+      {
+        "id": "applications",
+        "title": "实际应用"
+      },
+      {
+        "id": "pitfalls",
+        "title": "常见错误"
+      },
+      {
+        "id": "related",
+        "title": "与其他概念的关系"
+      },
+      {
+        "id": "further-reading",
+        "title": "继续阅读"
+      }
+    ],
+    "order": 1005,
+    "directory": "AI Infra",
+    "file": "content/concepts/artificial-intelligence/gpu-collectives-topology.mdx",
+    "searchText": "GPU 集合通信与互联拓扑\n通过 AllReduce、AllGather 与 ReduceScatter 理解梯度同步、参数分片，以及跨节点通信为何影响扩展效率。\n学习目标 {#learning-objectives}\n区分求和并分发、聚合分片和求和后分片。用 rank 输入输出解释 AllReduce 的含义。分析消息大小、拓扑和同步顺序对训练的影响。\n学习前需要掌握 {#prerequisites}\n背景与问题 {#background}\n四卡单机训练扩展良好，换成两台机器后却变慢，可能是数据交换进入了更慢的网络路径。知道“使用 NCCL”仍不足以判断通信是否合理，还要知道每步交换什么、交换多大以及经过哪里。\n概念定义 {#definition}\n集合通信是同一进程组中多个 rank 协同执行的数据操作。AllReduce 对各 rank 的同形张量进行求和等归约并把完整结果给所有 rank；AllGather 把每个 rank 的分片汇集成完整张量；ReduceScatter 先归约，再让每个 rank 保留结果的一部分。\nNCCL 是常用于 NVIDIA GPU 的集合通信库。通信语义、算法实现与物理互联是三个层次；同一 AllReduce 可采用不同算法，并不固定对应某一种拓扑。\n直观理解 {#intuition}\nrank 0 的梯度是 [1, 3]，rank 1 是 [5, 7]。求和 AllReduce 后两者都得到 [6, 10]；若需要平均梯度，再除以 2 得到 [3, 5]。必须确认上层框架是否已做平均，避免再次除法。\n核心原理 {#core-principle}\n通信时间可粗略拆成启动延迟和数据传输时间。小消息更容易受延迟影响，大消息更容易受有效带宽影响；梯度分桶可以减少小消息数量，但过大的桶可能推迟通信开始，减少与计算重叠。\n在理想 ring AllReduce 中，$N$ 个 rank 每个持有 $S$ byte，单 rank 发送的数据量约为 $2(N-1)S/N$。这个流量估算不是延迟公式；它忽略拓扑、协议、链路竞争与实现选择，也不表示真实训练总通信量只有这么多。\nTP 往往发生频繁的层内通信，通常优先放在高速互联域；跨节点 DP 也必须测量真实网络。设备编号相邻不保证物理路径相同，应核对 GPU、网卡和 NUMA 关系。\n排查与实践步骤 {#algorithm-steps}\n用小张量验证各 rank 的输入、归约类型和输出符合预期。核对驱动、通信库、进程组、网络接口与 rank 到设备映射。分别测小消息和大消息，逐步从单节点扩大到多节点。对比计算时间、通信时间和等待最慢 rank 的时间。遇到挂起时检查所有 rank 是否以相同顺序参与 collective，以及是否有某个 rank 提前异常退出。\n代码实现 {#code}\n下面模拟求和及平均语义，只在 CPU 上使用 Python 列表，不会调用 NCCL。\nrank_gradients = [[1, 3], [5, 7]]\nsummed = [sum(column) for column in zip(*rank_gradients)]\naveraged = [value / len(rank_gradients) for value in summed]\nprint(f\"sum={summed}\")\nprint(f\"mean={averaged}\")\n输出 sum=[6, 10] 与 mean=[3.0, 5.0]。\n实际应用 {#applications}\n理解 DDP 的梯度同步和分片训练中的参数聚合。区分网络慢、负载不均和 collective 调用顺序不一致造成的等待。\n常见错误 {#pitfalls}\n只在 rank 0 调用 collective，其他 rank 没有参与。用理论网卡速率当作端到端有效吞吐，不考虑协议与拓扑。在正常训练中频繁插入全局 barrier，破坏原本的计算通信重叠。\n与其他概念的关系 {#related}\n继续阅读 {#further-reading}\nNCCL Collective Operations 给出了各类操作的输入输出语义。",
+    "anchorAliases": {},
+    "demos": []
+  },
+  "zero-fsdp": {
+    "concept": {
+      "id": "zero-fsdp",
+      "slug": "zero-fsdp",
+      "title": "ZeRO 与 FSDP：训练状态如何分片",
+      "category": "artificial-intelligence",
+      "difficulty": "挑战",
+      "summary": "从参数、梯度和优化器状态的驻留方式理解 ZeRO 分级与 FSDP，分析显存收益、通信开销和瞬时峰值。",
+      "prerequisites": [
+        "distributed-training-parallelism",
+        "gpu-collectives-topology"
+      ],
+      "relatedConcepts": [
+        "llm-memory-budget",
+        "training-checkpoints-recovery"
+      ],
+      "explanation": "沿用 7B 模型的简化账本：参数 14 GB、梯度 14 GB、FP32 主权重与 Adam 状态共 84 GB。四卡普通数据并行每卡仍需 112 GB；理想全分片稳态降为每卡 28 GB，但这还没有算激活、临时聚合和工作空间。",
+      "principle": "上表是十进制 GB，假设各状态均匀分片、梯度为 BF16，主权重计入优化器侧。实际实现可能在通信中保留额外缓冲或不同梯度精度，必须检查框架配置。 分片参数在对应计算前通常需要 AllGather，计算后可重新分片；梯度可通过 ReduceScatter 分发。分组粒度小会增加通信次数，粒度大又会提高瞬时峰值。CPU offload 用主机内存换设备容量，也会增加传输开销。 激活重计算通过少存中间结果、反向时重算来节省激活；TP 切分层内计算；状态分片减少重复训练状态。三者可以组合，但必须分别测量内存和速度。",
+      "formula": {
+        "expression": "—",
+        "description": "—"
+      },
+      "workflow": [
+        "先确认峰值来自状态还是激活，建立普通 DP 或单卡基线。",
+        "从足以解决容量问题的分片级别开始，记录吞吐损失。",
+        "调整包装单元、预取和重分片策略，查看瞬时参数聚合峰值。",
+        "实测保存、加载与恢复，确认检查点格式匹配并行方案。",
+        "使用固定框架版本和官方迁移说明；FSDP1 的包装器与 FSDP2 的 fully_shard 路线不能混抄代码。"
+      ],
+      "code": {
+        "language": "Python",
+        "source": "",
+        "highlights": []
+      },
+      "codeExplanation": "",
+      "applications": [
+        "模型本身能分层执行，但完整训练状态超出单卡容量。",
+        "在固定硬件上比较“更小微批量＋重计算”与“分片＋通信”的代价。"
+      ],
+      "pitfalls": [
+        "认为显存一定精确降到原来的卡数分之一。",
+        "只测前向，不测反向、优化器更新和检查点期间的峰值。",
+        "保存时把完整参数聚到某张卡，造成训练正常而保存 OOM。"
+      ]
+    },
+    "longForm": {
+      "id": "zero-fsdp",
+      "slug": "zero-fsdp",
+      "title": "ZeRO 与 FSDP：训练状态如何分片",
+      "category": "artificial-intelligence",
+      "difficulty": "挑战",
+      "summary": "从参数、梯度和优化器状态的驻留方式理解 ZeRO 分级与 FSDP，分析显存收益、通信开销和瞬时峰值。",
+      "prerequisites": [
+        "distributed-training-parallelism",
+        "gpu-collectives-topology"
+      ],
+      "relatedConcepts": [
+        "llm-memory-budget",
+        "training-checkpoints-recovery"
+      ],
+      "definition": [
+        "ZeRO（Zero Redundancy Optimizer）通过在数据并行 rank 间划分状态，降低重复驻留。Stage 1 分片优化器状态；Stage 2 再分片梯度；Stage 3 进一步分片参数。FSDP 的完全分片策略同样把参数、梯度和优化器状态分布到多卡，但其 API、通信时机与具体实现不能简单等同于 ZeRO。"
+      ],
+      "background": [
+        "普通数据并行在每张卡重复保存完整训练状态，容量利用不充分。若四张卡都保存同样的 Adam 状态，模型即使总状态小于四卡总显存，仍可能因单卡容量不足而无法训练。"
+      ],
+      "intuition": [
+        "沿用 7B 模型的简化账本：参数 14 GB、梯度 14 GB、FP32 主权重与 Adam 状态共 84 GB。四卡普通数据并行每卡仍需 112 GB；理想全分片稳态降为每卡 28 GB，但这还没有算激活、临时聚合和工作空间。"
+      ],
+      "corePrinciple": [
+        "上表是十进制 GB，假设各状态均匀分片、梯度为 BF16，主权重计入优化器侧。实际实现可能在通信中保留额外缓冲或不同梯度精度，必须检查框架配置。",
+        "分片参数在对应计算前通常需要 AllGather，计算后可重新分片；梯度可通过 ReduceScatter 分发。分组粒度小会增加通信次数，粒度大又会提高瞬时峰值。CPU offload 用主机内存换设备容量，也会增加传输开销。",
+        "激活重计算通过少存中间结果、反向时重算来节省激活；TP 切分层内计算；状态分片减少重复训练状态。三者可以组合，但必须分别测量内存和速度。"
+      ],
+      "algorithmSteps": [
+        "先确认峰值来自状态还是激活，建立普通 DP 或单卡基线。",
+        "从足以解决容量问题的分片级别开始，记录吞吐损失。",
+        "调整包装单元、预取和重分片策略，查看瞬时参数聚合峰值。",
+        "实测保存、加载与恢复，确认检查点格式匹配并行方案。",
+        "使用固定框架版本和官方迁移说明；FSDP1 的包装器与 FSDP2 的 fully_shard 路线不能混抄代码。"
+      ],
+      "applications": [
+        "模型本身能分层执行，但完整训练状态超出单卡容量。",
+        "在固定硬件上比较“更小微批量＋重计算”与“分片＋通信”的代价。"
+      ],
+      "pitfalls": [
+        "认为显存一定精确降到原来的卡数分之一。",
+        "只测前向，不测反向、优化器更新和检查点期间的峰值。",
+        "保存时把完整参数聚到某张卡，造成训练正常而保存 OOM。"
+      ],
+      "extensionNotes": [],
+      "formulas": [],
+      "variableDefinitions": [],
+      "codeExamples": [],
+      "codeExplanation": [],
+      "sourceDocuments": [],
+      "sourceSections": []
+    },
+    "sections": [
+      {
+        "id": "learning-objectives",
+        "title": "学习目标"
+      },
+      {
+        "id": "prerequisites",
+        "title": "学习前需要掌握"
+      },
+      {
+        "id": "background",
+        "title": "背景与问题"
+      },
+      {
+        "id": "definition",
+        "title": "概念定义"
+      },
+      {
+        "id": "intuition",
+        "title": "直观理解"
+      },
+      {
+        "id": "core-principle",
+        "title": "核心原理"
+      },
+      {
+        "id": "algorithm-steps",
+        "title": "选择与实践步骤"
+      },
+      {
+        "id": "applications",
+        "title": "实际应用"
+      },
+      {
+        "id": "pitfalls",
+        "title": "常见错误"
+      },
+      {
+        "id": "related",
+        "title": "与其他概念的关系"
+      },
+      {
+        "id": "further-reading",
+        "title": "继续阅读"
+      }
+    ],
+    "order": 1006,
+    "directory": "AI Infra",
+    "file": "content/concepts/artificial-intelligence/zero-fsdp.mdx",
+    "searchText": "ZeRO 与 FSDP：训练状态如何分片\n从参数、梯度和优化器状态的驻留方式理解 ZeRO 分级与 FSDP，分析显存收益、通信开销和瞬时峰值。\n学习目标 {#learning-objectives}\n说明 ZeRO 的三个阶段分别分片什么。区分稳态分片大小与计算时的参数聚合峰值。理解 FSDP 与 TP、激活重计算解决的问题不同。\n学习前需要掌握 {#prerequisites}\n背景与问题 {#background}\n普通数据并行在每张卡重复保存完整训练状态，容量利用不充分。若四张卡都保存同样的 Adam 状态，模型即使总状态小于四卡总显存，仍可能因单卡容量不足而无法训练。\n概念定义 {#definition}\nZeRO（Zero Redundancy Optimizer）通过在数据并行 rank 间划分状态，降低重复驻留。Stage 1 分片优化器状态；Stage 2 再分片梯度；Stage 3 进一步分片参数。FSDP 的完全分片策略同样把参数、梯度和优化器状态分布到多卡，但其 API、通信时机与具体实现不能简单等同于 ZeRO。\n直观理解 {#intuition}\n沿用 7B 模型的简化账本：参数 14 GB、梯度 14 GB、FP32 主权重与 Adam 状态共 84 GB。四卡普通数据并行每卡仍需 112 GB；理想全分片稳态降为每卡 28 GB，但这还没有算激活、临时聚合和工作空间。\n核心原理 {#core-principle}\n策略参数梯度优化器及主权重四卡单卡状态估算普通 DP完整完整完整112 GBZeRO-1完整完整分片49 GBZeRO-2完整分片分片38.5 GBZeRO-3 / 完全分片的理想稳态分片分片分片28 GB\n上表是十进制 GB，假设各状态均匀分片、梯度为 BF16，主权重计入优化器侧。实际实现可能在通信中保留额外缓冲或不同梯度精度，必须检查框架配置。\n分片参数在对应计算前通常需要 AllGather，计算后可重新分片；梯度可通过 ReduceScatter 分发。分组粒度小会增加通信次数，粒度大又会提高瞬时峰值。CPU offload 用主机内存换设备容量，也会增加传输开销。\n激活重计算通过少存中间结果、反向时重算来节省激活；TP 切分层内计算；状态分片减少重复训练状态。三者可以组合，但必须分别测量内存和速度。\n选择与实践步骤 {#algorithm-steps}\n先确认峰值来自状态还是激活，建立普通 DP 或单卡基线。从足以解决容量问题的分片级别开始，记录吞吐损失。调整包装单元、预取和重分片策略，查看瞬时参数聚合峰值。实测保存、加载与恢复，确认检查点格式匹配并行方案。使用固定框架版本和官方迁移说明；FSDP1 的包装器与 FSDP2 的 fully_shard 路线不能混抄代码。\n实际应用 {#applications}\n模型本身能分层执行，但完整训练状态超出单卡容量。在固定硬件上比较“更小微批量＋重计算”与“分片＋通信”的代价。\n常见错误 {#pitfalls}\n认为显存一定精确降到原来的卡数分之一。只测前向，不测反向、优化器更新和检查点期间的峰值。保存时把完整参数聚到某张卡，造成训练正常而保存 OOM。\n与其他概念的关系 {#related}\n继续阅读 {#further-reading}\nPyTorch FSDP 文档 和 分布式概览 用于核对当前版本的接口与支持范围。",
+    "anchorAliases": {},
+    "demos": []
+  },
+  "training-checkpoints-recovery": {
+    "concept": {
+      "id": "training-checkpoints-recovery",
+      "slug": "training-checkpoints-recovery",
+      "title": "训练检查点与故障恢复",
+      "category": "artificial-intelligence",
+      "difficulty": "进阶",
+      "summary": "保存模型、优化器、随机数与数据消费状态，以可校验的提交方式恢复训练，并权衡保存频率与重算成本。",
+      "prerequisites": [
+        "training-data-pipeline",
+        "model-saving-inference"
+      ],
+      "relatedConcepts": [
+        "zero-fsdp",
+        "gpu-cluster-scheduling"
+      ],
+      "explanation": "把检查点比作游戏存档：人物装备是模型权重，剩余资源和进度是优化器与数据状态。只保存装备，不能恢复到完全相同的关卡位置。",
+      "principle": "一个检查点应在明确的优化器更新边界创建，或额外保存未完成梯度累积的状态。分布式场景中，各 rank 的分片必须属于同一步；只看到部分文件，不能判定保存成功。 本地文件系统可以先写临时文件，完成校验后在同一文件系统内原子重命名。对象存储通常没有同样的重命名语义，可使用独立不可变前缀写所有分片，最后发布含文件清单、校验和及 step 的完成 manifest。读者只选择已提交版本。 若每 $T$ 分钟保存一次，故障在两个成功检查点之间近似均匀发生，平均丢失计算约为 $T/2$。保存本身也有 I/O、同步和容量成本；间隔 20 分钟意味着平均约重算 10 分钟，不代表总恢复时间只有 10 分钟。",
+      "formula": {
+        "expression": "—",
+        "description": "—"
+      },
+      "workflow": [
+        "固定模型、数据和依赖版本，记录完整配置及消费位置。",
+        "在一致边界保存到新路径，校验所有必需分片后再提交 manifest。",
+        "从最近的完整检查点加载，缺失或损坏时回退到上一份完整版本。",
+        "人为中断一个短训练，比较恢复前后的 step、学习率、数据 ID 和 loss 趋势。",
+        "单独记录保存耗时、下载耗时、状态重建和重算耗时，确认恢复目标能达到。"
+      ],
+      "code": {
+        "language": "Python",
+        "source": "required = {\"model\", \"optimizer\", \"scheduler\", \"rng\", \"sampler\", \"step\"}\ncheckpoint = {\"model\": \"weights\", \"optimizer\": \"adam\", \"step\": 100}\nmissing = sorted(required - checkpoint.keys())\nprint(\"missing=\" + \",\".join(missing))",
+        "highlights": []
+      },
+      "codeExplanation": "",
+      "applications": [
+        "在抢占实例或共享集群中控制训练中断损失。",
+        "从单卡实验发展到分片训练时，提前验证格式与恢复能力。"
+      ],
+      "pitfalls": [
+        "在异步保存完成之前删除上一份有效检查点。",
+        "把随机种子相同等同于逐位复现；硬件、算子和读取调度也会影响结果。",
+        "假定分片检查点可以任意改变 world size，未检查加载与重分片支持。"
+      ]
+    },
+    "longForm": {
+      "id": "training-checkpoints-recovery",
+      "slug": "training-checkpoints-recovery",
+      "title": "训练检查点与故障恢复",
+      "category": "artificial-intelligence",
+      "difficulty": "进阶",
+      "summary": "保存模型、优化器、随机数与数据消费状态，以可校验的提交方式恢复训练，并权衡保存频率与重算成本。",
+      "prerequisites": [
+        "training-data-pipeline",
+        "model-saving-inference"
+      ],
+      "relatedConcepts": [
+        "zero-fsdp",
+        "gpu-cluster-scheduling"
+      ],
+      "definition": [
+        "训练检查点是在一致边界保存的可恢复状态，包括模型参数、优化器、调度器、精度缩放器（如使用）、全局 step、消费 token 数、随机数状态和采样器位置，并绑定模型、数据、tokenizer 和软件配置版本。"
+      ],
+      "background": [
+        "训练在第 10 万步中断，仅加载模型权重后继续，并不一定沿着原来的轨迹优化。Adam 动量、学习率调度器和数据顺序若丢失，即使步号相同，也不是同一训练状态。"
+      ],
+      "intuition": [
+        "把检查点比作游戏存档：人物装备是模型权重，剩余资源和进度是优化器与数据状态。只保存装备，不能恢复到完全相同的关卡位置。"
+      ],
+      "corePrinciple": [
+        "一个检查点应在明确的优化器更新边界创建，或额外保存未完成梯度累积的状态。分布式场景中，各 rank 的分片必须属于同一步；只看到部分文件，不能判定保存成功。",
+        "本地文件系统可以先写临时文件，完成校验后在同一文件系统内原子重命名。对象存储通常没有同样的重命名语义，可使用独立不可变前缀写所有分片，最后发布含文件清单、校验和及 step 的完成 manifest。读者只选择已提交版本。",
+        "若每 $T$ 分钟保存一次，故障在两个成功检查点之间近似均匀发生，平均丢失计算约为 $T/2$。保存本身也有 I/O、同步和容量成本；间隔 20 分钟意味着平均约重算 10 分钟，不代表总恢复时间只有 10 分钟。"
+      ],
+      "algorithmSteps": [
+        "固定模型、数据和依赖版本，记录完整配置及消费位置。",
+        "在一致边界保存到新路径，校验所有必需分片后再提交 manifest。",
+        "从最近的完整检查点加载，缺失或损坏时回退到上一份完整版本。",
+        "人为中断一个短训练，比较恢复前后的 step、学习率、数据 ID 和 loss 趋势。",
+        "单独记录保存耗时、下载耗时、状态重建和重算耗时，确认恢复目标能达到。"
+      ],
+      "applications": [
+        "在抢占实例或共享集群中控制训练中断损失。",
+        "从单卡实验发展到分片训练时，提前验证格式与恢复能力。"
+      ],
+      "pitfalls": [
+        "在异步保存完成之前删除上一份有效检查点。",
+        "把随机种子相同等同于逐位复现；硬件、算子和读取调度也会影响结果。",
+        "假定分片检查点可以任意改变 world size，未检查加载与重分片支持。"
+      ],
+      "extensionNotes": [],
+      "formulas": [],
+      "variableDefinitions": [],
+      "codeExamples": [
+        {
+          "title": "代码示例",
+          "language": "python",
+          "purpose": "",
+          "source": "required = {\"model\", \"optimizer\", \"scheduler\", \"rng\", \"sampler\", \"step\"}\ncheckpoint = {\"model\": \"weights\", \"optimizer\": \"adam\", \"step\": 100}\nmissing = sorted(required - checkpoint.keys())\nprint(\"missing=\" + \",\".join(missing))",
+          "explanation": [],
+          "expectedOutput": ""
+        }
+      ],
+      "codeExplanation": [],
+      "sourceDocuments": [],
+      "sourceSections": []
+    },
+    "sections": [
+      {
+        "id": "learning-objectives",
+        "title": "学习目标"
+      },
+      {
+        "id": "prerequisites",
+        "title": "学习前需要掌握"
+      },
+      {
+        "id": "background",
+        "title": "背景与问题"
+      },
+      {
+        "id": "definition",
+        "title": "概念定义"
+      },
+      {
+        "id": "intuition",
+        "title": "直观理解"
+      },
+      {
+        "id": "core-principle",
+        "title": "核心原理"
+      },
+      {
+        "id": "algorithm-steps",
+        "title": "恢复演练步骤"
+      },
+      {
+        "id": "code",
+        "title": "核对清单示例"
+      },
+      {
+        "id": "applications",
+        "title": "实际应用"
+      },
+      {
+        "id": "pitfalls",
+        "title": "常见错误"
+      },
+      {
+        "id": "related",
+        "title": "与其他概念的关系"
+      },
+      {
+        "id": "further-reading",
+        "title": "继续阅读"
+      }
+    ],
+    "order": 1007,
+    "directory": "AI Infra",
+    "file": "content/concepts/artificial-intelligence/training-checkpoints-recovery.mdx",
+    "searchText": "训练检查点与故障恢复\n保存模型、优化器、随机数与数据消费状态，以可校验的提交方式恢复训练，并权衡保存频率与重算成本。\n学习目标 {#learning-objectives}\n区分推理权重导出与可恢复的训练检查点。设计避免半成品被读取的提交协议。用保存间隔估计故障后的平均重算量。\n学习前需要掌握 {#prerequisites}\n背景与问题 {#background}\n训练在第 10 万步中断，仅加载模型权重后继续，并不一定沿着原来的轨迹优化。Adam 动量、学习率调度器和数据顺序若丢失，即使步号相同，也不是同一训练状态。\n概念定义 {#definition}\n训练检查点是在一致边界保存的可恢复状态，包括模型参数、优化器、调度器、精度缩放器（如使用）、全局 step、消费 token 数、随机数状态和采样器位置，并绑定模型、数据、tokenizer 和软件配置版本。\n直观理解 {#intuition}\n把检查点比作游戏存档：人物装备是模型权重，剩余资源和进度是优化器与数据状态。只保存装备，不能恢复到完全相同的关卡位置。\n核心原理 {#core-principle}\n一个检查点应在明确的优化器更新边界创建，或额外保存未完成梯度累积的状态。分布式场景中，各 rank 的分片必须属于同一步；只看到部分文件，不能判定保存成功。\n本地文件系统可以先写临时文件，完成校验后在同一文件系统内原子重命名。对象存储通常没有同样的重命名语义，可使用独立不可变前缀写所有分片，最后发布含文件清单、校验和及 step 的完成 manifest。读者只选择已提交版本。\n若每 $T$ 分钟保存一次，故障在两个成功检查点之间近似均匀发生，平均丢失计算约为 $T/2$。保存本身也有 I/O、同步和容量成本；间隔 20 分钟意味着平均约重算 10 分钟，不代表总恢复时间只有 10 分钟。\n恢复演练步骤 {#algorithm-steps}\n固定模型、数据和依赖版本，记录完整配置及消费位置。在一致边界保存到新路径，校验所有必需分片后再提交 manifest。从最近的完整检查点加载，缺失或损坏时回退到上一份完整版本。人为中断一个短训练，比较恢复前后的 step、学习率、数据 ID 和 loss 趋势。单独记录保存耗时、下载耗时、状态重建和重算耗时，确认恢复目标能达到。\n核对清单示例 {#code}\n这个标准库例子检查逻辑字段是否齐全；它不验证磁盘持久性，也不保存真实张量。\nrequired = {\"model\", \"optimizer\", \"scheduler\", \"rng\", \"sampler\", \"step\"}\ncheckpoint = {\"model\": \"weights\", \"optimizer\": \"adam\", \"step\": 100}\nmissing = sorted(required - checkpoint.keys())\nprint(\"missing=\" + \",\".join(missing))\n输出 missing=rng,sampler,scheduler。真实实现还应绑定数据版本、张量格式和完整性校验。\n实际应用 {#applications}\n在抢占实例或共享集群中控制训练中断损失。从单卡实验发展到分片训练时，提前验证格式与恢复能力。\n常见错误 {#pitfalls}\n在异步保存完成之前删除上一份有效检查点。把随机种子相同等同于逐位复现；硬件、算子和读取调度也会影响结果。假定分片检查点可以任意改变 world size，未检查加载与重分片支持。\n与其他概念的关系 {#related}\n继续阅读 {#further-reading}\nPyTorch Distributed Checkpoint 用于核对分片保存、加载与版本限制。",
+    "anchorAliases": {},
+    "demos": []
+  },
+  "gpu-kernels-compilation": {
+    "concept": {
+      "id": "gpu-kernels-compilation",
+      "slug": "gpu-kernels-compilation",
+      "title": "GPU 内核、算子融合与编译优化",
+      "category": "artificial-intelligence",
+      "difficulty": "挑战",
+      "summary": "从显存读写、kernel 启动与中间张量理解融合，分清 CUDA、Triton、torch.compile 和 CUDA Graph 的作用。",
+      "prerequisites": [
+        "gpu-memory-bandwidth",
+        "pytorch-autograd"
+      ],
+      "relatedConcepts": [
+        "llm-prefill-decode",
+        "inference-benchmarking"
+      ],
+      "explanation": "假设 float32 数组有 100 万个元素，scale 和 bias 是标量且忽略其流量。分开乘、加时，需要读 x、写中间值、读中间值、写 y，理想流量为 16 MB；融合后只读 x、写 y，理想为 8 MB。流量减半不保证耗时精确减半。",
+      "principle": "融合适合复用同一数据的相邻运算，但可能提高寄存器需求、降低占用率，或破坏专门优化的库算子。注意力优化还可能利用分块和在线归一化避免物化完整注意力矩阵；它和简单地拼接几个逐元素算子不是同一难度。 torch.compile 的收益受图中断、动态 shape、重编译和后端支持影响。CUDA Graph 侧重捕获和重放执行以降低 CPU 提交开销，对地址、shape 与控制流有约束；它不会自动解决算法复杂度或内存容量问题。 性能验证至少包含：相同输入和 dtype、数值误差门槛、训练梯度（如适用）、预热、正确设备计时，以及真实形状分布。首轮编译成本应单独报告，不能把热身后的最快一次包装成完整服务延迟。",
+      "formula": {
+        "expression": "—",
+        "description": "—"
+      },
+      "workflow": [
+        "先用 profiler 找热点，确认是启动、访存还是计算占主导。",
+        "建立原始算子的数值与耗时基线。",
+        "优先尝试框架现有融合和编译选项，再判断是否值得写专用 kernel。",
+        "测常见与边界 shape；记录编译次数、冷启动、稳态和峰值显存。",
+        "在完整模型上复测，确认局部收益没有被其他瓶颈抵消。"
+      ],
+      "code": {
+        "language": "Python",
+        "source": "elements, bytes_per_element = 1_000_000, 4\nseparate = elements * bytes_per_element * 4\nfused = elements * bytes_per_element * 2\nprint(f\"separate={separate / 1e6:.1f} MB\")\nprint(f\"fused={fused / 1e6:.1f} MB\")",
+        "highlights": []
+      },
+      "codeExplanation": "",
+      "applications": [
+        "分析模型中大量小算子与 CPU 提交造成的性能损失。",
+        "为固定常用形状选择编译与执行图优化，并评估冷启动代价。"
+      ],
+      "pitfalls": [
+        "没有同步 GPU 就用 CPU 计时比较优化前后。",
+        "只核对输出 shape，不检查数值、梯度和不同精度下的误差。",
+        "用一个固定 shape 的最好结果预测动态请求服务。"
+      ]
+    },
+    "longForm": {
+      "id": "gpu-kernels-compilation",
+      "slug": "gpu-kernels-compilation",
+      "title": "GPU 内核、算子融合与编译优化",
+      "category": "artificial-intelligence",
+      "difficulty": "挑战",
+      "summary": "从显存读写、kernel 启动与中间张量理解融合，分清 CUDA、Triton、torch.compile 和 CUDA Graph 的作用。",
+      "prerequisites": [
+        "gpu-memory-bandwidth",
+        "pytorch-autograd"
+      ],
+      "relatedConcepts": [
+        "llm-prefill-decode",
+        "inference-benchmarking"
+      ],
+      "definition": [
+        "GPU kernel 是在设备上并行执行的计算程序。算子融合把多个计算步骤合进较少的 kernel，减少中间张量与启动。CUDA 提供 GPU 编程平台，Triton 是编写高效并行 kernel 的一种语言与编译工具，torch.compile 尝试捕获并优化 PyTorch 计算图。"
+      ],
+      "background": [
+        "计算 y = x * scale + bias 看起来很短，逐算子执行却可能先写出乘法结果，再重新读入做加法。小算子很多时，中间读写和启动成本可能超过有效计算。"
+      ],
+      "intuition": [
+        "假设 float32 数组有 100 万个元素，scale 和 bias 是标量且忽略其流量。分开乘、加时，需要读 x、写中间值、读中间值、写 y，理想流量为 16 MB；融合后只读 x、写 y，理想为 8 MB。流量减半不保证耗时精确减半。"
+      ],
+      "corePrinciple": [
+        "融合适合复用同一数据的相邻运算，但可能提高寄存器需求、降低占用率，或破坏专门优化的库算子。注意力优化还可能利用分块和在线归一化避免物化完整注意力矩阵；它和简单地拼接几个逐元素算子不是同一难度。",
+        "torch.compile 的收益受图中断、动态 shape、重编译和后端支持影响。CUDA Graph 侧重捕获和重放执行以降低 CPU 提交开销，对地址、shape 与控制流有约束；它不会自动解决算法复杂度或内存容量问题。",
+        "性能验证至少包含：相同输入和 dtype、数值误差门槛、训练梯度（如适用）、预热、正确设备计时，以及真实形状分布。首轮编译成本应单独报告，不能把热身后的最快一次包装成完整服务延迟。"
+      ],
+      "algorithmSteps": [
+        "先用 profiler 找热点，确认是启动、访存还是计算占主导。",
+        "建立原始算子的数值与耗时基线。",
+        "优先尝试框架现有融合和编译选项，再判断是否值得写专用 kernel。",
+        "测常见与边界 shape；记录编译次数、冷启动、稳态和峰值显存。",
+        "在完整模型上复测，确认局部收益没有被其他瓶颈抵消。"
+      ],
+      "applications": [
+        "分析模型中大量小算子与 CPU 提交造成的性能损失。",
+        "为固定常用形状选择编译与执行图优化，并评估冷启动代价。"
+      ],
+      "pitfalls": [
+        "没有同步 GPU 就用 CPU 计时比较优化前后。",
+        "只核对输出 shape，不检查数值、梯度和不同精度下的误差。",
+        "用一个固定 shape 的最好结果预测动态请求服务。"
+      ],
+      "extensionNotes": [],
+      "formulas": [],
+      "variableDefinitions": [],
+      "codeExamples": [
+        {
+          "title": "代码示例",
+          "language": "python",
+          "purpose": "",
+          "source": "elements, bytes_per_element = 1_000_000, 4\nseparate = elements * bytes_per_element * 4\nfused = elements * bytes_per_element * 2\nprint(f\"separate={separate / 1e6:.1f} MB\")\nprint(f\"fused={fused / 1e6:.1f} MB\")",
+          "explanation": [],
+          "expectedOutput": ""
+        }
+      ],
+      "codeExplanation": [],
+      "sourceDocuments": [],
+      "sourceSections": []
+    },
+    "sections": [
+      {
+        "id": "learning-objectives",
+        "title": "学习目标"
+      },
+      {
+        "id": "prerequisites",
+        "title": "学习前需要掌握"
+      },
+      {
+        "id": "background",
+        "title": "背景与问题"
+      },
+      {
+        "id": "definition",
+        "title": "概念定义"
+      },
+      {
+        "id": "intuition",
+        "title": "直观理解"
+      },
+      {
+        "id": "core-principle",
+        "title": "核心原理"
+      },
+      {
+        "id": "algorithm-steps",
+        "title": "计算与实践步骤"
+      },
+      {
+        "id": "code",
+        "title": "代码实现"
+      },
+      {
+        "id": "applications",
+        "title": "实际应用"
+      },
+      {
+        "id": "pitfalls",
+        "title": "常见错误"
+      },
+      {
+        "id": "related",
+        "title": "与其他概念的关系"
+      },
+      {
+        "id": "further-reading",
+        "title": "继续阅读"
+      }
+    ],
+    "order": 1008,
+    "directory": "AI Infra",
+    "file": "content/concepts/artificial-intelligence/gpu-kernels-compilation.mdx",
+    "searchText": "GPU 内核、算子融合与编译优化\n从显存读写、kernel 启动与中间张量理解融合，分清 CUDA、Triton、torch.compile 和 CUDA Graph 的作用。\n学习目标 {#learning-objectives}\n解释融合为什么可能减少显存搬运与启动开销。区分编译器、kernel 编程与执行图重放。正确分开编译冷启动和稳态性能。\n学习前需要掌握 {#prerequisites}\n背景与问题 {#background}\n计算 y = x * scale + bias 看起来很短，逐算子执行却可能先写出乘法结果，再重新读入做加法。小算子很多时，中间读写和启动成本可能超过有效计算。\n概念定义 {#definition}\nGPU kernel 是在设备上并行执行的计算程序。算子融合把多个计算步骤合进较少的 kernel，减少中间张量与启动。CUDA 提供 GPU 编程平台，Triton 是编写高效并行 kernel 的一种语言与编译工具，torch.compile 尝试捕获并优化 PyTorch 计算图。\n直观理解 {#intuition}\n假设 float32 数组有 100 万个元素，scale 和 bias 是标量且忽略其流量。分开乘、加时，需要读 x、写中间值、读中间值、写 y，理想流量为 16 MB；融合后只读 x、写 y，理想为 8 MB。流量减半不保证耗时精确减半。\n核心原理 {#core-principle}\n融合适合复用同一数据的相邻运算，但可能提高寄存器需求、降低占用率，或破坏专门优化的库算子。注意力优化还可能利用分块和在线归一化避免物化完整注意力矩阵；它和简单地拼接几个逐元素算子不是同一难度。\ntorch.compile 的收益受图中断、动态 shape、重编译和后端支持影响。CUDA Graph 侧重捕获和重放执行以降低 CPU 提交开销，对地址、shape 与控制流有约束；它不会自动解决算法复杂度或内存容量问题。\n性能验证至少包含：相同输入和 dtype、数值误差门槛、训练梯度（如适用）、预热、正确设备计时，以及真实形状分布。首轮编译成本应单独报告，不能把热身后的最快一次包装成完整服务延迟。\n计算与实践步骤 {#algorithm-steps}\n先用 profiler 找热点，确认是启动、访存还是计算占主导。建立原始算子的数值与耗时基线。优先尝试框架现有融合和编译选项，再判断是否值得写专用 kernel。测常见与边界 shape；记录编译次数、冷启动、稳态和峰值显存。在完整模型上复测，确认局部收益没有被其他瓶颈抵消。\n代码实现 {#code}\nelements, bytes_per_element = 1_000_000, 4\nseparate = elements * bytes_per_element * 4\nfused = elements * bytes_per_element * 2\nprint(f\"separate={separate / 1e6:.1f} MB\")\nprint(f\"fused={fused / 1e6:.1f} MB\")\n输出 separate=16.0 MB 与 fused=8.0 MB。这是理想流量账本，未运行 GPU kernel，也没有考虑缓存或编译器已经做过的融合。\n实际应用 {#applications}\n分析模型中大量小算子与 CPU 提交造成的性能损失。为固定常用形状选择编译与执行图优化，并评估冷启动代价。\n常见错误 {#pitfalls}\n没有同步 GPU 就用 CPU 计时比较优化前后。只核对输出 shape，不检查数值、梯度和不同精度下的误差。用一个固定 shape 的最好结果预测动态请求服务。\n与其他概念的关系 {#related}\n继续阅读 {#further-reading}\nIntroduction to torch.compile 提供编译路径与性能测量的官方例子。",
+    "anchorAliases": {},
+    "demos": []
+  },
+  "llm-prefill-decode": {
+    "concept": {
+      "id": "llm-prefill-decode",
+      "slug": "llm-prefill-decode",
+      "title": "大模型推理：Prefill 与 Decode",
+      "category": "artificial-intelligence",
+      "difficulty": "进阶",
+      "summary": "把处理提示词和逐 token 生成拆开，理解输入长度、输出长度、TTFT 与逐 token 延迟之间的关系。",
+      "prerequisites": [
+        "llm-memory-budget",
+        "transformer"
+      ],
+      "relatedConcepts": [
+        "kv-cache-paged-attention",
+        "continuous-batching",
+        "inference-benchmarking"
+      ],
+      "explanation": "某请求 300 ms 后收到首个 token，共生成 21 token，之后平均每 40 ms 一个 token，则最后一个 token 约在 300+20×40=1100 ms 到达。生成 21 token 只有 20 个后续间隔，不能再乘 21。",
+      "principle": "式中时间单位一致，$n_{\\mathrm{out}}$ 至少为 2；单 token 输出没有后续间隔，TPOT 应标记不适用。连接关闭或流结束事件可能晚于最后一个 token，因此端到端完成时间还要说明截止事件。 Prefill 常有较多并行矩阵计算，decode 小 batch 常受权重读取或缓存访问限制。长上下文还会扩大注意力与 KV 访问成本；具体瓶颈随模型、batch、硬件和注意力实现变化。 长 prefill 若独占执行，会干扰正在 decode 的请求。Chunked prefill 把输入处理切块，与其他请求交错；prefill/decode 分离则把两阶段放到不同资源池，需要额外处理 KV 传输、调度与资源比例，不能视为无成本优化。",
+      "formula": {
+        "expression": "T_{\\mathrm{last\\ token}}\\approx TTFT+(n_{\\mathrm{out}}-1)\\,TPOT",
+        "description": ""
+      },
+      "workflow": [
+        "固定模型、tokenizer、输入与输出长度分布。",
+        "记录请求发送、首 token、各后续 token 与完成事件。",
+        "分别统计排队、TTFT、TPOT 与完成延迟，查看分位数。",
+        "改变输入长度与输出长度，观察瓶颈如何移动。",
+        "在并发负载下复测，检查长输入是否拖慢其他请求。"
+      ],
+      "code": {
+        "language": "Python",
+        "source": "",
+        "highlights": []
+      },
+      "codeExplanation": "",
+      "applications": [
+        "交互问答优先检查首响应和生成节奏，离线任务更重视有效吞吐。",
+        "为长文总结、RAG 和代码补全设置不同的输入输出预算。"
+      ],
+      "pitfalls": [
+        "把总输出 token/s 的倒数当作每位用户的 TPOT。",
+        "只测模型内部 prefill 耗时，却把它命名为客户端 TTFT。",
+        "计算 TPOT 时把首 token 等待也算进去，导致两项重复。"
+      ]
+    },
+    "longForm": {
+      "id": "llm-prefill-decode",
+      "slug": "llm-prefill-decode",
+      "title": "大模型推理：Prefill 与 Decode",
+      "category": "artificial-intelligence",
+      "difficulty": "进阶",
+      "summary": "把处理提示词和逐 token 生成拆开，理解输入长度、输出长度、TTFT 与逐 token 延迟之间的关系。",
+      "prerequisites": [
+        "llm-memory-budget",
+        "transformer"
+      ],
+      "relatedConcepts": [
+        "kv-cache-paged-attention",
+        "continuous-batching",
+        "inference-benchmarking"
+      ],
+      "definition": [
+        "Prefill 处理已经知道的提示词 token，计算相应隐藏状态并建立 KV Cache；因果 mask 保留自回归约束，但提示词位置可以并行参与计算。Decode 在已有上下文基础上每轮生成新 token，后续 token 依赖之前的生成结果。",
+        "TTFT（Time to First Token）是客户端从发送请求到收到首个输出 token 的时间，通常包括排队、输入处理、prefill 与传输；TPOT（Time per Output Token）通常描述首个 token 之后的平均生成间隔，必须说明具体统计口径。"
+      ],
+      "background": [
+        "同一模型回答两个问题：一个输入很长但只要求短答，另一个输入很短却要求长文。两者可能有相近的总 token 数，用户感受到的等待过程却完全不同。"
+      ],
+      "intuition": [
+        "某请求 300 ms 后收到首个 token，共生成 21 token，之后平均每 40 ms 一个 token，则最后一个 token 约在 300+20×40=1100 ms 到达。生成 21 token 只有 20 个后续间隔，不能再乘 21。"
+      ],
+      "corePrinciple": [
+        "式中时间单位一致，$n_{\\mathrm{out}}$ 至少为 2；单 token 输出没有后续间隔，TPOT 应标记不适用。连接关闭或流结束事件可能晚于最后一个 token，因此端到端完成时间还要说明截止事件。",
+        "Prefill 常有较多并行矩阵计算，decode 小 batch 常受权重读取或缓存访问限制。长上下文还会扩大注意力与 KV 访问成本；具体瓶颈随模型、batch、硬件和注意力实现变化。",
+        "长 prefill 若独占执行，会干扰正在 decode 的请求。Chunked prefill 把输入处理切块，与其他请求交错；prefill/decode 分离则把两阶段放到不同资源池，需要额外处理 KV 传输、调度与资源比例，不能视为无成本优化。"
+      ],
+      "algorithmSteps": [
+        "固定模型、tokenizer、输入与输出长度分布。",
+        "记录请求发送、首 token、各后续 token 与完成事件。",
+        "分别统计排队、TTFT、TPOT 与完成延迟，查看分位数。",
+        "改变输入长度与输出长度，观察瓶颈如何移动。",
+        "在并发负载下复测，检查长输入是否拖慢其他请求。"
+      ],
+      "applications": [
+        "交互问答优先检查首响应和生成节奏，离线任务更重视有效吞吐。",
+        "为长文总结、RAG 和代码补全设置不同的输入输出预算。"
+      ],
+      "pitfalls": [
+        "把总输出 token/s 的倒数当作每位用户的 TPOT。",
+        "只测模型内部 prefill 耗时，却把它命名为客户端 TTFT。",
+        "计算 TPOT 时把首 token 等待也算进去，导致两项重复。"
+      ],
+      "extensionNotes": [],
+      "formulas": [
+        {
+          "label": "数学表达",
+          "expression": "T_{\\mathrm{last\\ token}}\\approx TTFT+(n_{\\mathrm{out}}-1)\\,TPOT",
+          "description": ""
+        }
+      ],
+      "variableDefinitions": [],
+      "codeExamples": [],
+      "codeExplanation": [],
+      "sourceDocuments": [],
+      "sourceSections": []
+    },
+    "sections": [
+      {
+        "id": "learning-objectives",
+        "title": "学习目标"
+      },
+      {
+        "id": "prerequisites",
+        "title": "学习前需要掌握"
+      },
+      {
+        "id": "background",
+        "title": "背景与问题"
+      },
+      {
+        "id": "definition",
+        "title": "概念定义"
+      },
+      {
+        "id": "intuition",
+        "title": "直观理解"
+      },
+      {
+        "id": "core-principle",
+        "title": "核心原理"
+      },
+      {
+        "id": "algorithm-steps",
+        "title": "分析与实践步骤"
+      },
+      {
+        "id": "applications",
+        "title": "实际应用"
+      },
+      {
+        "id": "pitfalls",
+        "title": "常见错误"
+      },
+      {
+        "id": "related",
+        "title": "与其他概念的关系"
+      }
+    ],
+    "order": 1009,
+    "directory": "AI Infra",
+    "file": "content/concepts/artificial-intelligence/llm-prefill-decode.mdx",
+    "searchText": "大模型推理：Prefill 与 Decode\n把处理提示词和逐 token 生成拆开，理解输入长度、输出长度、TTFT 与逐 token 延迟之间的关系。\n学习目标 {#learning-objectives}\n说明 prefill 与 decode 的输入、输出和依赖关系。用 TTFT 与 TPOT 分解用户等待时间。判断长输入和长输出带来的不同压力。\n学习前需要掌握 {#prerequisites}\n背景与问题 {#background}\n同一模型回答两个问题：一个输入很长但只要求短答，另一个输入很短却要求长文。两者可能有相近的总 token 数，用户感受到的等待过程却完全不同。\n概念定义 {#definition}\nPrefill 处理已经知道的提示词 token，计算相应隐藏状态并建立 KV Cache；因果 mask 保留自回归约束，但提示词位置可以并行参与计算。Decode 在已有上下文基础上每轮生成新 token，后续 token 依赖之前的生成结果。\nTTFT（Time to First Token）是客户端从发送请求到收到首个输出 token 的时间，通常包括排队、输入处理、prefill 与传输；TPOT（Time per Output Token）通常描述首个 token 之后的平均生成间隔，必须说明具体统计口径。\n直观理解 {#intuition}\n某请求 300 ms 后收到首个 token，共生成 21 token，之后平均每 40 ms 一个 token，则最后一个 token 约在 300+20×40=1100 ms 到达。生成 21 token 只有 20 个后续间隔，不能再乘 21。\n核心原理 {#core-principle}\nT_{\\mathrm{last\\ token}}\\approx TTFT+(n_{\\mathrm{out}}-1)\\,TPOT\n式中时间单位一致，$n_{\\mathrm{out}}$ 至少为 2；单 token 输出没有后续间隔，TPOT 应标记不适用。连接关闭或流结束事件可能晚于最后一个 token，因此端到端完成时间还要说明截止事件。\nPrefill 常有较多并行矩阵计算，decode 小 batch 常受权重读取或缓存访问限制。长上下文还会扩大注意力与 KV 访问成本；具体瓶颈随模型、batch、硬件和注意力实现变化。\n长 prefill 若独占执行，会干扰正在 decode 的请求。Chunked prefill 把输入处理切块，与其他请求交错；prefill/decode 分离则把两阶段放到不同资源池，需要额外处理 KV 传输、调度与资源比例，不能视为无成本优化。\n分析与实践步骤 {#algorithm-steps}\n固定模型、tokenizer、输入与输出长度分布。记录请求发送、首 token、各后续 token 与完成事件。分别统计排队、TTFT、TPOT 与完成延迟，查看分位数。改变输入长度与输出长度，观察瓶颈如何移动。在并发负载下复测，检查长输入是否拖慢其他请求。\n实际应用 {#applications}\n交互问答优先检查首响应和生成节奏，离线任务更重视有效吞吐。为长文总结、RAG 和代码补全设置不同的输入输出预算。\n常见错误 {#pitfalls}\n把总输出 token/s 的倒数当作每位用户的 TPOT。只测模型内部 prefill 耗时，却把它命名为客户端 TTFT。计算 TPOT 时把首 token 等待也算进去，导致两项重复。\n与其他概念的关系 {#related}",
+    "anchorAliases": {},
+    "demos": []
+  },
+  "kv-cache-paged-attention": {
+    "concept": {
+      "id": "kv-cache-paged-attention",
+      "slug": "kv-cache-paged-attention",
+      "title": "KV Cache 与分页注意力",
+      "category": "artificial-intelligence",
+      "difficulty": "挑战",
+      "summary": "计算自回归推理的 KV 缓存，理解 GQA、分页分配、前缀复用与上下文长度如何影响服务容量。",
+      "prerequisites": [
+        "llm-prefill-decode",
+        "multi-head-attention"
+      ],
+      "relatedConcepts": [
+        "continuous-batching",
+        "llm-memory-budget",
+        "llm-serving-deployment"
+      ],
+      "explanation": "假设 32 层、8 个 KV 头、每头 128 维，K/V 都用 BF16。每 token 缓存是 2×32×8×128×2=131072 byte，即 128 KiB；4096 token 的单序列约为 0.5 GiB，16 条同长序列约为 8 GiB。",
+      "principle": "$L$ 为层数，$H_{KV}$ 为 KV 头数，$d_h$ 为每头维度，$b_{KV}$ 为每元素字节数，$T_i$ 为第 $i$ 条序列当前保留的上下文 token 数。前面的 2 分别代表 K 与 V。这个式子假设所有层都保留完整历史，未考虑分片、滑动窗口、块取整与共享。 GQA 的 KV 头数通常小于 query 头数，应读取模型配置中的 KV 头数而不是直接使用注意力头总数。TP 下每卡缓存如何划分，还要核对后端对 KV 头的分配或复制方式。 块大小为 16 token 时，长度 17 的序列需 2 块、共 32 个位置，仍浪费 15 个位置。分页主要减少连续分配与预留带来的浪费，不能消除缓存随 token 增长的基本成本。 前缀复用可让完全相同且满足实现条件的前缀共享计算和物理块。缓存键必须匹配模型、tokenizer、适配器与相应推理配置；多租户还需考虑隔离与命中信息泄漏。它不会保证同一问题永远返回同一答案，也不等于保存完整回答。",
+      "formula": {
+        "expression": "M_{KV}=2 L H_{KV}d_h b_{KV}\\sum_{i=1}^{N} T_i",
+        "description": ""
+      },
+      "workflow": [
+        "从模型配置获取层数、KV 头数与维度，确认缓存 dtype。",
+        "将提示词、已生成 token 和并发分别纳入预算。",
+        "扣除权重、激活、运行时与余量，再估算缓存允许的总 token。",
+        "压测长尾长度、块利用率、缓存命中和抢占，确认峰值行为。"
+      ],
+      "code": {
+        "language": "Python",
+        "source": "layers, kv_heads, head_dim, bytes_per_value = 32, 8, 128, 2\ntokens, sequences = 4096, 16\nper_token = 2 * layers * kv_heads * head_dim * bytes_per_value\nprint(f\"per_token={per_token // 1024} KiB\")\nprint(f\"one_sequence={per_token * tokens / 2**30:.2f} GiB\")\nprint(f\"all_sequences={per_token * tokens * sequences / 2**30:.2f} GiB\")",
+        "highlights": []
+      },
+      "codeExplanation": "",
+      "applications": [
+        "决定最大上下文、活跃序列数与 token 总预算。",
+        "判断缓存不足时应减少并发、限制长度还是调整缓存实现。"
+      ],
+      "pitfalls": [
+        "忘记 K/V 两份张量，或把 query 头数误用为 KV 头数。",
+        "认为启用分页后任意长度与并发都能装下。",
+        "只按输入长度预算，没有为后续生成增长留空间。"
+      ]
+    },
+    "longForm": {
+      "id": "kv-cache-paged-attention",
+      "slug": "kv-cache-paged-attention",
+      "title": "KV Cache 与分页注意力",
+      "category": "artificial-intelligence",
+      "difficulty": "挑战",
+      "summary": "计算自回归推理的 KV 缓存，理解 GQA、分页分配、前缀复用与上下文长度如何影响服务容量。",
+      "prerequisites": [
+        "llm-prefill-decode",
+        "multi-head-attention"
+      ],
+      "relatedConcepts": [
+        "continuous-batching",
+        "llm-memory-budget",
+        "llm-serving-deployment"
+      ],
+      "definition": [
+        "KV Cache 保存自注意力层已经计算出的 key/value 张量，供后续 token 查询。分页注意力（PagedAttention）使用逻辑块到物理块的映射组织缓存，不要求为每条序列预先占用一段最大长度的连续显存。"
+      ],
+      "background": [
+        "模型权重固定，但随着生成变长，服务显存仍会增长。这是因为每条活跃序列需要保存各层历史 token 的 key 和 value，避免每一步重算完整历史。"
+      ],
+      "intuition": [
+        "假设 32 层、8 个 KV 头、每头 128 维，K/V 都用 BF16。每 token 缓存是 2×32×8×128×2=131072 byte，即 128 KiB；4096 token 的单序列约为 0.5 GiB，16 条同长序列约为 8 GiB。"
+      ],
+      "corePrinciple": [
+        "$L$ 为层数，$H_{KV}$ 为 KV 头数，$d_h$ 为每头维度，$b_{KV}$ 为每元素字节数，$T_i$ 为第 $i$ 条序列当前保留的上下文 token 数。前面的 2 分别代表 K 与 V。这个式子假设所有层都保留完整历史，未考虑分片、滑动窗口、块取整与共享。",
+        "GQA 的 KV 头数通常小于 query 头数，应读取模型配置中的 KV 头数而不是直接使用注意力头总数。TP 下每卡缓存如何划分，还要核对后端对 KV 头的分配或复制方式。",
+        "块大小为 16 token 时，长度 17 的序列需 2 块、共 32 个位置，仍浪费 15 个位置。分页主要减少连续分配与预留带来的浪费，不能消除缓存随 token 增长的基本成本。",
+        "前缀复用可让完全相同且满足实现条件的前缀共享计算和物理块。缓存键必须匹配模型、tokenizer、适配器与相应推理配置；多租户还需考虑隔离与命中信息泄漏。它不会保证同一问题永远返回同一答案，也不等于保存完整回答。"
+      ],
+      "algorithmSteps": [
+        "从模型配置获取层数、KV 头数与维度，确认缓存 dtype。",
+        "将提示词、已生成 token 和并发分别纳入预算。",
+        "扣除权重、激活、运行时与余量，再估算缓存允许的总 token。",
+        "压测长尾长度、块利用率、缓存命中和抢占，确认峰值行为。"
+      ],
+      "applications": [
+        "决定最大上下文、活跃序列数与 token 总预算。",
+        "判断缓存不足时应减少并发、限制长度还是调整缓存实现。"
+      ],
+      "pitfalls": [
+        "忘记 K/V 两份张量，或把 query 头数误用为 KV 头数。",
+        "认为启用分页后任意长度与并发都能装下。",
+        "只按输入长度预算，没有为后续生成增长留空间。"
+      ],
+      "extensionNotes": [],
+      "formulas": [
+        {
+          "label": "数学表达",
+          "expression": "M_{KV}=2 L H_{KV}d_h b_{KV}\\sum_{i=1}^{N} T_i",
+          "description": ""
+        }
+      ],
+      "variableDefinitions": [],
+      "codeExamples": [
+        {
+          "title": "代码示例",
+          "language": "python",
+          "purpose": "",
+          "source": "layers, kv_heads, head_dim, bytes_per_value = 32, 8, 128, 2\ntokens, sequences = 4096, 16\nper_token = 2 * layers * kv_heads * head_dim * bytes_per_value\nprint(f\"per_token={per_token // 1024} KiB\")\nprint(f\"one_sequence={per_token * tokens / 2**30:.2f} GiB\")\nprint(f\"all_sequences={per_token * tokens * sequences / 2**30:.2f} GiB\")",
+          "explanation": [],
+          "expectedOutput": ""
+        }
+      ],
+      "codeExplanation": [],
+      "sourceDocuments": [],
+      "sourceSections": []
+    },
+    "sections": [
+      {
+        "id": "learning-objectives",
+        "title": "学习目标"
+      },
+      {
+        "id": "prerequisites",
+        "title": "学习前需要掌握"
+      },
+      {
+        "id": "background",
+        "title": "背景与问题"
+      },
+      {
+        "id": "definition",
+        "title": "概念定义"
+      },
+      {
+        "id": "intuition",
+        "title": "直观理解"
+      },
+      {
+        "id": "core-principle",
+        "title": "核心原理"
+      },
+      {
+        "id": "algorithm-steps",
+        "title": "计算与实践步骤"
+      },
+      {
+        "id": "code",
+        "title": "代码实现"
+      },
+      {
+        "id": "applications",
+        "title": "实际应用"
+      },
+      {
+        "id": "pitfalls",
+        "title": "常见错误"
+      },
+      {
+        "id": "related",
+        "title": "与其他概念的关系"
+      },
+      {
+        "id": "further-reading",
+        "title": "继续阅读"
+      }
+    ],
+    "order": 1010,
+    "directory": "AI Infra",
+    "file": "content/concepts/artificial-intelligence/kv-cache-paged-attention.mdx",
+    "searchText": "KV Cache 与分页注意力\n计算自回归推理的 KV 缓存，理解 GQA、分页分配、前缀复用与上下文长度如何影响服务容量。\n学习目标 {#learning-objectives}\n按层数、KV 头数、head dimension 和 token 数计算缓存。说明分页减少分配浪费的机制与边界。区分 KV Cache、前缀复用和完整回答缓存。\n学习前需要掌握 {#prerequisites}\n背景与问题 {#background}\n模型权重固定，但随着生成变长，服务显存仍会增长。这是因为每条活跃序列需要保存各层历史 token 的 key 和 value，避免每一步重算完整历史。\n概念定义 {#definition}\nKV Cache 保存自注意力层已经计算出的 key/value 张量，供后续 token 查询。分页注意力（PagedAttention）使用逻辑块到物理块的映射组织缓存，不要求为每条序列预先占用一段最大长度的连续显存。\n直观理解 {#intuition}\n假设 32 层、8 个 KV 头、每头 128 维，K/V 都用 BF16。每 token 缓存是 2×32×8×128×2=131072 byte，即 128 KiB；4096 token 的单序列约为 0.5 GiB，16 条同长序列约为 8 GiB。\n核心原理 {#core-principle}\nM_{KV}=2 L H_{KV}d_h b_{KV}\\sum_{i=1}^{N} T_i\n$L$ 为层数，$H_{KV}$ 为 KV 头数，$d_h$ 为每头维度，$b_{KV}$ 为每元素字节数，$T_i$ 为第 $i$ 条序列当前保留的上下文 token 数。前面的 2 分别代表 K 与 V。这个式子假设所有层都保留完整历史，未考虑分片、滑动窗口、块取整与共享。\nGQA 的 KV 头数通常小于 query 头数，应读取模型配置中的 KV 头数而不是直接使用注意力头总数。TP 下每卡缓存如何划分，还要核对后端对 KV 头的分配或复制方式。\n块大小为 16 token 时，长度 17 的序列需 2 块、共 32 个位置，仍浪费 15 个位置。分页主要减少连续分配与预留带来的浪费，不能消除缓存随 token 增长的基本成本。\n前缀复用可让完全相同且满足实现条件的前缀共享计算和物理块。缓存键必须匹配模型、tokenizer、适配器与相应推理配置；多租户还需考虑隔离与命中信息泄漏。它不会保证同一问题永远返回同一答案，也不等于保存完整回答。\n计算与实践步骤 {#algorithm-steps}\n从模型配置获取层数、KV 头数与维度，确认缓存 dtype。将提示词、已生成 token 和并发分别纳入预算。扣除权重、激活、运行时与余量，再估算缓存允许的总 token。压测长尾长度、块利用率、缓存命中和抢占，确认峰值行为。\n代码实现 {#code}\nlayers, kv_heads, head_dim, bytes_per_value = 32, 8, 128, 2\ntokens, sequences = 4096, 16\nper_token = 2 * layers * kv_heads * head_dim * bytes_per_value\nprint(f\"per_token={per_token // 1024} KiB\")\nprint(f\"one_sequence={per_token * tokens / 2**30:.2f} GiB\")\nprint(f\"all_sequences={per_token * tokens * sequences / 2**30:.2f} GiB\")\n输出 per_token=128 KiB、one_sequence=0.50 GiB、all_sequences=8.00 GiB。这是教学配置，不是所有 7B 模型的 KV 结构。\n实际应用 {#applications}\n决定最大上下文、活跃序列数与 token 总预算。判断缓存不足时应减少并发、限制长度还是调整缓存实现。\n常见错误 {#pitfalls}\n忘记 K/V 两份张量，或把 query 头数误用为 KV 头数。认为启用分页后任意长度与并发都能装下。只按输入长度预算，没有为后续生成增长留空间。\n与其他概念的关系 {#related}\n继续阅读 {#further-reading}\nvLLM Paged Attention 说明块表映射与注意力 kernel 的数据布局。",
+    "anchorAliases": {},
+    "demos": []
+  },
+  "continuous-batching": {
+    "concept": {
+      "id": "continuous-batching",
+      "slug": "continuous-batching",
+      "title": "连续批处理与推理请求调度",
+      "category": "artificial-intelligence",
+      "difficulty": "进阶",
+      "summary": "用不同输出长度的请求比较静态与连续批处理，理解吞吐、排队、KV 预算和交互延迟之间的权衡。",
+      "prerequisites": [
+        "llm-prefill-decode"
+      ],
+      "relatedConcepts": [
+        "kv-cache-paged-attention",
+        "inference-benchmarking",
+        "gpu-cluster-scheduling"
+      ],
+      "explanation": "设三个请求都在时刻 0 到达，输出长度为 2、4、2，最多同时处理两条，忽略 prefill 且每轮每条生成一个 token。固定两条成批执行，需要 4+2=6 轮；连续调度在第一条第 2 轮完成后加入第三条，三条到第 4 轮都完成。",
+      "principle": "活跃序列数控制同时参与生成的请求数量，token 预算控制一轮允许处理的工作量，KV 预算约束驻留上下文。三者互相关联但不能互相替代：两个超长输入可能比十个短输入消耗更多 prefill 工作与缓存。 增大 batch 通常能提高权重读取复用率，但可能增大每轮耗时、排队与单请求间隔。Chunked prefill 可减少长输入对 decode 的阻塞，但块大小和优先级需要在 TTFT、TPOT 与吞吐之间权衡。 服务还需要取消传播、超时、背压和准入控制。超过容量时无限排队不会创造算力，只会拉高尾延迟；应记录拒绝、超时和重试，并防止长请求长期饿死短请求或反之。",
+      "formula": {
+        "expression": "—",
+        "description": "—"
+      },
+      "workflow": [
+        "固定真实长度分布、到达模式和超时规则。",
+        "同时观察等待队列、活跃序列、KV 使用、TTFT 和 TPOT 分位数。",
+        "逐项调整序列上限、token 预算和 prefill 分块。",
+        "引入长短混合、取消与突发流量，检查公平性和背压。",
+        "只有在质量、错误率和延迟门槛都满足时，才把吞吐增长算作有效收益。"
+      ],
+      "code": {
+        "language": "Python",
+        "source": "from collections import deque\n\nlengths, slots = [2, 4, 2], 2\nstatic_rounds = sum(max(lengths[i:i + slots]) for i in range(0, len(lengths), slots))\nwaiting, active, rounds = deque(lengths), [], 0\nwhile waiting or active:\n    while waiting and len(active) < slots:\n        active.append(waiting.popleft())\n    active = [remaining - 1 for remaining in active if remaining > 1]\n    rounds += 1\nprint(f\"static_rounds={static_rounds}, continuous_rounds={rounds}\")",
+        "highlights": []
+      },
+      "codeExplanation": "",
+      "applications": [
+        "多用户生成服务中减少长短请求混批造成的闲置。",
+        "为在线交互与离线批处理设置不同的排队策略。"
+      ],
+      "pitfalls": [
+        "把最大 batch 调到最大值，忽略缓存不足与尾延迟。",
+        "客户端取消后 GPU 仍继续生成，浪费容量。",
+        "仅统计完成请求，不报告拒绝和超时，隐藏饱和问题。"
+      ]
+    },
+    "longForm": {
+      "id": "continuous-batching",
+      "slug": "continuous-batching",
+      "title": "连续批处理与推理请求调度",
+      "category": "artificial-intelligence",
+      "difficulty": "进阶",
+      "summary": "用不同输出长度的请求比较静态与连续批处理，理解吞吐、排队、KV 预算和交互延迟之间的权衡。",
+      "prerequisites": [
+        "llm-prefill-decode"
+      ],
+      "relatedConcepts": [
+        "kv-cache-paged-attention",
+        "inference-benchmarking",
+        "gpu-cluster-scheduling"
+      ],
+      "definition": [
+        "连续批处理在生成迭代边界更新活跃请求集合：完成或取消的请求退出，等待请求在资源允许时加入。调度器同时协调 prefill、decode、KV 缓存和计算预算，而不是仅把所有请求拼成一个大 batch。"
+      ],
+      "background": [
+        "同一批中的一个请求只生成 2 token，另一个生成 200 token。若整批结束后才接收新请求，短请求留下的可用位置会闲置很久。"
+      ],
+      "intuition": [
+        "设三个请求都在时刻 0 到达，输出长度为 2、4、2，最多同时处理两条，忽略 prefill 且每轮每条生成一个 token。固定两条成批执行，需要 4+2=6 轮；连续调度在第一条第 2 轮完成后加入第三条，三条到第 4 轮都完成。"
+      ],
+      "corePrinciple": [
+        "活跃序列数控制同时参与生成的请求数量，token 预算控制一轮允许处理的工作量，KV 预算约束驻留上下文。三者互相关联但不能互相替代：两个超长输入可能比十个短输入消耗更多 prefill 工作与缓存。",
+        "增大 batch 通常能提高权重读取复用率，但可能增大每轮耗时、排队与单请求间隔。Chunked prefill 可减少长输入对 decode 的阻塞，但块大小和优先级需要在 TTFT、TPOT 与吞吐之间权衡。",
+        "服务还需要取消传播、超时、背压和准入控制。超过容量时无限排队不会创造算力，只会拉高尾延迟；应记录拒绝、超时和重试，并防止长请求长期饿死短请求或反之。"
+      ],
+      "algorithmSteps": [
+        "固定真实长度分布、到达模式和超时规则。",
+        "同时观察等待队列、活跃序列、KV 使用、TTFT 和 TPOT 分位数。",
+        "逐项调整序列上限、token 预算和 prefill 分块。",
+        "引入长短混合、取消与突发流量，检查公平性和背压。",
+        "只有在质量、错误率和延迟门槛都满足时，才把吞吐增长算作有效收益。"
+      ],
+      "applications": [
+        "多用户生成服务中减少长短请求混批造成的闲置。",
+        "为在线交互与离线批处理设置不同的排队策略。"
+      ],
+      "pitfalls": [
+        "把最大 batch 调到最大值，忽略缓存不足与尾延迟。",
+        "客户端取消后 GPU 仍继续生成，浪费容量。",
+        "仅统计完成请求，不报告拒绝和超时，隐藏饱和问题。"
+      ],
+      "extensionNotes": [],
+      "formulas": [],
+      "variableDefinitions": [],
+      "codeExamples": [
+        {
+          "title": "代码示例",
+          "language": "python",
+          "purpose": "",
+          "source": "from collections import deque\n\nlengths, slots = [2, 4, 2], 2\nstatic_rounds = sum(max(lengths[i:i + slots]) for i in range(0, len(lengths), slots))\nwaiting, active, rounds = deque(lengths), [], 0\nwhile waiting or active:\n    while waiting and len(active) < slots:\n        active.append(waiting.popleft())\n    active = [remaining - 1 for remaining in active if remaining > 1]\n    rounds += 1\nprint(f\"static_rounds={static_rounds}, continuous_rounds={rounds}\")",
+          "explanation": [],
+          "expectedOutput": ""
+        }
+      ],
+      "codeExplanation": [],
+      "sourceDocuments": [],
+      "sourceSections": []
+    },
+    "sections": [
+      {
+        "id": "learning-objectives",
+        "title": "学习目标"
+      },
+      {
+        "id": "prerequisites",
+        "title": "学习前需要掌握"
+      },
+      {
+        "id": "background",
+        "title": "背景与问题"
+      },
+      {
+        "id": "definition",
+        "title": "概念定义"
+      },
+      {
+        "id": "intuition",
+        "title": "直观理解"
+      },
+      {
+        "id": "core-principle",
+        "title": "核心原理"
+      },
+      {
+        "id": "code",
+        "title": "小型调度实验"
+      },
+      {
+        "id": "algorithm-steps",
+        "title": "调优与实践步骤"
+      },
+      {
+        "id": "applications",
+        "title": "实际应用"
+      },
+      {
+        "id": "pitfalls",
+        "title": "常见错误"
+      },
+      {
+        "id": "related",
+        "title": "与其他概念的关系"
+      }
+    ],
+    "order": 1011,
+    "directory": "AI Infra",
+    "file": "content/concepts/artificial-intelligence/continuous-batching.mdx",
+    "searchText": "连续批处理与推理请求调度\n用不同输出长度的请求比较静态与连续批处理，理解吞吐、排队、KV 预算和交互延迟之间的权衡。\n学习目标 {#learning-objectives}\n解释连续批处理如何回收已完成请求的位置。区分序列数上限与每轮 token 预算。判断吞吐改善是否牺牲了尾延迟与公平性。\n学习前需要掌握 {#prerequisites}\n背景与问题 {#background}\n同一批中的一个请求只生成 2 token，另一个生成 200 token。若整批结束后才接收新请求，短请求留下的可用位置会闲置很久。\n概念定义 {#definition}\n连续批处理在生成迭代边界更新活跃请求集合：完成或取消的请求退出，等待请求在资源允许时加入。调度器同时协调 prefill、decode、KV 缓存和计算预算，而不是仅把所有请求拼成一个大 batch。\n直观理解 {#intuition}\n设三个请求都在时刻 0 到达，输出长度为 2、4、2，最多同时处理两条，忽略 prefill 且每轮每条生成一个 token。固定两条成批执行，需要 4+2=6 轮；连续调度在第一条第 2 轮完成后加入第三条，三条到第 4 轮都完成。\n核心原理 {#core-principle}\n活跃序列数控制同时参与生成的请求数量，token 预算控制一轮允许处理的工作量，KV 预算约束驻留上下文。三者互相关联但不能互相替代：两个超长输入可能比十个短输入消耗更多 prefill 工作与缓存。\n增大 batch 通常能提高权重读取复用率，但可能增大每轮耗时、排队与单请求间隔。Chunked prefill 可减少长输入对 decode 的阻塞，但块大小和优先级需要在 TTFT、TPOT 与吞吐之间权衡。\n服务还需要取消传播、超时、背压和准入控制。超过容量时无限排队不会创造算力，只会拉高尾延迟；应记录拒绝、超时和重试，并防止长请求长期饿死短请求或反之。\n小型调度实验 {#code}\n以下是单位轮次的 CPU 模拟，每条请求每轮固定前进一步，不含真实 prefill、KV 和 GPU 执行成本。\nfrom collections import deque\n\nlengths, slots = [2, 4, 2], 2\nstatic_rounds = sum(max(lengths[i:i + slots]) for i in range(0, len(lengths), slots))\nwaiting, active, rounds = deque(lengths), [], 0\nwhile waiting or active:\n    while waiting and len(active) < slots:\n        active.append(waiting.popleft())\n    active = [remaining - 1 for remaining in active if remaining > 1]\n    rounds += 1\nprint(f\"static_rounds={static_rounds}, continuous_rounds={rounds}\")\n输出 static_rounds=6, continuous_rounds=4。这个差异只说明调度机制；现实中每轮耗时随 batch、长度与硬件改变，不能直接宣称吞吐提高 50%。\n调优与实践步骤 {#algorithm-steps}\n固定真实长度分布、到达模式和超时规则。同时观察等待队列、活跃序列、KV 使用、TTFT 和 TPOT 分位数。逐项调整序列上限、token 预算和 prefill 分块。引入长短混合、取消与突发流量，检查公平性和背压。只有在质量、错误率和延迟门槛都满足时，才把吞吐增长算作有效收益。\n实际应用 {#applications}\n多用户生成服务中减少长短请求混批造成的闲置。为在线交互与离线批处理设置不同的排队策略。\n常见错误 {#pitfalls}\n把最大 batch 调到最大值，忽略缓存不足与尾延迟。客户端取消后 GPU 仍继续生成，浪费容量。仅统计完成请求，不报告拒绝和超时，隐藏饱和问题。\n与其他概念的关系 {#related}",
+    "anchorAliases": {},
+    "demos": []
+  },
+  "inference-quantization": {
+    "concept": {
+      "id": "inference-quantization",
+      "slug": "inference-quantization",
+      "title": "推理量化：容量、速度与质量的取舍",
+      "category": "artificial-intelligence",
+      "difficulty": "进阶",
+      "summary": "理解权重量化、激活量化与 KV 量化的不同对象，计算理想空间收益，并用质量与硬件实测约束选择。",
+      "prerequisites": [
+        "llm-memory-budget"
+      ],
+      "relatedConcepts": [
+        "automatic-mixed-precision",
+        "kv-cache-paged-attention",
+        "inference-benchmarking"
+      ],
+      "explanation": "恰好 7B 参数的理想 BF16 权重为 14 GB，4-bit 为 3.5 GB。若每 128 个参数保存一个 2-byte scale，且参数个数恰好可整除，则 scale 另需 109375000 byte，即约 0.109 GB；还没有算 zero point、打包对齐和保持高精度的层。",
+      "principle": "仿射量化常使用以下近似，$s$ 为尺度、$z$ 为零点，$q$ 为受位宽限制的整数： 分组量化允许不同组使用不同尺度，通常改善局部表示，但增加元数据和读取成本。PTQ 在训练后校准或转换，QAT 在训练中模拟量化误差；不能把低精度存储与自动混合精度训练视为同一个流程。 质量验证要覆盖真实任务、长上下文、结构化输出与关键少数样本；只看困惑度或几个对话不足以证明任务没有退化。权重量化也不会自动缩小 KV Cache，长上下文服务仍可能由缓存决定容量。",
+      "formula": {
+        "expression": "q=\\operatorname{clip}\\!\\left(\\operatorname{round}(x/s)+z,q_{\\min},q_{\\max}\\right),\\qquad\n\\hat{x}=s(q-z)",
+        "description": ""
+      },
+      "workflow": [
+        "固定原始模型版本、tokenizer、任务数据与质量门槛。",
+        "核对 GPU 架构、服务后端、量化格式和 kernel 支持矩阵。",
+        "记录转换、校准数据及量化配置，避免把验证数据用于反复挑选方案。",
+        "测真实模型文件、显存峰值、TTFT、TPOT 和成功输出 token/s。",
+        "比较质量门槛与成本；不达标时保留高精度方案或只量化部分对象。"
+      ],
+      "code": {
+        "language": "Python",
+        "source": "",
+        "highlights": []
+      },
+      "codeExplanation": "",
+      "applications": [
+        "在单卡容量有限时尝试加载更大模型，或释放更多缓存空间。",
+        "对特定硬件优化在线推理，但保留可回退的基准产物。"
+      ],
+      "pitfalls": [
+        "认为 INT4 在任何 GPU 和任何 batch 下都更快。",
+        "只比较权重大小，没有测反量化开销与端到端延迟。",
+        "更换量化方案时顺带修改模型、提示词与采样参数，无法归因。"
+      ]
+    },
+    "longForm": {
+      "id": "inference-quantization",
+      "slug": "inference-quantization",
+      "title": "推理量化：容量、速度与质量的取舍",
+      "category": "artificial-intelligence",
+      "difficulty": "进阶",
+      "summary": "理解权重量化、激活量化与 KV 量化的不同对象，计算理想空间收益，并用质量与硬件实测约束选择。",
+      "prerequisites": [
+        "llm-memory-budget"
+      ],
+      "relatedConcepts": [
+        "automatic-mixed-precision",
+        "kv-cache-paged-attention",
+        "inference-benchmarking"
+      ],
+      "definition": [
+        "量化使用低位宽数值和尺度等元数据近似表示张量。权重量化改变参数表示，激活量化改变计算中间值，KV 量化改变历史注意力缓存。W4A16 通常表示 4-bit 权重与 16-bit 激活；具体计算与累加精度仍须查看实现。"
+      ],
+      "background": [
+        "把 BF16 权重变为 4-bit 看起来能缩小四倍，但真实文件不会总是恰好四分之一，速度也不一定提高四倍。后端需要支持对应格式，推理时还可能发生反量化和额外访存。"
+      ],
+      "intuition": [
+        "恰好 7B 参数的理想 BF16 权重为 14 GB，4-bit 为 3.5 GB。若每 128 个参数保存一个 2-byte scale，且参数个数恰好可整除，则 scale 另需 109375000 byte，即约 0.109 GB；还没有算 zero point、打包对齐和保持高精度的层。"
+      ],
+      "corePrinciple": [
+        "仿射量化常使用以下近似，$s$ 为尺度、$z$ 为零点，$q$ 为受位宽限制的整数：",
+        "分组量化允许不同组使用不同尺度，通常改善局部表示，但增加元数据和读取成本。PTQ 在训练后校准或转换，QAT 在训练中模拟量化误差；不能把低精度存储与自动混合精度训练视为同一个流程。",
+        "质量验证要覆盖真实任务、长上下文、结构化输出与关键少数样本；只看困惑度或几个对话不足以证明任务没有退化。权重量化也不会自动缩小 KV Cache，长上下文服务仍可能由缓存决定容量。"
+      ],
+      "algorithmSteps": [
+        "固定原始模型版本、tokenizer、任务数据与质量门槛。",
+        "核对 GPU 架构、服务后端、量化格式和 kernel 支持矩阵。",
+        "记录转换、校准数据及量化配置，避免把验证数据用于反复挑选方案。",
+        "测真实模型文件、显存峰值、TTFT、TPOT 和成功输出 token/s。",
+        "比较质量门槛与成本；不达标时保留高精度方案或只量化部分对象。"
+      ],
+      "applications": [
+        "在单卡容量有限时尝试加载更大模型，或释放更多缓存空间。",
+        "对特定硬件优化在线推理，但保留可回退的基准产物。"
+      ],
+      "pitfalls": [
+        "认为 INT4 在任何 GPU 和任何 batch 下都更快。",
+        "只比较权重大小，没有测反量化开销与端到端延迟。",
+        "更换量化方案时顺带修改模型、提示词与采样参数，无法归因。"
+      ],
+      "extensionNotes": [],
+      "formulas": [
+        {
+          "label": "数学表达",
+          "expression": "q=\\operatorname{clip}\\!\\left(\\operatorname{round}(x/s)+z,q_{\\min},q_{\\max}\\right),\\qquad\n\\hat{x}=s(q-z)",
+          "description": ""
+        }
+      ],
+      "variableDefinitions": [],
+      "codeExamples": [],
+      "codeExplanation": [],
+      "sourceDocuments": [],
+      "sourceSections": []
+    },
+    "sections": [
+      {
+        "id": "learning-objectives",
+        "title": "学习目标"
+      },
+      {
+        "id": "prerequisites",
+        "title": "学习前需要掌握"
+      },
+      {
+        "id": "background",
+        "title": "背景与问题"
+      },
+      {
+        "id": "definition",
+        "title": "概念定义"
+      },
+      {
+        "id": "intuition",
+        "title": "直观理解"
+      },
+      {
+        "id": "core-principle",
+        "title": "核心原理"
+      },
+      {
+        "id": "algorithm-steps",
+        "title": "选择与实践步骤"
+      },
+      {
+        "id": "applications",
+        "title": "实际应用"
+      },
+      {
+        "id": "pitfalls",
+        "title": "常见错误"
+      },
+      {
+        "id": "related",
+        "title": "与其他概念的关系"
+      },
+      {
+        "id": "further-reading",
+        "title": "继续阅读"
+      }
+    ],
+    "order": 1012,
+    "directory": "AI Infra",
+    "file": "content/concepts/artificial-intelligence/inference-quantization.mdx",
+    "searchText": "推理量化：容量、速度与质量的取舍\n理解权重量化、激活量化与 KV 量化的不同对象，计算理想空间收益，并用质量与硬件实测约束选择。\n学习目标 {#learning-objectives}\n区分 W4A16、W8A8 与 KV Cache 量化。解释 scale、zero point 和分组元数据带来的额外开销。设计量化前后的质量与性能对照。\n学习前需要掌握 {#prerequisites}\n背景与问题 {#background}\n把 BF16 权重变为 4-bit 看起来能缩小四倍，但真实文件不会总是恰好四分之一，速度也不一定提高四倍。后端需要支持对应格式，推理时还可能发生反量化和额外访存。\n概念定义 {#definition}\n量化使用低位宽数值和尺度等元数据近似表示张量。权重量化改变参数表示，激活量化改变计算中间值，KV 量化改变历史注意力缓存。W4A16 通常表示 4-bit 权重与 16-bit 激活；具体计算与累加精度仍须查看实现。\n直观理解 {#intuition}\n恰好 7B 参数的理想 BF16 权重为 14 GB，4-bit 为 3.5 GB。若每 128 个参数保存一个 2-byte scale，且参数个数恰好可整除，则 scale 另需 109375000 byte，即约 0.109 GB；还没有算 zero point、打包对齐和保持高精度的层。\n核心原理 {#core-principle}\n仿射量化常使用以下近似，$s$ 为尺度、$z$ 为零点，$q$ 为受位宽限制的整数：\nq=\\operatorname{clip}\\!\\left(\\operatorname{round}(x/s)+z,q_{\\min},q_{\\max}\\right),\\qquad\n\\hat{x}=s(q-z)\n分组量化允许不同组使用不同尺度，通常改善局部表示，但增加元数据和读取成本。PTQ 在训练后校准或转换，QAT 在训练中模拟量化误差；不能把低精度存储与自动混合精度训练视为同一个流程。\n质量验证要覆盖真实任务、长上下文、结构化输出与关键少数样本；只看困惑度或几个对话不足以证明任务没有退化。权重量化也不会自动缩小 KV Cache，长上下文服务仍可能由缓存决定容量。\n选择与实践步骤 {#algorithm-steps}\n固定原始模型版本、tokenizer、任务数据与质量门槛。核对 GPU 架构、服务后端、量化格式和 kernel 支持矩阵。记录转换、校准数据及量化配置，避免把验证数据用于反复挑选方案。测真实模型文件、显存峰值、TTFT、TPOT 和成功输出 token/s。比较质量门槛与成本；不达标时保留高精度方案或只量化部分对象。\n实际应用 {#applications}\n在单卡容量有限时尝试加载更大模型，或释放更多缓存空间。对特定硬件优化在线推理，但保留可回退的基准产物。\n常见错误 {#pitfalls}\n认为 INT4 在任何 GPU 和任何 batch 下都更快。只比较权重大小，没有测反量化开销与端到端延迟。更换量化方案时顺带修改模型、提示词与采样参数，无法归因。\n与其他概念的关系 {#related}\n继续阅读 {#further-reading}\nvLLM Quantization 用于核对量化格式与硬件支持，支持矩阵应以实际安装版本为准。",
+    "anchorAliases": {},
+    "demos": []
+  },
+  "llm-serving-deployment": {
+    "concept": {
+      "id": "llm-serving-deployment",
+      "slug": "llm-serving-deployment",
+      "title": "大模型服务部署与版本发布",
+      "category": "artificial-intelligence",
+      "difficulty": "进阶",
+      "summary": "从可复现产物、vLLM 本地服务到就绪检查、流式请求、灰度与回滚，建立可检查的部署流程。",
+      "prerequisites": [
+        "llm-prefill-decode",
+        "llm-memory-budget"
+      ],
+      "relatedConcepts": [
+        "continuous-batching",
+        "inference-benchmarking",
+        "ai-infra-observability"
+      ],
+      "explanation": "一个副本已经监听端口，但还在加载 14 GB 权重。如果流量在这一刻进入，就会排队、失败或超时。只有完成模型加载并通过小请求验证后，才应标记 ready 并接收业务流量。",
+      "principle": "存活检查关注进程是否需要重启，就绪检查关注是否可以接流量，启动检查允许慢加载期间避免被过早杀掉。真实推理验证应使用固定短请求，确认格式、tokenizer、流式结束和基本质量；检查频率也要避免产生过大负载。 接口兼容不等于语义完全一致。不同后端支持的采样参数、工具调用格式、chat template 与错误事件可能不同。流式服务在已返回 HTTP 200 后仍可能中途出错，应检查结束事件与生成完整性。 发布时先验证新副本，再逐步分流，比较质量、错误率、延迟与显存；旧版本保留到观察期结束。下线时停止接收新请求，对存量请求进行有期限的 drain，随后回收资源。",
+      "formula": {
+        "expression": "—",
+        "description": "—"
+      },
+      "workflow": [
+        "准备 Linux GPU 环境、匹配的驱动与服务运行时，核对模型许可和硬件支持。Windows 可使用满足 GPU 条件的 Linux/WSL2 环境，具体支持以安装版本为准。",
+        "下载并固定一个已知 revision 到本地目录，记录 tokenizer 与 chat template；先做离线生成验证。",
+        "检查 vllm --version 和 vllm serve --help，再用本地目录启动，仅监听本机。",
+        "用相同模型别名发送一个非流式与一个流式短请求；核对首 token、结束原因和输出格式。",
+        "根据预算设置长度、并发、超时与网关限制，完成压测后再增加流量。",
+        "例如，本地模型目录为 /models/learning-model，可使用命令 vllm serve /models/learning-model --host 127.0.0.1 --port 8000 --served-model-name learning-model。该命令需要已安装且兼容的 vLLM、完整模型文件和足够 GPU 显存，本页不把它描述为已执行的实验。"
+      ],
+      "code": {
+        "language": "Python",
+        "source": "{\n  \"model\": \"learning-model\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"用一句话解释显存带宽。\"}],\n  \"max_tokens\": 64,\n  \"temperature\": 0,\n  \"stream\": true\n}",
+        "highlights": []
+      },
+      "codeExplanation": "",
+      "applications": [
+        "把离线验证过的本地模型接入应用，并保留模型版本证据。",
+        "为新量化格式、服务引擎升级或新模型建立灰度比较。"
+      ],
+      "pitfalls": [
+        "只固定模型名称，没有固定 revision、tokenizer 与运行时。",
+        "以 liveness 代替 readiness，或让加载慢的服务陷入反复重启。",
+        "直接把裸模型服务暴露到公网，省略认证、限流、长度约束与租户隔离。",
+        "默认开启任意远程模型代码或记录完整用户提示词，却没有核对实际需求与权限。"
+      ]
+    },
+    "longForm": {
+      "id": "llm-serving-deployment",
+      "slug": "llm-serving-deployment",
+      "title": "大模型服务部署与版本发布",
+      "category": "artificial-intelligence",
+      "difficulty": "进阶",
+      "summary": "从可复现产物、vLLM 本地服务到就绪检查、流式请求、灰度与回滚，建立可检查的部署流程。",
+      "prerequisites": [
+        "llm-prefill-decode",
+        "llm-memory-budget"
+      ],
+      "relatedConcepts": [
+        "continuous-batching",
+        "inference-benchmarking",
+        "ai-infra-observability"
+      ],
+      "definition": [
+        "模型服务把模型产物包装成可调用接口，并管理加载、输入限制、请求调度、流式输出和生命周期。可复现产物应绑定权重 revision、tokenizer、chat template、量化、运行时镜像和启动参数。"
+      ],
+      "background": [
+        "服务进程启动不代表模型已加载，端口能连接也不代表生成正常。发布一个 tokenizer 不匹配的模型，可能让输入输出出错；同时重启全部副本又可能造成整个服务冷启动。"
+      ],
+      "intuition": [
+        "一个副本已经监听端口，但还在加载 14 GB 权重。如果流量在这一刻进入，就会排队、失败或超时。只有完成模型加载并通过小请求验证后，才应标记 ready 并接收业务流量。"
+      ],
+      "corePrinciple": [
+        "存活检查关注进程是否需要重启，就绪检查关注是否可以接流量，启动检查允许慢加载期间避免被过早杀掉。真实推理验证应使用固定短请求，确认格式、tokenizer、流式结束和基本质量；检查频率也要避免产生过大负载。",
+        "接口兼容不等于语义完全一致。不同后端支持的采样参数、工具调用格式、chat template 与错误事件可能不同。流式服务在已返回 HTTP 200 后仍可能中途出错，应检查结束事件与生成完整性。",
+        "发布时先验证新副本，再逐步分流，比较质量、错误率、延迟与显存；旧版本保留到观察期结束。下线时停止接收新请求，对存量请求进行有期限的 drain，随后回收资源。"
+      ],
+      "algorithmSteps": [
+        "准备 Linux GPU 环境、匹配的驱动与服务运行时，核对模型许可和硬件支持。Windows 可使用满足 GPU 条件的 Linux/WSL2 环境，具体支持以安装版本为准。",
+        "下载并固定一个已知 revision 到本地目录，记录 tokenizer 与 chat template；先做离线生成验证。",
+        "检查 vllm --version 和 vllm serve --help，再用本地目录启动，仅监听本机。",
+        "用相同模型别名发送一个非流式与一个流式短请求；核对首 token、结束原因和输出格式。",
+        "根据预算设置长度、并发、超时与网关限制，完成压测后再增加流量。",
+        "例如，本地模型目录为 /models/learning-model，可使用命令 vllm serve /models/learning-model --host 127.0.0.1 --port 8000 --served-model-name learning-model。该命令需要已安装且兼容的 vLLM、完整模型文件和足够 GPU 显存，本页不把它描述为已执行的实验。"
+      ],
+      "applications": [
+        "把离线验证过的本地模型接入应用，并保留模型版本证据。",
+        "为新量化格式、服务引擎升级或新模型建立灰度比较。"
+      ],
+      "pitfalls": [
+        "只固定模型名称，没有固定 revision、tokenizer 与运行时。",
+        "以 liveness 代替 readiness，或让加载慢的服务陷入反复重启。",
+        "直接把裸模型服务暴露到公网，省略认证、限流、长度约束与租户隔离。",
+        "默认开启任意远程模型代码或记录完整用户提示词，却没有核对实际需求与权限。"
+      ],
+      "extensionNotes": [],
+      "formulas": [],
+      "variableDefinitions": [],
+      "codeExamples": [
+        {
+          "title": "代码示例",
+          "language": "json",
+          "purpose": "",
+          "source": "{\n  \"model\": \"learning-model\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"用一句话解释显存带宽。\"}],\n  \"max_tokens\": 64,\n  \"temperature\": 0,\n  \"stream\": true\n}",
+          "explanation": [],
+          "expectedOutput": ""
+        }
+      ],
+      "codeExplanation": [],
+      "sourceDocuments": [],
+      "sourceSections": []
+    },
+    "sections": [
+      {
+        "id": "learning-objectives",
+        "title": "学习目标"
+      },
+      {
+        "id": "prerequisites",
+        "title": "学习前需要掌握"
+      },
+      {
+        "id": "background",
+        "title": "背景与问题"
+      },
+      {
+        "id": "definition",
+        "title": "概念定义"
+      },
+      {
+        "id": "intuition",
+        "title": "直观理解"
+      },
+      {
+        "id": "core-principle",
+        "title": "核心原理"
+      },
+      {
+        "id": "algorithm-steps",
+        "title": "本地部署操作"
+      },
+      {
+        "id": "request-example",
+        "title": "请求体示例"
+      },
+      {
+        "id": "applications",
+        "title": "实际应用"
+      },
+      {
+        "id": "pitfalls",
+        "title": "常见错误"
+      },
+      {
+        "id": "related",
+        "title": "与其他概念的关系"
+      },
+      {
+        "id": "further-reading",
+        "title": "继续阅读"
+      }
+    ],
+    "order": 1013,
+    "directory": "AI Infra",
+    "file": "content/concepts/artificial-intelligence/llm-serving-deployment.mdx",
+    "searchText": "大模型服务部署与版本发布\n从可复现产物、vLLM 本地服务到就绪检查、流式请求、灰度与回滚，建立可检查的部署流程。\n学习目标 {#learning-objectives}\n列出服务产物中除权重外必须固定的配置。区分进程存活、模型就绪与请求成功。设计带真实请求验证和回滚路径的发布流程。\n学习前需要掌握 {#prerequisites}\n背景与问题 {#background}\n服务进程启动不代表模型已加载，端口能连接也不代表生成正常。发布一个 tokenizer 不匹配的模型，可能让输入输出出错；同时重启全部副本又可能造成整个服务冷启动。\n概念定义 {#definition}\n模型服务把模型产物包装成可调用接口，并管理加载、输入限制、请求调度、流式输出和生命周期。可复现产物应绑定权重 revision、tokenizer、chat template、量化、运行时镜像和启动参数。\n直观理解 {#intuition}\n一个副本已经监听端口，但还在加载 14 GB 权重。如果流量在这一刻进入，就会排队、失败或超时。只有完成模型加载并通过小请求验证后，才应标记 ready 并接收业务流量。\n核心原理 {#core-principle}\n存活检查关注进程是否需要重启，就绪检查关注是否可以接流量，启动检查允许慢加载期间避免被过早杀掉。真实推理验证应使用固定短请求，确认格式、tokenizer、流式结束和基本质量；检查频率也要避免产生过大负载。\n接口兼容不等于语义完全一致。不同后端支持的采样参数、工具调用格式、chat template 与错误事件可能不同。流式服务在已返回 HTTP 200 后仍可能中途出错，应检查结束事件与生成完整性。\n发布时先验证新副本，再逐步分流，比较质量、错误率、延迟与显存；旧版本保留到观察期结束。下线时停止接收新请求，对存量请求进行有期限的 drain，随后回收资源。\n本地部署操作 {#algorithm-steps}\n准备 Linux GPU 环境、匹配的驱动与服务运行时，核对模型许可和硬件支持。Windows 可使用满足 GPU 条件的 Linux/WSL2 环境，具体支持以安装版本为准。下载并固定一个已知 revision 到本地目录，记录 tokenizer 与 chat template；先做离线生成验证。检查 vllm --version 和 vllm serve --help，再用本地目录启动，仅监听本机。用相同模型别名发送一个非流式与一个流式短请求；核对首 token、结束原因和输出格式。根据预算设置长度、并发、超时与网关限制，完成压测后再增加流量。\n例如，本地模型目录为 /models/learning-model，可使用命令 vllm serve /models/learning-model --host 127.0.0.1 --port 8000 --served-model-name learning-model。该命令需要已安装且兼容的 vLLM、完整模型文件和足够 GPU 显存，本页不把它描述为已执行的实验。\n请求体示例 {#request-example}\n向本地接口 /v1/chat/completions 发送以下 JSON；它只展示请求结构，不会在浏览器中调用外部服务。\n{\n  \"model\": \"learning-model\",\n  \"messages\": [{\"role\": \"user\", \"content\": \"用一句话解释显存带宽。\"}],\n  \"max_tokens\": 64,\n  \"temperature\": 0,\n  \"stream\": true\n}\nmax_tokens 是请求的输出上限；实际输出可能因 EOS 等原因更短。应验证安装版本对字段的支持，不能把上限当成实际完成 token 数。\n实际应用 {#applications}\n把离线验证过的本地模型接入应用，并保留模型版本证据。为新量化格式、服务引擎升级或新模型建立灰度比较。\n常见错误 {#pitfalls}\n只固定模型名称，没有固定 revision、tokenizer 与运行时。以 liveness 代替 readiness，或让加载慢的服务陷入反复重启。直接把裸模型服务暴露到公网，省略认证、限流、长度约束与租户隔离。默认开启任意远程模型代码或记录完整用户提示词，却没有核对实际需求与权限。\n与其他概念的关系 {#related}\n继续阅读 {#further-reading}\nvLLM serve 参数 用于核对模型加载、长度、并行和内存相关选项；文档版本应与安装版本对应。",
+    "anchorAliases": {},
+    "demos": []
+  },
+  "inference-benchmarking": {
+    "concept": {
+      "id": "inference-benchmarking",
+      "slug": "inference-benchmarking",
+      "title": "推理压测：延迟、吞吐与有效容量",
+      "category": "artificial-intelligence",
+      "difficulty": "进阶",
+      "summary": "固定输入输出分布和到达方式，统计 TTFT、TPOT、尾延迟、失败与 goodput，避免误读离线吞吐数字。",
+      "prerequisites": [
+        "llm-prefill-decode",
+        "continuous-batching"
+      ],
+      "relatedConcepts": [
+        "ai-infra-observability",
+        "ai-infra-serving-lab",
+        "inference-quantization"
+      ],
+      "explanation": "60 秒内发起 100 个请求，90 个完整成功，共输出 9000 token；其中 72 个满足延迟目标。成功请求吞吐为 1.5 req/s，输出吞吐为 150 token/s，按请求计的 goodput 为 1.2 req/s，失败率为 10%。高吞吐不应掩盖这些失败。",
+      "principle": "闭环测试保持固定在途并发，请求完成后才发下一条；服务变慢会自动降低新请求到达率。开环测试按外部设定的到达时间发请求，更容易暴露排队与过载，但客户端必须能实际按计划发送并记录发送偏差。 延迟应在客户端用单调时钟记录；把排队从 TTFT 中移除会改变用户口径。失败和超时要独立计数，不能只留下最快的成功请求。P95 的样本集合、计算方法、重复轮次与样本数应写清，少量样本的尾部分位数并不稳定。 长度分布、前缀命中、EOS、采样与 warmup 都会影响结果。性能压测可以用固定或合成数据，但质量回归必须另有代表任务，不能用人为强制生成的长度证明回答质量。",
+      "formula": {
+        "expression": "—",
+        "description": "—"
+      },
+      "workflow": [
+        "固定模型 revision、运行时、GPU、精度、并行、缓存和功耗等条件。",
+        "保存输入输出长度分布、到达模型、并发或速率、超时和 warmup 配置。",
+        "从低负载逐步加压，每档采集足够样本并重复测量。",
+        "记录 TTFT、TPOT、完成延迟、错误、实际输出 token、排队和显存。",
+        "找到质量和延迟目标同时满足的最大有效负载，保留原始日志和配置。"
+      ],
+      "code": {
+        "language": "Python",
+        "source": "from math import ceil\n\nttft_ms = [100, 120, 150, 200, 900]\nordered = sorted(ttft_ms)\np95 = ordered[ceil(0.95 * len(ordered)) - 1]\nrequests, success, within_slo, seconds = 100, 90, 72, 60\nprint(f\"sample_p95={p95} ms\")\nprint(f\"success_rps={success / seconds:.2f}\")\nprint(f\"goodput_rps={within_slo / seconds:.2f}\")\nprint(f\"failure_rate={(requests - success) / requests:.0%}\")",
+        "highlights": []
+      },
+      "codeExplanation": "",
+      "applications": [
+        "比较引擎、量化、batch 和硬件的收益，并保持测量条件一致。",
+        "决定副本数、准入阈值与峰值流量下的降级策略。"
+      ],
+      "pitfalls": [
+        "把请求的输出上限当成实际生成 token 数。",
+        "没有预热就比较稳态，或只测热缓存却不标注。",
+        "客户端先达到 CPU、连接或网络瓶颈，却把它当成 GPU 容量。",
+        "把失败请求从总请求分母中删除，使“成功率”永远为 100%。"
+      ]
+    },
+    "longForm": {
+      "id": "inference-benchmarking",
+      "slug": "inference-benchmarking",
+      "title": "推理压测：延迟、吞吐与有效容量",
+      "category": "artificial-intelligence",
+      "difficulty": "进阶",
+      "summary": "固定输入输出分布和到达方式，统计 TTFT、TPOT、尾延迟、失败与 goodput，避免误读离线吞吐数字。",
+      "prerequisites": [
+        "llm-prefill-decode",
+        "continuous-batching"
+      ],
+      "relatedConcepts": [
+        "ai-infra-observability",
+        "ai-infra-serving-lab",
+        "inference-quantization"
+      ],
+      "definition": [
+        "压测是在固定工作负载与环境下观察容量边界。请求吞吐是单位时间成功完成请求数，输出 token 吞吐是成功响应实际输出 token 数除以观测时间。Goodput 只计入同时满足指定质量、完整性和延迟约束的请求或 token，并明确单位。"
+      ],
+      "background": [
+        "“每秒生成一万 token”缺少模型、精度、长度、负载、成功率与延迟目标，就难以复现。离线批处理的高吞吐，不能直接保证在线问答的首 token 体验。"
+      ],
+      "intuition": [
+        "60 秒内发起 100 个请求，90 个完整成功，共输出 9000 token；其中 72 个满足延迟目标。成功请求吞吐为 1.5 req/s，输出吞吐为 150 token/s，按请求计的 goodput 为 1.2 req/s，失败率为 10%。高吞吐不应掩盖这些失败。"
+      ],
+      "corePrinciple": [
+        "闭环测试保持固定在途并发，请求完成后才发下一条；服务变慢会自动降低新请求到达率。开环测试按外部设定的到达时间发请求，更容易暴露排队与过载，但客户端必须能实际按计划发送并记录发送偏差。",
+        "延迟应在客户端用单调时钟记录；把排队从 TTFT 中移除会改变用户口径。失败和超时要独立计数，不能只留下最快的成功请求。P95 的样本集合、计算方法、重复轮次与样本数应写清，少量样本的尾部分位数并不稳定。",
+        "长度分布、前缀命中、EOS、采样与 warmup 都会影响结果。性能压测可以用固定或合成数据，但质量回归必须另有代表任务，不能用人为强制生成的长度证明回答质量。"
+      ],
+      "algorithmSteps": [
+        "固定模型 revision、运行时、GPU、精度、并行、缓存和功耗等条件。",
+        "保存输入输出长度分布、到达模型、并发或速率、超时和 warmup 配置。",
+        "从低负载逐步加压，每档采集足够样本并重复测量。",
+        "记录 TTFT、TPOT、完成延迟、错误、实际输出 token、排队和显存。",
+        "找到质量和延迟目标同时满足的最大有效负载，保留原始日志和配置。"
+      ],
+      "applications": [
+        "比较引擎、量化、batch 和硬件的收益，并保持测量条件一致。",
+        "决定副本数、准入阈值与峰值流量下的降级策略。"
+      ],
+      "pitfalls": [
+        "把请求的输出上限当成实际生成 token 数。",
+        "没有预热就比较稳态，或只测热缓存却不标注。",
+        "客户端先达到 CPU、连接或网络瓶颈，却把它当成 GPU 容量。",
+        "把失败请求从总请求分母中删除，使“成功率”永远为 100%。"
+      ],
+      "extensionNotes": [],
+      "formulas": [],
+      "variableDefinitions": [],
+      "codeExamples": [
+        {
+          "title": "代码示例",
+          "language": "python",
+          "purpose": "",
+          "source": "from math import ceil\n\nttft_ms = [100, 120, 150, 200, 900]\nordered = sorted(ttft_ms)\np95 = ordered[ceil(0.95 * len(ordered)) - 1]\nrequests, success, within_slo, seconds = 100, 90, 72, 60\nprint(f\"sample_p95={p95} ms\")\nprint(f\"success_rps={success / seconds:.2f}\")\nprint(f\"goodput_rps={within_slo / seconds:.2f}\")\nprint(f\"failure_rate={(requests - success) / requests:.0%}\")",
+          "explanation": [],
+          "expectedOutput": ""
+        }
+      ],
+      "codeExplanation": [],
+      "sourceDocuments": [],
+      "sourceSections": []
+    },
+    "sections": [
+      {
+        "id": "learning-objectives",
+        "title": "学习目标"
+      },
+      {
+        "id": "prerequisites",
+        "title": "学习前需要掌握"
+      },
+      {
+        "id": "background",
+        "title": "背景与问题"
+      },
+      {
+        "id": "definition",
+        "title": "概念定义"
+      },
+      {
+        "id": "intuition",
+        "title": "直观理解"
+      },
+      {
+        "id": "core-principle",
+        "title": "核心原理"
+      },
+      {
+        "id": "code",
+        "title": "小型日志计算"
+      },
+      {
+        "id": "algorithm-steps",
+        "title": "压测与实践步骤"
+      },
+      {
+        "id": "applications",
+        "title": "实际应用"
+      },
+      {
+        "id": "pitfalls",
+        "title": "常见错误"
+      },
+      {
+        "id": "related",
+        "title": "与其他概念的关系"
+      },
+      {
+        "id": "further-reading",
+        "title": "继续阅读"
+      }
+    ],
+    "order": 1014,
+    "directory": "AI Infra",
+    "file": "content/concepts/artificial-intelligence/inference-benchmarking.mdx",
+    "searchText": "推理压测：延迟、吞吐与有效容量\n固定输入输出分布和到达方式，统计 TTFT、TPOT、尾延迟、失败与 goodput，避免误读离线吞吐数字。\n学习目标 {#learning-objectives}\n区分请求吞吐、输出 token 吞吐和满足约束的 goodput。分清闭环并发与开环到达率测试。按明确口径计算延迟分位数与失败率。\n学习前需要掌握 {#prerequisites}\n背景与问题 {#background}\n“每秒生成一万 token”缺少模型、精度、长度、负载、成功率与延迟目标，就难以复现。离线批处理的高吞吐，不能直接保证在线问答的首 token 体验。\n概念定义 {#definition}\n压测是在固定工作负载与环境下观察容量边界。请求吞吐是单位时间成功完成请求数，输出 token 吞吐是成功响应实际输出 token 数除以观测时间。Goodput 只计入同时满足指定质量、完整性和延迟约束的请求或 token，并明确单位。\n直观理解 {#intuition}\n60 秒内发起 100 个请求，90 个完整成功，共输出 9000 token；其中 72 个满足延迟目标。成功请求吞吐为 1.5 req/s，输出吞吐为 150 token/s，按请求计的 goodput 为 1.2 req/s，失败率为 10%。高吞吐不应掩盖这些失败。\n核心原理 {#core-principle}\n闭环测试保持固定在途并发，请求完成后才发下一条；服务变慢会自动降低新请求到达率。开环测试按外部设定的到达时间发请求，更容易暴露排队与过载，但客户端必须能实际按计划发送并记录发送偏差。\n延迟应在客户端用单调时钟记录；把排队从 TTFT 中移除会改变用户口径。失败和超时要独立计数，不能只留下最快的成功请求。P95 的样本集合、计算方法、重复轮次与样本数应写清，少量样本的尾部分位数并不稳定。\n长度分布、前缀命中、EOS、采样与 warmup 都会影响结果。性能压测可以用固定或合成数据，但质量回归必须另有代表任务，不能用人为强制生成的长度证明回答质量。\n小型日志计算 {#code}\nfrom math import ceil\n\nttft_ms = [100, 120, 150, 200, 900]\nordered = sorted(ttft_ms)\np95 = ordered[ceil(0.95 * len(ordered)) - 1]\nrequests, success, within_slo, seconds = 100, 90, 72, 60\nprint(f\"sample_p95={p95} ms\")\nprint(f\"success_rps={success / seconds:.2f}\")\nprint(f\"goodput_rps={within_slo / seconds:.2f}\")\nprint(f\"failure_rate={(requests - success) / requests:.0%}\")\n输出依次为 sample_p95=900 ms、success_rps=1.50、goodput_rps=1.20、failure_rate=10%。P95 使用 nearest-rank；前五条是独立的教学延迟样本，不是后面 100 个请求的完整日志，不能拼成同一场实测。\n压测与实践步骤 {#algorithm-steps}\n固定模型 revision、运行时、GPU、精度、并行、缓存和功耗等条件。保存输入输出长度分布、到达模型、并发或速率、超时和 warmup 配置。从低负载逐步加压，每档采集足够样本并重复测量。记录 TTFT、TPOT、完成延迟、错误、实际输出 token、排队和显存。找到质量和延迟目标同时满足的最大有效负载，保留原始日志和配置。\n实际应用 {#applications}\n比较引擎、量化、batch 和硬件的收益，并保持测量条件一致。决定副本数、准入阈值与峰值流量下的降级策略。\n常见错误 {#pitfalls}\n把请求的输出上限当成实际生成 token 数。没有预热就比较稳态，或只测热缓存却不标注。客户端先达到 CPU、连接或网络瓶颈，却把它当成 GPU 容量。把失败请求从总请求分母中删除，使“成功率”永远为 100%。\n与其他概念的关系 {#related}\n继续阅读 {#further-reading}\nvLLM 在线服务压测命令 可用于核对当前版本支持的工作负载和指标选项。",
+    "anchorAliases": {},
+    "demos": []
+  },
+  "gpu-cluster-scheduling": {
+    "concept": {
+      "id": "gpu-cluster-scheduling",
+      "slug": "gpu-cluster-scheduling",
+      "title": "GPU 集群调度：资源、拓扑与弹性",
+      "category": "artificial-intelligence",
+      "difficulty": "挑战",
+      "summary": "理解 GPU 请求、设备插件、多卡作业同时启动和副本扩缩容，区分资源分配、负载均衡与模型内批调度。",
+      "prerequisites": [
+        "llm-serving-deployment",
+        "distributed-training-parallelism"
+      ],
+      "relatedConcepts": [
+        "gpu-collectives-topology",
+        "training-checkpoints-recovery",
+        "ai-infra-observability"
+      ],
+      "explanation": "训练作业需要四张互联较快的 GPU。集群虽然总空闲四张卡，但它们分布在四个节点且网络很慢，这个布局可能无法满足原先的训练目标。模型服务还有加载时间，新副本被创建不等于立刻增加可用吞吐。",
+      "principle": "使用 NVIDIA 设备插件时，nvidia.com/gpu 是常见资源名。GPU 可在 limits 中声明，未显式设置 requests 时 Kubernetes 可按该限制处理；若同时设置，两者必须相等。通常按整数分配；分区、共享与计费语义依赖设备插件及 MIG 等配置，不能假定写 0.5 就得到半张卡。 多 rank 作业需要协调启动与失败处理。Gang scheduling 尝试为协作任务同时满足资源，通常需要额外调度能力或作业系统，普通 Deployment 并不会自动提供所有语义。还要考虑节点亲和、机架网络、网卡与 GPU 的邻近关系。 扩缩容信号可以结合队列长度、排队时间、活跃 token 和 SLO。GPU 利用率单独不足以区分高效计算与阻塞。缩容前需要 drain；扩容要考虑模型下载、加载、预热和前缀缓存冷启动，避免频繁抖动。",
+      "formula": {
+        "expression": "—",
+        "description": "—"
+      },
+      "workflow": [
+        "给作业写明 GPU 数量、设备类型、CPU、主机内存、存储和互联约束。",
+        "检查节点可分配资源、设备插件状态、亲和规则和实际拓扑。",
+        "对多 rank 作业验证共同启动、单 rank 失败与重试恢复。",
+        "对服务副本测冷启动和 drain 时间，再设置扩容提前量及缩容稳定窗口。",
+        "在配额与成本约束下进行突发流量演练，检查 Pending、拒绝与超时。"
+      ],
+      "code": {
+        "language": "Python",
+        "source": "",
+        "highlights": []
+      },
+      "codeExplanation": "",
+      "applications": [
+        "共享集群中为训练与在线推理分配不同优先级和资源池。",
+        "在成本可控的条件下为峰值流量预热额外副本。"
+      ],
+      "pitfalls": [
+        "只申请 GPU，忽略分词 CPU、主机内存和模型加载 I/O。",
+        "认为增加副本会自动把单个跨卡模型拆到更多设备。",
+        "直接删除繁忙副本，导致流式回答中断。",
+        "只看总空闲数量，忽略显存容量、节点和互联布局。"
+      ]
+    },
+    "longForm": {
+      "id": "gpu-cluster-scheduling",
+      "slug": "gpu-cluster-scheduling",
+      "title": "GPU 集群调度：资源、拓扑与弹性",
+      "category": "artificial-intelligence",
+      "difficulty": "挑战",
+      "summary": "理解 GPU 请求、设备插件、多卡作业同时启动和副本扩缩容，区分资源分配、负载均衡与模型内批调度。",
+      "prerequisites": [
+        "llm-serving-deployment",
+        "distributed-training-parallelism"
+      ],
+      "relatedConcepts": [
+        "gpu-collectives-topology",
+        "training-checkpoints-recovery",
+        "ai-infra-observability"
+      ],
+      "definition": [
+        "集群调度把训练作业和推理副本放到满足设备、显存、互联和隔离要求的节点。Kubernetes 可通过设备插件暴露 GPU 扩展资源；请求路由决定哪个副本接收请求；连续批处理则决定副本内部每轮执行哪些序列。"
+      ],
+      "background": [
+        "两台机器各空闲两张卡，未必能承接必须单机四卡的模型；四个训练 rank 只启动了三个，也可能一直等待最后一个。GPU 调度需要满足资源量之外的拓扑和协作条件。"
+      ],
+      "intuition": [
+        "训练作业需要四张互联较快的 GPU。集群虽然总空闲四张卡，但它们分布在四个节点且网络很慢，这个布局可能无法满足原先的训练目标。模型服务还有加载时间，新副本被创建不等于立刻增加可用吞吐。"
+      ],
+      "corePrinciple": [
+        "使用 NVIDIA 设备插件时，nvidia.com/gpu 是常见资源名。GPU 可在 limits 中声明，未显式设置 requests 时 Kubernetes 可按该限制处理；若同时设置，两者必须相等。通常按整数分配；分区、共享与计费语义依赖设备插件及 MIG 等配置，不能假定写 0.5 就得到半张卡。",
+        "多 rank 作业需要协调启动与失败处理。Gang scheduling 尝试为协作任务同时满足资源，通常需要额外调度能力或作业系统，普通 Deployment 并不会自动提供所有语义。还要考虑节点亲和、机架网络、网卡与 GPU 的邻近关系。",
+        "扩缩容信号可以结合队列长度、排队时间、活跃 token 和 SLO。GPU 利用率单独不足以区分高效计算与阻塞。缩容前需要 drain；扩容要考虑模型下载、加载、预热和前缀缓存冷启动，避免频繁抖动。"
+      ],
+      "algorithmSteps": [
+        "给作业写明 GPU 数量、设备类型、CPU、主机内存、存储和互联约束。",
+        "检查节点可分配资源、设备插件状态、亲和规则和实际拓扑。",
+        "对多 rank 作业验证共同启动、单 rank 失败与重试恢复。",
+        "对服务副本测冷启动和 drain 时间，再设置扩容提前量及缩容稳定窗口。",
+        "在配额与成本约束下进行突发流量演练，检查 Pending、拒绝与超时。"
+      ],
+      "applications": [
+        "共享集群中为训练与在线推理分配不同优先级和资源池。",
+        "在成本可控的条件下为峰值流量预热额外副本。"
+      ],
+      "pitfalls": [
+        "只申请 GPU，忽略分词 CPU、主机内存和模型加载 I/O。",
+        "认为增加副本会自动把单个跨卡模型拆到更多设备。",
+        "直接删除繁忙副本，导致流式回答中断。",
+        "只看总空闲数量，忽略显存容量、节点和互联布局。"
+      ],
+      "extensionNotes": [],
+      "formulas": [],
+      "variableDefinitions": [],
+      "codeExamples": [],
+      "codeExplanation": [],
+      "sourceDocuments": [],
+      "sourceSections": []
+    },
+    "sections": [
+      {
+        "id": "learning-objectives",
+        "title": "学习目标"
+      },
+      {
+        "id": "prerequisites",
+        "title": "学习前需要掌握"
+      },
+      {
+        "id": "background",
+        "title": "背景与问题"
+      },
+      {
+        "id": "definition",
+        "title": "概念定义"
+      },
+      {
+        "id": "intuition",
+        "title": "直观理解"
+      },
+      {
+        "id": "core-principle",
+        "title": "核心原理"
+      },
+      {
+        "id": "algorithm-steps",
+        "title": "规划与实践步骤"
+      },
+      {
+        "id": "applications",
+        "title": "实际应用"
+      },
+      {
+        "id": "pitfalls",
+        "title": "常见错误"
+      },
+      {
+        "id": "related",
+        "title": "与其他概念的关系"
+      },
+      {
+        "id": "further-reading",
+        "title": "继续阅读"
+      }
+    ],
+    "order": 1015,
+    "directory": "AI Infra",
+    "file": "content/concepts/artificial-intelligence/gpu-cluster-scheduling.mdx",
+    "searchText": "GPU 集群调度：资源、拓扑与弹性\n理解 GPU 请求、设备插件、多卡作业同时启动和副本扩缩容，区分资源分配、负载均衡与模型内批调度。\n学习目标 {#learning-objectives}\n区分集群资源调度、请求路由与引擎内部批处理。解释为什么“总共有八张空卡”不保证八卡作业能运行。为 GPU 服务设计考虑冷启动与缓存的扩缩容规则。\n学习前需要掌握 {#prerequisites}\n背景与问题 {#background}\n两台机器各空闲两张卡，未必能承接必须单机四卡的模型；四个训练 rank 只启动了三个，也可能一直等待最后一个。GPU 调度需要满足资源量之外的拓扑和协作条件。\n概念定义 {#definition}\n集群调度把训练作业和推理副本放到满足设备、显存、互联和隔离要求的节点。Kubernetes 可通过设备插件暴露 GPU 扩展资源；请求路由决定哪个副本接收请求；连续批处理则决定副本内部每轮执行哪些序列。\n直观理解 {#intuition}\n训练作业需要四张互联较快的 GPU。集群虽然总空闲四张卡，但它们分布在四个节点且网络很慢，这个布局可能无法满足原先的训练目标。模型服务还有加载时间，新副本被创建不等于立刻增加可用吞吐。\n核心原理 {#core-principle}\n使用 NVIDIA 设备插件时，nvidia.com/gpu 是常见资源名。GPU 可在 limits 中声明，未显式设置 requests 时 Kubernetes 可按该限制处理；若同时设置，两者必须相等。通常按整数分配；分区、共享与计费语义依赖设备插件及 MIG 等配置，不能假定写 0.5 就得到半张卡。\n多 rank 作业需要协调启动与失败处理。Gang scheduling 尝试为协作任务同时满足资源，通常需要额外调度能力或作业系统，普通 Deployment 并不会自动提供所有语义。还要考虑节点亲和、机架网络、网卡与 GPU 的邻近关系。\n扩缩容信号可以结合队列长度、排队时间、活跃 token 和 SLO。GPU 利用率单独不足以区分高效计算与阻塞。缩容前需要 drain；扩容要考虑模型下载、加载、预热和前缀缓存冷启动，避免频繁抖动。\n规划与实践步骤 {#algorithm-steps}\n给作业写明 GPU 数量、设备类型、CPU、主机内存、存储和互联约束。检查节点可分配资源、设备插件状态、亲和规则和实际拓扑。对多 rank 作业验证共同启动、单 rank 失败与重试恢复。对服务副本测冷启动和 drain 时间，再设置扩容提前量及缩容稳定窗口。在配额与成本约束下进行突发流量演练，检查 Pending、拒绝与超时。\n实际应用 {#applications}\n共享集群中为训练与在线推理分配不同优先级和资源池。在成本可控的条件下为峰值流量预热额外副本。\n常见错误 {#pitfalls}\n只申请 GPU，忽略分词 CPU、主机内存和模型加载 I/O。认为增加副本会自动把单个跨卡模型拆到更多设备。直接删除繁忙副本，导致流式回答中断。只看总空闲数量，忽略显存容量、节点和互联布局。\n与其他概念的关系 {#related}\n继续阅读 {#further-reading}\nKubernetes Schedule GPUs 说明设备插件、资源声明及节点选择规则。",
+    "anchorAliases": {},
+    "demos": []
+  },
+  "ai-infra-observability": {
+    "concept": {
+      "id": "ai-infra-observability",
+      "slug": "ai-infra-observability",
+      "title": "AI Infra 可观测性、SLO 与成本",
+      "category": "artificial-intelligence",
+      "difficulty": "进阶",
+      "summary": "将用户延迟与成功率连接到排队、GPU、缓存和版本指标，定义可执行的服务目标、告警与单位有效请求成本。",
+      "prerequisites": [
+        "inference-benchmarking"
+      ],
+      "relatedConcepts": [
+        "tracing-observability",
+        "llm-serving-deployment",
+        "gpu-cluster-scheduling"
+      ],
+      "explanation": "如果窗口内有 10000 个范围内请求，目标为 99% 合格，则允许 100 个不合格；已出现 70 个不合格时，还剩 30 个预算。是否计入客户端错误、取消或超长输入必须预先定义，不能在故障后临时修改分母。",
+      "principle": "目标为 99%，某个告警观察窗口的不合格率为 3%，消耗速率是 3 倍。它表示该窗口的坏事件速率是可持续预算的三倍，不代表完整 30 天预算已经耗尽。可结合短、长两个窗口判断持续性和紧急程度。 请求追踪可关联网关、分词、排队、prefill、decode 与下游工具，但高基数 request ID 不应直接作为每个指标序列的标签。日志默认保留必要元数据，提示词等敏感正文按实际权限、留存与脱敏要求处理。 成本可以定义为某窗口 GPU 等费用除以合格完成请求数，或每百万合格输出 token 的费用；必须标明是否包含闲置、CPU、网络和存储。分母为零时应显示未定义，不能算作零成本。",
+      "formula": {
+        "expression": "\\mathrm{burn\\ rate}=\\frac{\\mathrm{observed\\ bad\\ fraction}}{1-\\mathrm{SLO\\ target}}",
+        "description": ""
+      },
+      "workflow": [
+        "定义服务范围、SLI、窗口和质量/延迟目标。",
+        "采集客户端结果并关联版本、队列、缓存、设备和请求阶段。",
+        "用坏事件比例及预算消耗建立可采取行动的告警。",
+        "每条告警附上排查入口和处置条件，如回滚、限流或扩容。",
+        "回放一次故障，确认监控能定位问题并验证处置效果。"
+      ],
+      "code": {
+        "language": "Python",
+        "source": "total, bad, target = 10_000, 70, 0.99\nallowed_bad = round(total * (1 - target))\nrecent_bad_fraction = 0.03\nprint(f\"remaining_bad_budget={allowed_bad - bad}\")\nprint(f\"recent_burn_rate={recent_bad_fraction / (1 - target):.1f}x\")",
+        "highlights": []
+      },
+      "codeExplanation": "",
+      "applications": [
+        "将新模型或量化版本的灰度结果与实际服务目标比较。",
+        "在扩容、限流、回滚和任务降级之间做有证据的选择。"
+      ],
+      "pitfalls": [
+        "用平均值代替长尾，或把服务内部延迟冒充客户端延迟。",
+        "为每个用户、提示词和 request ID 创建指标标签，导致基数爆炸。",
+        "只降低每 token 成本，却生成更多无效内容并增加每次任务成本。"
+      ]
+    },
+    "longForm": {
+      "id": "ai-infra-observability",
+      "slug": "ai-infra-observability",
+      "title": "AI Infra 可观测性、SLO 与成本",
+      "category": "artificial-intelligence",
+      "difficulty": "进阶",
+      "summary": "将用户延迟与成功率连接到排队、GPU、缓存和版本指标，定义可执行的服务目标、告警与单位有效请求成本。",
+      "prerequisites": [
+        "inference-benchmarking"
+      ],
+      "relatedConcepts": [
+        "tracing-observability",
+        "llm-serving-deployment",
+        "gpu-cluster-scheduling"
+      ],
+      "definition": [
+        "可观测性通过指标、日志和追踪解释系统行为。SLI 是实际观测指标，SLO 是在指定窗口内希望达到的目标。例如“过去 30 天，至少 99% 的范围内请求完整成功且 TTFT 不超过 1 秒”，就同时规定了窗口与合格事件。"
+      ],
+      "background": [
+        "告警“GPU 使用率超过 95%”无法告诉值班者用户是否受影响。反过来，GPU 使用率只有 30% 时，CPU 分词或数据加载阻塞也可能使 TTFT 超标。"
+      ],
+      "intuition": [
+        "如果窗口内有 10000 个范围内请求，目标为 99% 合格，则允许 100 个不合格；已出现 70 个不合格时，还剩 30 个预算。是否计入客户端错误、取消或超长输入必须预先定义，不能在故障后临时修改分母。"
+      ],
+      "corePrinciple": [
+        "目标为 99%，某个告警观察窗口的不合格率为 3%，消耗速率是 3 倍。它表示该窗口的坏事件速率是可持续预算的三倍，不代表完整 30 天预算已经耗尽。可结合短、长两个窗口判断持续性和紧急程度。",
+        "请求追踪可关联网关、分词、排队、prefill、decode 与下游工具，但高基数 request ID 不应直接作为每个指标序列的标签。日志默认保留必要元数据，提示词等敏感正文按实际权限、留存与脱敏要求处理。",
+        "成本可以定义为某窗口 GPU 等费用除以合格完成请求数，或每百万合格输出 token 的费用；必须标明是否包含闲置、CPU、网络和存储。分母为零时应显示未定义，不能算作零成本。"
+      ],
+      "algorithmSteps": [
+        "定义服务范围、SLI、窗口和质量/延迟目标。",
+        "采集客户端结果并关联版本、队列、缓存、设备和请求阶段。",
+        "用坏事件比例及预算消耗建立可采取行动的告警。",
+        "每条告警附上排查入口和处置条件，如回滚、限流或扩容。",
+        "回放一次故障，确认监控能定位问题并验证处置效果。"
+      ],
+      "applications": [
+        "将新模型或量化版本的灰度结果与实际服务目标比较。",
+        "在扩容、限流、回滚和任务降级之间做有证据的选择。"
+      ],
+      "pitfalls": [
+        "用平均值代替长尾，或把服务内部延迟冒充客户端延迟。",
+        "为每个用户、提示词和 request ID 创建指标标签，导致基数爆炸。",
+        "只降低每 token 成本，却生成更多无效内容并增加每次任务成本。"
+      ],
+      "extensionNotes": [],
+      "formulas": [
+        {
+          "label": "数学表达",
+          "expression": "\\mathrm{burn\\ rate}=\\frac{\\mathrm{observed\\ bad\\ fraction}}{1-\\mathrm{SLO\\ target}}",
+          "description": ""
+        }
+      ],
+      "variableDefinitions": [],
+      "codeExamples": [
+        {
+          "title": "代码示例",
+          "language": "python",
+          "purpose": "",
+          "source": "total, bad, target = 10_000, 70, 0.99\nallowed_bad = round(total * (1 - target))\nrecent_bad_fraction = 0.03\nprint(f\"remaining_bad_budget={allowed_bad - bad}\")\nprint(f\"recent_burn_rate={recent_bad_fraction / (1 - target):.1f}x\")",
+          "explanation": [],
+          "expectedOutput": ""
+        }
+      ],
+      "codeExplanation": [],
+      "sourceDocuments": [],
+      "sourceSections": []
+    },
+    "sections": [
+      {
+        "id": "learning-objectives",
+        "title": "学习目标"
+      },
+      {
+        "id": "prerequisites",
+        "title": "学习前需要掌握"
+      },
+      {
+        "id": "background",
+        "title": "背景与问题"
+      },
+      {
+        "id": "definition",
+        "title": "概念定义"
+      },
+      {
+        "id": "intuition",
+        "title": "直观理解"
+      },
+      {
+        "id": "core-principle",
+        "title": "核心原理"
+      },
+      {
+        "id": "algorithm-steps",
+        "title": "计算与实践步骤"
+      },
+      {
+        "id": "code",
+        "title": "代码实现"
+      },
+      {
+        "id": "applications",
+        "title": "实际应用"
+      },
+      {
+        "id": "pitfalls",
+        "title": "常见错误"
+      },
+      {
+        "id": "related",
+        "title": "与其他概念的关系"
+      },
+      {
+        "id": "further-reading",
+        "title": "继续阅读"
+      }
+    ],
+    "order": 1016,
+    "directory": "AI Infra",
+    "file": "content/concepts/artificial-intelligence/ai-infra-observability.mdx",
+    "searchText": "AI Infra 可观测性、SLO 与成本\n将用户延迟与成功率连接到排队、GPU、缓存和版本指标，定义可执行的服务目标、告警与单位有效请求成本。\n学习目标 {#learning-objectives}\n为服务目标写清样本、时间窗口、分母与失败条件。将用户症状对应到资源和请求阶段证据。用有效工作量衡量成本，避免优化无效 token。\n学习前需要掌握 {#prerequisites}\n背景与问题 {#background}\n告警“GPU 使用率超过 95%”无法告诉值班者用户是否受影响。反过来，GPU 使用率只有 30% 时，CPU 分词或数据加载阻塞也可能使 TTFT 超标。\n概念定义 {#definition}\n可观测性通过指标、日志和追踪解释系统行为。SLI 是实际观测指标，SLO 是在指定窗口内希望达到的目标。例如“过去 30 天，至少 99% 的范围内请求完整成功且 TTFT 不超过 1 秒”，就同时规定了窗口与合格事件。\n直观理解 {#intuition}\n如果窗口内有 10000 个范围内请求，目标为 99% 合格，则允许 100 个不合格；已出现 70 个不合格时，还剩 30 个预算。是否计入客户端错误、取消或超长输入必须预先定义，不能在故障后临时修改分母。\n核心原理 {#core-principle}\n\\mathrm{burn\\ rate}=\\frac{\\mathrm{observed\\ bad\\ fraction}}{1-\\mathrm{SLO\\ target}}\n目标为 99%，某个告警观察窗口的不合格率为 3%，消耗速率是 3 倍。它表示该窗口的坏事件速率是可持续预算的三倍，不代表完整 30 天预算已经耗尽。可结合短、长两个窗口判断持续性和紧急程度。\n用户症状要关联的证据常见后续检查首 token 变慢排队、输入长度、prefill 时间突发负载、分词 CPU、缓存冷启动生成断续TPOT、批次组成、KV 使用长输入干扰、缓存抢占、内存压力失败增加OOM、重启、拒绝、流结束原因长度限制、容量与发布版本成本升高GPU 时长、有效请求与 token重试、闲置副本、长无效回答\n请求追踪可关联网关、分词、排队、prefill、decode 与下游工具，但高基数 request ID 不应直接作为每个指标序列的标签。日志默认保留必要元数据，提示词等敏感正文按实际权限、留存与脱敏要求处理。\n成本可以定义为某窗口 GPU 等费用除以合格完成请求数，或每百万合格输出 token 的费用；必须标明是否包含闲置、CPU、网络和存储。分母为零时应显示未定义，不能算作零成本。\n计算与实践步骤 {#algorithm-steps}\n定义服务范围、SLI、窗口和质量/延迟目标。采集客户端结果并关联版本、队列、缓存、设备和请求阶段。用坏事件比例及预算消耗建立可采取行动的告警。每条告警附上排查入口和处置条件，如回滚、限流或扩容。回放一次故障，确认监控能定位问题并验证处置效果。\n代码实现 {#code}\ntotal, bad, target = 10_000, 70, 0.99\nallowed_bad = round(total * (1 - target))\nrecent_bad_fraction = 0.03\nprint(f\"remaining_bad_budget={allowed_bad - bad}\")\nprint(f\"recent_burn_rate={recent_bad_fraction / (1 - target):.1f}x\")\n输出 remaining_bad_budget=30、recent_burn_rate=3.0x。前者来自完整窗口计数，后者来自另一个近期窗口，两个时间口径应分别标注。\n实际应用 {#applications}\n将新模型或量化版本的灰度结果与实际服务目标比较。在扩容、限流、回滚和任务降级之间做有证据的选择。\n常见错误 {#pitfalls}\n用平均值代替长尾，或把服务内部延迟冒充客户端延迟。为每个用户、提示词和 request ID 创建指标标签，导致基数爆炸。只降低每 token 成本，却生成更多无效内容并增加每次任务成本。\n与其他概念的关系 {#related}\n继续阅读 {#further-reading}\nOpenTelemetry Signals 介绍指标、日志与追踪的分工，可结合已有的 Agent tracing 文章连接应用与服务两层证据。",
+    "anchorAliases": {},
+    "demos": []
+  },
+  "ai-infra-serving-lab": {
+    "concept": {
+      "id": "ai-infra-serving-lab",
+      "slug": "ai-infra-serving-lab",
+      "title": "综合实验：推理容量规划与服务验收",
+      "category": "artificial-intelligence",
+      "difficulty": "挑战",
+      "summary": "用无需 GPU 的显存预算和合成请求日志完成容量筛选，再给出真实设备上的压测与上线验收清单。",
+      "prerequisites": [
+        "kv-cache-paged-attention",
+        "inference-benchmarking",
+        "ai-infra-observability"
+      ],
+      "relatedConcepts": [
+        "inference-quantization",
+        "llm-serving-deployment",
+        "gpu-cluster-scheduling"
+      ],
+      "explanation": "BF16 权重约占 13.04 GiB。若假定激活、运行时与安全余量合计预留 3 GiB，则缓存预算约 7.96 GiB；每条 4096 token 序列缓存 0.5 GiB，算术上最多容纳 15 条。真实引擎还受到分块、瞬时峰值与调度上限影响，应从更低并发开始实测。",
+      "principle": "资源可行性回答“能否放下”，负载测试回答“能否按时完成”，质量回归回答“回答是否仍可用”。这三类证据不能互相代替。容量增加后可能出现排队、TPOT 变慢或错误增长，最终有效吞吐反而降低。 在候选配置之间比较时，固定模型、tokenizer、输入输出分布、缓存策略与到达方式。记录失败请求，即便它在 300 ms 就失败，也不能把它算成满足 TTFT 目标的成功请求。",
+      "formula": {
+        "expression": "—",
+        "description": "—"
+      },
+      "workflow": [
+        "运行上述预算例子，保存参数、计算结果与尚未测量的假设。",
+        "把结构换成目标模型真实配置，重新核对权重、KV 和运行时峰值。",
+        "在真实设备从低并发开始，固定长度分布，分别进行闭环和开环测试。",
+        "保存原始时间戳、实际输出 token、完整性、错误、显存与队列数据，报告 P50/P95/P99 和重复轮次。",
+        "对候选方案单独做质量回归，包括长上下文与关键任务；不达标时回退模型或量化配置。",
+        "提交预算表、环境版本、压测配置、质量结果、成本口径与回滚条件，再判断是否可以接入真实流量。"
+      ],
+      "code": {
+        "language": "Python",
+        "source": "from math import floor\n\ngib = 2**30\nweights_gib = 7_000_000_000 * 2 / gib\nruntime_and_margin_gib = 3\nkv_per_sequence_gib = 2 * 32 * 8 * 128 * 2 * 4096 / gib\ncache_budget_gib = 24 - weights_gib - runtime_and_margin_gib\ncandidate = floor(cache_budget_gib / kv_per_sequence_gib)\n\n# 合成日志：(客户端 TTFT 毫秒, 是否完整成功)\nrequests = [(400, True), (800, True), (1200, True), (300, False)]\ngood = sum(complete and ttft <= 1000 for ttft, complete in requests)\ngood_fraction = good / len(requests)\nprint(f\"cache_budget={cache_budget_gib:.2f} GiB\")\nprint(f\"memory_only_candidate={candidate} sequences\")\nprint(f\"good_fraction={good_fraction:.0%}\")\nprint(f\"latency_success_gate={good_fraction >= 0.95}\")",
+        "highlights": []
+      },
+      "codeExplanation": "",
+      "applications": [
+        "为个人设备上的模型选型建立可复算的理由。",
+        "为团队服务评审提供完整的资源、质量、性能和恢复证据。"
+      ],
+      "pitfalls": [
+        "用合成日志或公式输出冒充真实模型压测。",
+        "只看内存候选并发，忽略延迟、质量与请求到达率。",
+        "在短样本上宣布达到 95% 服务目标，却没有足够观测窗口。"
+      ]
+    },
+    "longForm": {
+      "id": "ai-infra-serving-lab",
+      "slug": "ai-infra-serving-lab",
+      "title": "综合实验：推理容量规划与服务验收",
+      "category": "artificial-intelligence",
+      "difficulty": "挑战",
+      "summary": "用无需 GPU 的显存预算和合成请求日志完成容量筛选，再给出真实设备上的压测与上线验收清单。",
+      "prerequisites": [
+        "kv-cache-paged-attention",
+        "inference-benchmarking",
+        "ai-infra-observability"
+      ],
+      "relatedConcepts": [
+        "inference-quantization",
+        "llm-serving-deployment",
+        "gpu-cluster-scheduling"
+      ],
+      "definition": [
+        "容量规划先用资源账本筛选可测试配置，再用目标工作负载验证延迟、成功率、质量和成本。验收需要这些约束同时达标，单独满足显存条件只说明候选方案值得进一步测试。"
+      ],
+      "background": [
+        "你准备在一张 24 GiB GPU 上运行一个假想的 7B BF16 问答模型。每条序列最多保留 4096 个 token，目标是请求完整成功、客户端 TTFT 不超过 1000 ms，并在目标负载下至少 95% 合格。",
+        "以下模型结构、余量与日志全部是教学用合成数据。实验第一阶段只用 Python 标准库，帮助练习预算和验收，不能证明真实 GPU 能达到同样的速度、质量或容量。"
+      ],
+      "intuition": [
+        "BF16 权重约占 13.04 GiB。若假定激活、运行时与安全余量合计预留 3 GiB，则缓存预算约 7.96 GiB；每条 4096 token 序列缓存 0.5 GiB，算术上最多容纳 15 条。真实引擎还受到分块、瞬时峰值与调度上限影响，应从更低并发开始实测。"
+      ],
+      "corePrinciple": [
+        "资源可行性回答“能否放下”，负载测试回答“能否按时完成”，质量回归回答“回答是否仍可用”。这三类证据不能互相代替。容量增加后可能出现排队、TPOT 变慢或错误增长，最终有效吞吐反而降低。",
+        "在候选配置之间比较时，固定模型、tokenizer、输入输出分布、缓存策略与到达方式。记录失败请求，即便它在 300 ms 就失败，也不能把它算成满足 TTFT 目标的成功请求。"
+      ],
+      "algorithmSteps": [
+        "运行上述预算例子，保存参数、计算结果与尚未测量的假设。",
+        "把结构换成目标模型真实配置，重新核对权重、KV 和运行时峰值。",
+        "在真实设备从低并发开始，固定长度分布，分别进行闭环和开环测试。",
+        "保存原始时间戳、实际输出 token、完整性、错误、显存与队列数据，报告 P50/P95/P99 和重复轮次。",
+        "对候选方案单独做质量回归，包括长上下文与关键任务；不达标时回退模型或量化配置。",
+        "提交预算表、环境版本、压测配置、质量结果、成本口径与回滚条件，再判断是否可以接入真实流量。"
+      ],
+      "applications": [
+        "为个人设备上的模型选型建立可复算的理由。",
+        "为团队服务评审提供完整的资源、质量、性能和恢复证据。"
+      ],
+      "pitfalls": [
+        "用合成日志或公式输出冒充真实模型压测。",
+        "只看内存候选并发，忽略延迟、质量与请求到达率。",
+        "在短样本上宣布达到 95% 服务目标，却没有足够观测窗口。"
+      ],
+      "extensionNotes": [],
+      "formulas": [],
+      "variableDefinitions": [],
+      "codeExamples": [
+        {
+          "title": "代码示例",
+          "language": "python",
+          "purpose": "",
+          "source": "from math import floor\n\ngib = 2**30\nweights_gib = 7_000_000_000 * 2 / gib\nruntime_and_margin_gib = 3\nkv_per_sequence_gib = 2 * 32 * 8 * 128 * 2 * 4096 / gib\ncache_budget_gib = 24 - weights_gib - runtime_and_margin_gib\ncandidate = floor(cache_budget_gib / kv_per_sequence_gib)\n\n# 合成日志：(客户端 TTFT 毫秒, 是否完整成功)\nrequests = [(400, True), (800, True), (1200, True), (300, False)]\ngood = sum(complete and ttft <= 1000 for ttft, complete in requests)\ngood_fraction = good / len(requests)\nprint(f\"cache_budget={cache_budget_gib:.2f} GiB\")\nprint(f\"memory_only_candidate={candidate} sequences\")\nprint(f\"good_fraction={good_fraction:.0%}\")\nprint(f\"latency_success_gate={good_fraction >= 0.95}\")",
+          "explanation": [],
+          "expectedOutput": ""
+        }
+      ],
+      "codeExplanation": [],
+      "sourceDocuments": [],
+      "sourceSections": []
+    },
+    "sections": [
+      {
+        "id": "learning-objectives",
+        "title": "学习目标"
+      },
+      {
+        "id": "prerequisites",
+        "title": "学习前需要掌握"
+      },
+      {
+        "id": "background",
+        "title": "背景与问题"
+      },
+      {
+        "id": "definition",
+        "title": "概念定义"
+      },
+      {
+        "id": "intuition",
+        "title": "直观理解"
+      },
+      {
+        "id": "core-principle",
+        "title": "核心原理"
+      },
+      {
+        "id": "code",
+        "title": "可运行实验"
+      },
+      {
+        "id": "algorithm-steps",
+        "title": "实验步骤与交付物"
+      },
+      {
+        "id": "experiments",
+        "title": "参数探索"
+      },
+      {
+        "id": "applications",
+        "title": "实际应用"
+      },
+      {
+        "id": "pitfalls",
+        "title": "常见错误"
+      },
+      {
+        "id": "related",
+        "title": "与其他概念的关系"
+      }
+    ],
+    "order": 1017,
+    "directory": "AI Infra",
+    "file": "content/concepts/artificial-intelligence/ai-infra-serving-lab.mdx",
+    "searchText": "综合实验：推理容量规划与服务验收\n用无需 GPU 的显存预算和合成请求日志完成容量筛选，再给出真实设备上的压测与上线验收清单。\n学习目标 {#learning-objectives}\n把模型状态、缓存、长度和并发放入同一张预算表。从完整成功标记和 TTFT 计算合格比例。给出区分“预算可行”和“实测通过”的服务验收结论。\n学习前需要掌握 {#prerequisites}\n背景与问题 {#background}\n你准备在一张 24 GiB GPU 上运行一个假想的 7B BF16 问答模型。每条序列最多保留 4096 个 token，目标是请求完整成功、客户端 TTFT 不超过 1000 ms，并在目标负载下至少 95% 合格。\n以下模型结构、余量与日志全部是教学用合成数据。实验第一阶段只用 Python 标准库，帮助练习预算和验收，不能证明真实 GPU 能达到同样的速度、质量或容量。\n概念定义 {#definition}\n容量规划先用资源账本筛选可测试配置，再用目标工作负载验证延迟、成功率、质量和成本。验收需要这些约束同时达标，单独满足显存条件只说明候选方案值得进一步测试。\n直观理解 {#intuition}\nBF16 权重约占 13.04 GiB。若假定激活、运行时与安全余量合计预留 3 GiB，则缓存预算约 7.96 GiB；每条 4096 token 序列缓存 0.5 GiB，算术上最多容纳 15 条。真实引擎还受到分块、瞬时峰值与调度上限影响，应从更低并发开始实测。\n核心原理 {#core-principle}\n资源可行性回答“能否放下”，负载测试回答“能否按时完成”，质量回归回答“回答是否仍可用”。这三类证据不能互相代替。容量增加后可能出现排队、TPOT 变慢或错误增长，最终有效吞吐反而降低。\n在候选配置之间比较时，固定模型、tokenizer、输入输出分布、缓存策略与到达方式。记录失败请求，即便它在 300 ms 就失败，也不能把它算成满足 TTFT 目标的成功请求。\n可运行实验 {#code}\nfrom math import floor\n\ngib = 2**30\nweights_gib = 7_000_000_000 * 2 / gib\nruntime_and_margin_gib = 3\nkv_per_sequence_gib = 2 * 32 * 8 * 128 * 2 * 4096 / gib\ncache_budget_gib = 24 - weights_gib - runtime_and_margin_gib\ncandidate = floor(cache_budget_gib / kv_per_sequence_gib)\n\n# 合成日志：(客户端 TTFT 毫秒, 是否完整成功)\nrequests = [(400, True), (800, True), (1200, True), (300, False)]\ngood = sum(complete and ttft <= 1000 for ttft, complete in requests)\ngood_fraction = good / len(requests)\nprint(f\"cache_budget={cache_budget_gib:.2f} GiB\")\nprint(f\"memory_only_candidate={candidate} sequences\")\nprint(f\"good_fraction={good_fraction:.0%}\")\nprint(f\"latency_success_gate={good_fraction >= 0.95}\")\n预期输出依次为 cache_budget=7.96 GiB、memory_only_candidate=15 sequences、good_fraction=50%、latency_success_gate=False。\n四条记录中，前两条完整且及时，第三条过慢，第四条失败，所以合格比例为 2/4=50%。这四条合成记录只能验证计算逻辑，样本规模不足以推断真实服务可靠性；候选并发 15 与这组日志之间也没有真实测量关系。\n实验步骤与交付物 {#algorithm-steps}\n运行上述预算例子，保存参数、计算结果与尚未测量的假设。把结构换成目标模型真实配置，重新核对权重、KV 和运行时峰值。在真实设备从低并发开始，固定长度分布，分别进行闭环和开环测试。保存原始时间戳、实际输出 token、完整性、错误、显存与队列数据，报告 P50/P95/P99 和重复轮次。对候选方案单独做质量回归，包括长上下文与关键任务；不达标时回退模型或量化配置。提交预算表、环境版本、压测配置、质量结果、成本口径与回滚条件，再判断是否可以接入真实流量。\n参数探索 {#experiments}\n将上下文上限翻倍到 8192，在其他假设不变时每条缓存变成 1 GiB，预算候选从 15 降为 7。把权重量化到理想 4-bit 后，需要另计 scale 等开销；缓存精度不变时，每条缓存仍是 0.5 GiB。\n这两个变化适合写入网站笔记，再比较自己的设备实测。不要把更大的预算候选数直接填为上线并发上限。\n实际应用 {#applications}\n为个人设备上的模型选型建立可复算的理由。为团队服务评审提供完整的资源、质量、性能和恢复证据。\n常见错误 {#pitfalls}\n用合成日志或公式输出冒充真实模型压测。只看内存候选并发，忽略延迟、质量与请求到达率。在短样本上宣布达到 95% 服务目标，却没有足够观测窗口。\n与其他概念的关系 {#related}",
+    "anchorAliases": {},
+    "demos": []
   }
 }

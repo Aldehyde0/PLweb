@@ -1,0 +1,83 @@
+---
+id: inference-benchmarking
+slug: inference-benchmarking
+title: 推理压测：延迟、吞吐与有效容量
+category: artificial-intelligence
+difficulty: 进阶
+summary: 固定输入输出分布和到达方式，统计 TTFT、TPOT、尾延迟、失败与 goodput，避免误读离线吞吐数字。
+prerequisites: [llm-prefill-decode, continuous-batching]
+relatedConcepts: [ai-infra-observability, ai-infra-serving-lab, inference-quantization]
+order: 1014
+directory: AI Infra
+---
+
+## 学习目标 {#learning-objectives}
+
+- 区分请求吞吐、输出 token 吞吐和满足约束的 goodput。
+- 分清闭环并发与开环到达率测试。
+- 按明确口径计算延迟分位数与失败率。
+
+## 学习前需要掌握 {#prerequisites}
+
+## 背景与问题 {#background}
+
+“每秒生成一万 token”缺少模型、精度、长度、负载、成功率与延迟目标，就难以复现。离线批处理的高吞吐，不能直接保证在线问答的首 token 体验。
+
+## 概念定义 {#definition}
+
+压测是在固定工作负载与环境下观察容量边界。请求吞吐是单位时间成功完成请求数，输出 token 吞吐是成功响应实际输出 token 数除以观测时间。Goodput 只计入同时满足指定质量、完整性和延迟约束的请求或 token，并明确单位。
+
+## 直观理解 {#intuition}
+
+60 秒内发起 100 个请求，90 个完整成功，共输出 9000 token；其中 72 个满足延迟目标。成功请求吞吐为 1.5 req/s，输出吞吐为 150 token/s，按请求计的 goodput 为 1.2 req/s，失败率为 10%。高吞吐不应掩盖这些失败。
+
+## 核心原理 {#core-principle}
+
+闭环测试保持固定在途并发，请求完成后才发下一条；服务变慢会自动降低新请求到达率。开环测试按外部设定的到达时间发请求，更容易暴露排队与过载，但客户端必须能实际按计划发送并记录发送偏差。
+
+延迟应在客户端用单调时钟记录；把排队从 TTFT 中移除会改变用户口径。失败和超时要独立计数，不能只留下最快的成功请求。P95 的样本集合、计算方法、重复轮次与样本数应写清，少量样本的尾部分位数并不稳定。
+
+长度分布、前缀命中、EOS、采样与 warmup 都会影响结果。性能压测可以用固定或合成数据，但质量回归必须另有代表任务，不能用人为强制生成的长度证明回答质量。
+
+## 小型日志计算 {#code}
+
+```python
+from math import ceil
+
+ttft_ms = [100, 120, 150, 200, 900]
+ordered = sorted(ttft_ms)
+p95 = ordered[ceil(0.95 * len(ordered)) - 1]
+requests, success, within_slo, seconds = 100, 90, 72, 60
+print(f"sample_p95={p95} ms")
+print(f"success_rps={success / seconds:.2f}")
+print(f"goodput_rps={within_slo / seconds:.2f}")
+print(f"failure_rate={(requests - success) / requests:.0%}")
+```
+
+输出依次为 `sample_p95=900 ms`、`success_rps=1.50`、`goodput_rps=1.20`、`failure_rate=10%`。P95 使用 nearest-rank；前五条是独立的教学延迟样本，不是后面 100 个请求的完整日志，不能拼成同一场实测。
+
+## 压测与实践步骤 {#algorithm-steps}
+
+1. 固定模型 revision、运行时、GPU、精度、并行、缓存和功耗等条件。
+2. 保存输入输出长度分布、到达模型、并发或速率、超时和 warmup 配置。
+3. 从低负载逐步加压，每档采集足够样本并重复测量。
+4. 记录 TTFT、TPOT、完成延迟、错误、实际输出 token、排队和显存。
+5. 找到质量和延迟目标同时满足的最大有效负载，保留原始日志和配置。
+
+## 实际应用 {#applications}
+
+- 比较引擎、量化、batch 和硬件的收益，并保持测量条件一致。
+- 决定副本数、准入阈值与峰值流量下的降级策略。
+
+## 常见错误 {#pitfalls}
+
+- 把请求的输出上限当成实际生成 token 数。
+- 没有预热就比较稳态，或只测热缓存却不标注。
+- 客户端先达到 CPU、连接或网络瓶颈，却把它当成 GPU 容量。
+- 把失败请求从总请求分母中删除，使“成功率”永远为 100%。
+
+## 与其他概念的关系 {#related}
+
+## 继续阅读 {#further-reading}
+
+[vLLM 在线服务压测命令](https://docs.vllm.ai/en/latest/cli/bench/serve/) 可用于核对当前版本支持的工作负载和指标选项。

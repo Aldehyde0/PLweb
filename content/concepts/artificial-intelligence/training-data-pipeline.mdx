@@ -1,0 +1,78 @@
+---
+id: training-data-pipeline
+slug: training-data-pipeline
+title: 训练数据流水线：分片、打包与可复现读取
+category: artificial-intelligence
+difficulty: 进阶
+summary: 把清洗、分词、分片、采样和预取连接起来，避免 GPU 等数据，并记录训练实际看过的 token。
+prerequisites: [ai-infra-overview, pytorch-dataset-dataloader]
+relatedConcepts: [distributed-training-parallelism, training-checkpoints-recovery, sequence-padding-and-masks]
+order: 1003
+directory: AI Infra
+---
+
+## 学习目标 {#learning-objectives}
+
+- 解释离线处理与在线取 batch 的分工。
+- 分清 packing、padding、attention mask 与 loss mask。
+- 避免多 worker 或多 rank 重复读取同一批样本。
+
+## 学习前需要掌握 {#prerequisites}
+
+## 背景与问题 {#background}
+
+训练 step 用 80 ms 计算，却花 120 ms 等待数据，增加 GPU 峰值算力很难解决吞吐问题。另一方面，盲目增加 worker 可能抢占 CPU、耗尽内存，或使样本被重复消费。
+
+## 概念定义 {#definition}
+
+训练数据流水线将原始资料变为模型输入，包含去重、质量与权限检查、数据划分、分词、分片存储、采样、批构建、预取和主机到设备传输。数据版本应能定位到实际文件、处理规则和 tokenizer 版本。
+
+## 直观理解 {#intuition}
+
+三个样本长度分别为 6、3、3 token，统一补到 8 会产生 24 个位置，其中只有 12 个是原始 token，位置利用率 50%。若按长度分桶或合理 packing，可减少无效计算，但必须保留样本边界和训练目标。
+
+## 核心原理 {#core-principle}
+
+离线处理适合重复使用的清洗、去重与分词，在线部分负责 shuffle、采样、构造 batch 和预取。先划分训练/验证数据，再拟合需要统计信息的处理步骤；同源文档跨集合重复仍可能造成泄漏。
+
+Packing 将短样本组合为更长序列。是否允许跨文档 attention，取决于训练任务与实现；独立样本通常需要边界处理。Padding 的 attention mask 控制可见位置，loss mask 控制哪些目标参与损失，不能混为一谈；语言模型还需检查标签右移与 padding 位置被忽略。
+
+分布式读取需要按 rank 和 worker 划分消费范围。可迭代数据集若每个 worker 都从头遍历，会重复读数据；恢复训练时还需要记录采样器、shuffle 种子和消费位置。仅记录 epoch，不能说明本轮已经读取哪里。
+
+## 计算与实践步骤 {#algorithm-steps}
+
+1. 创建数据 manifest：文件列表、校验和、清洗规则、tokenizer 标识与 train/validation 划分。
+2. 分别测读盘、解码、分词、取 batch 与传输耗时，确认瓶颈。
+3. 给样本保留稳定 ID，检查 rank/worker 间覆盖和重复。
+4. 调整 worker、预取、固定内存和分桶；每次记录吞吐与主机内存峰值。
+5. 抽样查看 input、label、mask 和有效 token 数，再进行长时间训练。
+
+## 小型核对 {#worked-example}
+
+```python
+lengths = [6, 3, 3]
+block_size = 8
+padding_positions = len(lengths) * block_size
+real_tokens = sum(lengths)
+print(f"real={real_tokens}, padded={padding_positions}")
+print(f"position_utilization={real_tokens / padding_positions:.0%}")
+```
+
+输出 `real=12, padded=24` 和 `position_utilization=50%`。这里统计原始 token 位置，不等于右移标签后的有效预测目标数；也没有实现 packing 或验证跨文档 mask。
+
+## 实际应用 {#applications}
+
+- 为语言模型微调构建可复用、可追溯的数据缓存。
+- 定位低 GPU 利用率究竟来自样本供给还是计算本身。
+
+## 常见错误 {#pitfalls}
+
+- 把 padding token 当成正常目标计算 loss。
+- 只记录样本数，不记录有效 token 数与采样权重。
+- 修改 tokenizer 或清洗规则后继续复用旧缓存，却没有变更版本。
+
+## 与其他概念的关系 {#related}
+
+## 继续阅读 {#further-reading}
+
+[PyTorch DataLoader 文档](https://docs.pytorch.org/docs/stable/data.html) 介绍 worker、sampler、内存固定及 IterableDataset 的分工。

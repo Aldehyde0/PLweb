@@ -1,0 +1,70 @@
+---
+id: inference-quantization
+slug: inference-quantization
+title: 推理量化：容量、速度与质量的取舍
+category: artificial-intelligence
+difficulty: 进阶
+summary: 理解权重量化、激活量化与 KV 量化的不同对象，计算理想空间收益，并用质量与硬件实测约束选择。
+prerequisites: [llm-memory-budget]
+relatedConcepts: [automatic-mixed-precision, kv-cache-paged-attention, inference-benchmarking]
+order: 1012
+directory: AI Infra
+---
+
+## 学习目标 {#learning-objectives}
+
+- 区分 W4A16、W8A8 与 KV Cache 量化。
+- 解释 scale、zero point 和分组元数据带来的额外开销。
+- 设计量化前后的质量与性能对照。
+
+## 学习前需要掌握 {#prerequisites}
+
+## 背景与问题 {#background}
+
+把 BF16 权重变为 4-bit 看起来能缩小四倍，但真实文件不会总是恰好四分之一，速度也不一定提高四倍。后端需要支持对应格式，推理时还可能发生反量化和额外访存。
+
+## 概念定义 {#definition}
+
+量化使用低位宽数值和尺度等元数据近似表示张量。权重量化改变参数表示，激活量化改变计算中间值，KV 量化改变历史注意力缓存。W4A16 通常表示 4-bit 权重与 16-bit 激活；具体计算与累加精度仍须查看实现。
+
+## 直观理解 {#intuition}
+
+恰好 7B 参数的理想 BF16 权重为 14 GB，4-bit 为 3.5 GB。若每 128 个参数保存一个 2-byte scale，且参数个数恰好可整除，则 scale 另需 109375000 byte，即约 0.109 GB；还没有算 zero point、打包对齐和保持高精度的层。
+
+## 核心原理 {#core-principle}
+
+仿射量化常使用以下近似，$s$ 为尺度、$z$ 为零点，$q$ 为受位宽限制的整数：
+
+$$
+q=\operatorname{clip}\!\left(\operatorname{round}(x/s)+z,q_{\min},q_{\max}\right),\qquad
+\hat{x}=s(q-z)
+$$
+
+分组量化允许不同组使用不同尺度，通常改善局部表示，但增加元数据和读取成本。PTQ 在训练后校准或转换，QAT 在训练中模拟量化误差；不能把低精度存储与自动混合精度训练视为同一个流程。
+
+质量验证要覆盖真实任务、长上下文、结构化输出与关键少数样本；只看困惑度或几个对话不足以证明任务没有退化。权重量化也不会自动缩小 KV Cache，长上下文服务仍可能由缓存决定容量。
+
+## 选择与实践步骤 {#algorithm-steps}
+
+1. 固定原始模型版本、tokenizer、任务数据与质量门槛。
+2. 核对 GPU 架构、服务后端、量化格式和 kernel 支持矩阵。
+3. 记录转换、校准数据及量化配置，避免把验证数据用于反复挑选方案。
+4. 测真实模型文件、显存峰值、TTFT、TPOT 和成功输出 token/s。
+5. 比较质量门槛与成本；不达标时保留高精度方案或只量化部分对象。
+
+## 实际应用 {#applications}
+
+- 在单卡容量有限时尝试加载更大模型，或释放更多缓存空间。
+- 对特定硬件优化在线推理，但保留可回退的基准产物。
+
+## 常见错误 {#pitfalls}
+
+- 认为 INT4 在任何 GPU 和任何 batch 下都更快。
+- 只比较权重大小，没有测反量化开销与端到端延迟。
+- 更换量化方案时顺带修改模型、提示词与采样参数，无法归因。
+
+## 与其他概念的关系 {#related}
+
+## 继续阅读 {#further-reading}
+
+[vLLM Quantization](https://docs.vllm.ai/en/latest/features/quantization/) 用于核对量化格式与硬件支持，支持矩阵应以实际安装版本为准。

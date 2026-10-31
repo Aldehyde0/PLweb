@@ -1,4 +1,5 @@
 export const topicNames: Record<string, string> = {
+  'AI Infra': 'AI infrastructure',
   Agent: 'Agents',
   Tool: 'Tools',
   Skill: 'Skills',

@@ -15,6 +15,455 @@ import type { StageQuestionInput } from './stage-test.ts';
  *    `content/concepts/` (the canonical MDX articles).
  */
 export const questionBank: Record<string, StageQuestionInput[]> = {
+  'ai-infra-overview': [
+    {
+      id: 'ai-infra-overview-q1',
+      type: 'single-choice',
+      prompt:
+        '模型离线能回答，但并发后排队和 OOM 增多，最直接需要补充哪类证据？',
+      options: [
+        '工作负载、资源预算与端到端服务指标',
+        '只看参数量',
+        '只改提示词措辞',
+        '只看一次成功响应',
+      ],
+      correctOptions: ['工作负载、资源预算与端到端服务指标'],
+      conceptSlug: 'ai-infra-overview',
+      explanation: 'Infra 需要同时分析计算、缓存、排队和服务约束。',
+    },
+    {
+      id: 'ai-infra-overview-q2',
+      type: 'concept-explanation',
+      prompt: '说明数据、计算、训练、推理与运维五层各自应观察的一项证据。',
+      referenceAnswer:
+        '例如：数据取 batch 耗时；计算算子与显存访问；训练有效 token/s 和恢复耗时；推理 TTFT/TPOT 与队列；运维 SLO、质量回归和成本。',
+      conceptSlug: 'ai-infra-overview',
+      explanation: '按是否建立症状到证据的联系自评，不按关键词字符串自动打分。',
+    },
+  ],
+  'gpu-memory-bandwidth': [
+    {
+      id: 'gpu-memory-bandwidth-q1',
+      type: 'calculation',
+      prompt:
+        '100 GFLOP、10 GB 搬运，设备 100 TFLOP/s、1 TB/s。忽略其他开销，理论耗时下界是多少毫秒？',
+      accept: ['10', '10ms', '10毫秒'],
+      conceptSlug: 'gpu-memory-bandwidth',
+      explanation: '计算下界 1 ms、搬运下界 10 ms，取最大值得 10 ms。',
+    },
+    {
+      id: 'gpu-memory-bandwidth-q2',
+      type: 'single-choice',
+      prompt: '以下哪个量直接描述 GPU 与显存之间每秒搬运的数据？',
+      options: ['显存带宽', '显存容量', '参数数量', '模型层数'],
+      correctOptions: ['显存带宽'],
+      conceptSlug: 'gpu-memory-bandwidth',
+      explanation: '带宽单位为 byte/s；容量为 byte，计算吞吐为 FLOP/s。',
+    },
+  ],
+  'llm-memory-budget': [
+    {
+      id: 'llm-memory-budget-q1',
+      type: 'calculation',
+      prompt:
+        '恰好 70 亿个参数，每参数用 2 byte 保存，权重的十进制大小是多少 GB？',
+      accept: ['14', '14GB'],
+      conceptSlug: 'llm-memory-budget',
+      explanation: '7×10^9×2=14×10^9 byte，即 14 GB，约 13.04 GiB。',
+    },
+    {
+      id: 'llm-memory-budget-q2',
+      type: 'multiple-choice',
+      prompt: '推理时除权重外，显存预算还应包含哪些项目？',
+      options: [
+        'KV Cache',
+        '激活与运行时工作空间',
+        '安全余量与分配开销',
+        '必然存在的 Adam 优化器状态',
+      ],
+      correctOptions: [
+        'KV Cache',
+        '激活与运行时工作空间',
+        '安全余量与分配开销',
+      ],
+      conceptSlug: 'llm-memory-budget',
+      explanation: '普通推理不更新模型，无需必然保留 Adam 状态。',
+    },
+  ],
+  'training-data-pipeline': [
+    {
+      id: 'training-data-pipeline-q1',
+      type: 'calculation',
+      prompt:
+        '长度为 6、3、3 的样本全部补到 8，原始 token 的位置利用率是多少百分比？',
+      accept: ['50', '50%'],
+      conceptSlug: 'training-data-pipeline',
+      explanation: '12 个原始 token 除以 24 个补齐位置，为 50%。',
+    },
+    {
+      id: 'training-data-pipeline-q2',
+      type: 'single-choice',
+      prompt: 'attention mask 与 loss mask 最关键的职责区别是什么？',
+      options: [
+        '分别控制可见位置与参与损失的目标',
+        '两者完全相同',
+        '前者保存权重，后者保存梯度',
+        '两者都只控制学习率',
+      ],
+      correctOptions: ['分别控制可见位置与参与损失的目标'],
+      conceptSlug: 'training-data-pipeline',
+      explanation:
+        '样本打包和 padding 时必须分别检查 attention 关系与有效预测目标。',
+    },
+  ],
+  'distributed-training-parallelism': [
+    {
+      id: 'distributed-training-parallelism-q1',
+      type: 'calculation',
+      prompt:
+        '8 卡构成 TP=2、PP=2，微批量为 4，累积 8 次，全局 batch 为多少样本？',
+      accept: ['64', '64个', '64个样本'],
+      conceptSlug: 'distributed-training-parallelism',
+      explanation: 'DP=8/(2×2)=2，全局 batch=4×8×2=64。',
+    },
+    {
+      id: 'distributed-training-parallelism-q2',
+      type: 'single-choice',
+      prompt:
+        '普通 DDP 通常能否通过增加卡数直接解决完整模型状态单卡放不下的问题？',
+      options: [
+        '不能，通常每个 rank 仍保存完整模型状态',
+        '能，参数必然均分到所有卡',
+        '能，而且不增加通信',
+        '能，因为全局 batch 自动减小',
+      ],
+      correctOptions: ['不能，通常每个 rank 仍保存完整模型状态'],
+      conceptSlug: 'distributed-training-parallelism',
+      explanation: '解决容量可能需要状态分片、TP、PP 或其他内存策略。',
+    },
+  ],
+  'gpu-collectives-topology': [
+    {
+      id: 'gpu-collectives-topology-q1',
+      type: 'single-choice',
+      prompt:
+        '两个 rank 输入 [1,3] 与 [5,7]，求和 AllReduce 后每个 rank 得到什么？',
+      options: ['[6,10]', '[3,5]', '[1,3]', '[5,7]'],
+      correctOptions: ['[6,10]'],
+      conceptSlug: 'gpu-collectives-topology',
+      explanation:
+        'AllReduce 求和并向所有 rank 分发完整结果；平均需要确认框架是否已经处理。',
+    },
+    {
+      id: 'gpu-collectives-topology-q2',
+      type: 'concept-explanation',
+      prompt: '单机扩卡正常、跨节点变慢时，为什么不能只比较 GPU 峰值算力？',
+      referenceAnswer:
+        '要检查 collective 消息规模与频率、GPU/网卡/NUMA 映射、跨节点有效带宽和延迟、负载不均及通信计算重叠。峰值算力不能描述这些路径。',
+      conceptSlug: 'gpu-collectives-topology',
+      explanation: '按是否区分计算与通信证据自评。',
+    },
+  ],
+  'zero-fsdp': [
+    {
+      id: 'zero-fsdp-q1',
+      type: 'single-choice',
+      prompt: 'ZeRO Stage 2 相比 Stage 1 额外分片哪类状态？',
+      options: ['梯度', '所有激活', '输入数据文件', '所有模型参数'],
+      correctOptions: ['梯度'],
+      conceptSlug: 'zero-fsdp',
+      explanation:
+        'Stage 1 分片优化器状态，Stage 2 增加梯度分片，Stage 3 再增加参数分片。',
+    },
+    {
+      id: 'zero-fsdp-q2',
+      type: 'concept-explanation',
+      prompt: '为什么完全分片后的稳态状态大小不能直接作为峰值显存？',
+      referenceAnswer:
+        '计算前参数聚合、梯度与通信缓冲、激活、运行时和保存过程都会增加瞬时驻留；包装粒度、精度和预取策略也影响峰值。',
+      conceptSlug: 'zero-fsdp',
+      explanation: '应说明额外内存来源和实际测量阶段。',
+    },
+  ],
+  'training-checkpoints-recovery': [
+    {
+      id: 'training-checkpoints-recovery-q1',
+      type: 'single-choice',
+      prompt: '对象存储中的分片检查点应何时对读者宣告完成？',
+      options: [
+        '所有必需分片写入并校验后发布完成 manifest',
+        '第一片出现时',
+        '目录被创建时',
+        '只要 rank 0 写完即可',
+      ],
+      correctOptions: ['所有必需分片写入并校验后发布完成 manifest'],
+      conceptSlug: 'training-checkpoints-recovery',
+      explanation: '读者不应把部分分片误认为完整检查点。',
+    },
+    {
+      id: 'training-checkpoints-recovery-q2',
+      type: 'calculation',
+      prompt:
+        '每 20 分钟成功保存一次，故障在两次保存之间近似均匀发生，平均丢失计算约多少分钟？',
+      accept: ['10', '10分钟', '10min'],
+      conceptSlug: 'training-checkpoints-recovery',
+      explanation:
+        '按 T/2 为 10 分钟，尚未计入下载、加载与重建状态的恢复时间。',
+    },
+  ],
+  'gpu-kernels-compilation': [
+    {
+      id: 'gpu-kernels-compilation-q1',
+      type: 'calculation',
+      prompt:
+        '100 万 float32 元素计算 y=x*scale+bias，忽略标量及缓存。融合后只读 x 写 y，理想流量是多少十进制 MB？',
+      accept: ['8', '8MB'],
+      conceptSlug: 'gpu-kernels-compilation',
+      explanation: '每元素读写各 4 byte，共 8×10^6 byte，即 8 MB。',
+    },
+    {
+      id: 'gpu-kernels-compilation-q2',
+      type: 'single-choice',
+      prompt: '比较 torch.compile 与原始执行时，应采用哪种验证方式？',
+      options: [
+        '核对数值，分开记录编译冷启动与预热后性能',
+        '只看第一次调用',
+        '只核对输出 shape',
+        '不做设备同步直接计 CPU 提交时间',
+      ],
+      correctOptions: ['核对数值，分开记录编译冷启动与预热后性能'],
+      conceptSlug: 'gpu-kernels-compilation',
+      explanation: '还应覆盖目标形状分布、误差门槛与实际模型的端到端收益。',
+    },
+  ],
+  'llm-prefill-decode': [
+    {
+      id: 'llm-prefill-decode-q1',
+      type: 'calculation',
+      prompt:
+        'TTFT=300 ms，输出 21 token，后续平均间隔 40 ms，最后一个 token 约在请求发出多少毫秒后到达？',
+      accept: ['1100', '1100ms', '1100毫秒'],
+      conceptSlug: 'llm-prefill-decode',
+      explanation: '300+(21−1)×40=1100 ms，首 token 后是 20 个间隔。',
+    },
+    {
+      id: 'llm-prefill-decode-q2',
+      type: 'single-choice',
+      prompt: '客户端 TTFT 通常应覆盖哪些时间？',
+      options: [
+        '从发出请求到首个 token，含排队、处理与传输',
+        '只含 GPU 矩阵乘法',
+        '只含后续 token 间隔',
+        '只含请求完成后的日志写入',
+      ],
+      correctOptions: ['从发出请求到首个 token，含排队、处理与传输'],
+      conceptSlug: 'llm-prefill-decode',
+      explanation:
+        '服务内部 prefill 时间只是 TTFT 的一部分，指标必须注明边界。',
+    },
+  ],
+  'kv-cache-paged-attention': [
+    {
+      id: 'kv-cache-paged-attention-q1',
+      type: 'calculation',
+      prompt:
+        '32 层、8 个 KV 头、每头 128 维、BF16，单序列 4096 token 的 K/V 缓存为多少 GiB？忽略取整和分片。',
+      accept: ['0.5', '0.50', '0.5GiB', '0.50GiB'],
+      conceptSlug: 'kv-cache-paged-attention',
+      explanation: '2×32×8×128×2×4096=536870912 byte，即 0.5 GiB。',
+    },
+    {
+      id: 'kv-cache-paged-attention-q2',
+      type: 'single-choice',
+      prompt: '计算 GQA 模型 KV Cache 时应优先使用哪个头数？',
+      options: [
+        '模型配置中的 KV 头数',
+        '一定使用 query 头数',
+        '使用 GPU 数量',
+        '使用 batch 大小代替头数',
+      ],
+      correctOptions: ['模型配置中的 KV 头数'],
+      conceptSlug: 'kv-cache-paged-attention',
+      explanation:
+        'GQA 的 KV 头数通常小于 query 头数；分页不消除 token 对缓存的基本开销。',
+    },
+  ],
+  'continuous-batching': [
+    {
+      id: 'continuous-batching-q1',
+      type: 'single-choice',
+      prompt: '连续批处理的核心机制是什么？',
+      options: [
+        '在迭代边界让完成请求退出、等待请求按预算加入',
+        '必须等待整批最长请求结束才接收下一批',
+        '让所有请求共用同一个回答',
+        '取消所有长请求',
+      ],
+      correctOptions: ['在迭代边界让完成请求退出、等待请求按预算加入'],
+      conceptSlug: 'continuous-batching',
+      explanation:
+        '需要同时考虑计算、活跃序列与 KV 预算，而不是无限增大 batch。',
+    },
+    {
+      id: 'continuous-batching-q2',
+      type: 'concept-explanation',
+      prompt: '为什么调整连续批处理时应同时看吞吐、TTFT、TPOT 和失败率？',
+      referenceAnswer:
+        '大 batch 可能提高复用与吞吐，但增大每轮耗时、排队和缓存压力。若尾延迟或失败超标，吞吐增加不等于有效容量增加，还应验证取消、背压和公平性。',
+      conceptSlug: 'continuous-batching',
+      explanation: '按是否解释资源与用户体验的权衡自评。',
+    },
+  ],
+  'inference-quantization': [
+    {
+      id: 'inference-quantization-q1',
+      type: 'single-choice',
+      prompt: 'W4A16 通常表示什么？',
+      options: [
+        '4-bit 权重与 16-bit 激活',
+        '4 层模型与 16 个用户',
+        '4-bit KV 与 16 张 GPU',
+        '所有张量都必然用 4-bit 计算',
+      ],
+      correctOptions: ['4-bit 权重与 16-bit 激活'],
+      conceptSlug: 'inference-quantization',
+      explanation:
+        '具体计算、累加精度和 KV dtype 仍需查看实现，不能由 W4A16 自动推断。',
+    },
+    {
+      id: 'inference-quantization-q2',
+      type: 'concept-explanation',
+      prompt: '为什么 4-bit 模型不保证文件恰好缩小四倍、推理也恰好加速四倍？',
+      referenceAnswer:
+        '文件含 scale、zero point、打包与高精度层；性能受硬件支持、反量化和 kernel、batch、长度及瓶颈影响。还需同时验证实际任务质量。',
+      conceptSlug: 'inference-quantization',
+      explanation: '应覆盖存储、执行与质量三个方面。',
+    },
+  ],
+  'llm-serving-deployment': [
+    {
+      id: 'llm-serving-deployment-q1',
+      type: 'single-choice',
+      prompt: '模型服务进程已监听端口但权重仍在加载，此时哪个判断正确？',
+      options: [
+        '尚不能仅凭监听判定就绪，应完成加载与请求验证',
+        '必然已可接收全部流量',
+        '应立刻删除所有旧副本',
+        '无需 readiness',
+      ],
+      correctOptions: ['尚不能仅凭监听判定就绪，应完成加载与请求验证'],
+      conceptSlug: 'llm-serving-deployment',
+      explanation: '存活、启动与就绪检查职责不同，慢加载需要合适的启动宽限。',
+    },
+    {
+      id: 'llm-serving-deployment-q2',
+      type: 'concept-explanation',
+      prompt:
+        '灰度发布一个新模型服务，除权重外应固定什么，并验证哪些流式行为？',
+      referenceAnswer:
+        '固定 revision、tokenizer、chat template、量化、运行时与启动参数；验证首 token、格式、结束原因、完整结束与取消，同时比较质量、延迟、错误并保留回滚。',
+      conceptSlug: 'llm-serving-deployment',
+      explanation: 'HTTP 200 之后仍可能失败，不能将它单独当成完整成功。',
+    },
+  ],
+  'inference-benchmarking': [
+    {
+      id: 'inference-benchmarking-q1',
+      type: 'calculation',
+      prompt:
+        '60 秒内 72 个请求满足全部约束，按请求计的 goodput 是多少 req/s？',
+      accept: ['1.2', '1.20', '1.2req/s', '1.20req/s'],
+      conceptSlug: 'inference-benchmarking',
+      explanation: '72/60=1.2 req/s。失败或超时不能从总请求记录中删除。',
+    },
+    {
+      id: 'inference-benchmarking-q2',
+      type: 'single-choice',
+      prompt: '闭环固定并发压测在服务变慢时通常会出现什么现象？',
+      options: [
+        '新请求到达率随完成变慢而降低',
+        '新请求到达率必然保持外部设定值',
+        '永远没有排队',
+        '客户端负载不再需要检查',
+      ],
+      correctOptions: ['新请求到达率随完成变慢而降低'],
+      conceptSlug: 'inference-benchmarking',
+      explanation:
+        '闭环完成后补发；开环按独立到达计划发送，更适合观察某些排队和过载行为。',
+    },
+  ],
+  'gpu-cluster-scheduling': [
+    {
+      id: 'gpu-cluster-scheduling-q1',
+      type: 'single-choice',
+      prompt: '单机四卡作业遇到两台机器各空闲两卡，能否仅按总数保证调度？',
+      options: [
+        '不能，资源布局不满足单机四卡约束',
+        '能，因为 2+2=4',
+        '能，网络速度永远不重要',
+        '能，普通副本扩容会自动拆分模型',
+      ],
+      correctOptions: ['不能，资源布局不满足单机四卡约束'],
+      conceptSlug: 'gpu-cluster-scheduling',
+      explanation: '还必须核对设备类型、显存、节点和互联要求。',
+    },
+    {
+      id: 'gpu-cluster-scheduling-q2',
+      type: 'concept-explanation',
+      prompt: '为什么 GPU 服务扩缩容应考虑冷启动、ready 和 drain？',
+      referenceAnswer:
+        '新副本要下载加载模型并预热，ready 前不应计入容量；缩容要停止接新请求并给存量流式请求完成期限，避免中断与反复抖动。',
+      conceptSlug: 'gpu-cluster-scheduling',
+      explanation: '应把资源分配与可用服务容量区分开。',
+    },
+  ],
+  'ai-infra-observability': [
+    {
+      id: 'ai-infra-observability-q1',
+      type: 'calculation',
+      prompt:
+        'SLO 目标为 99% 合格，近期窗口不合格率为 3%，预算消耗速率是多少倍？',
+      accept: ['3', '3倍', '3x'],
+      conceptSlug: 'ai-infra-observability',
+      explanation: '0.03/(1−0.99)=3；近期速率不等于完整窗口累计预算。',
+    },
+    {
+      id: 'ai-infra-observability-q2',
+      type: 'single-choice',
+      prompt: '以下哪种做法能让服务 SLO 具有明确可核对的含义？',
+      options: [
+        '预先定义范围、合格事件、窗口、分母与排除规则',
+        '故障后再删除不利样本',
+        '只看 GPU 利用率',
+        '以最高瞬时吞吐代替所有目标',
+      ],
+      correctOptions: ['预先定义范围、合格事件、窗口、分母与排除规则'],
+      conceptSlug: 'ai-infra-observability',
+      explanation: 'SLO 必须对应用户结果和稳定口径，才能解释错误预算与告警。',
+    },
+  ],
+  'ai-infra-serving-lab': [
+    {
+      id: 'ai-infra-serving-lab-q1',
+      type: 'single-choice',
+      prompt:
+        '合成日志中四条请求仅两条完整且 TTFT 达标，计算出的合格比例是多少？',
+      options: ['50%', '95%', '100%', '只应保留成功的两条并算作 100%'],
+      correctOptions: ['50%'],
+      conceptSlug: 'ai-infra-serving-lab',
+      explanation: '2/4=50%；合成样本只验证逻辑，不能证明真实服务能力。',
+    },
+    {
+      id: 'ai-infra-serving-lab-q2',
+      type: 'concept-explanation',
+      prompt:
+        '内存预算候选并发为 15，能否直接设为上线并发？请给出后续验收证据。',
+      referenceAnswer:
+        '不能。应从较低并发在真实设备压测，记录环境、长度和到达分布、原始延迟、错误与显存，做质量回归并核对 SLO、成本和灰度回滚条件。',
+      conceptSlug: 'ai-infra-serving-lab',
+      explanation: '预算可行、性能通过与质量可用是不同证据，应同时满足。',
+    },
+  ],
   // ---------------------------------------------------------------- 机器学习基础
   'supervised-learning': [
     {

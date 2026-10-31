@@ -1,0 +1,67 @@
+---
+id: llm-prefill-decode
+slug: llm-prefill-decode
+title: 大模型推理：Prefill 与 Decode
+category: artificial-intelligence
+difficulty: 进阶
+summary: 把处理提示词和逐 token 生成拆开，理解输入长度、输出长度、TTFT 与逐 token 延迟之间的关系。
+prerequisites: [llm-memory-budget, transformer]
+relatedConcepts: [kv-cache-paged-attention, continuous-batching, inference-benchmarking]
+order: 1009
+directory: AI Infra
+---
+
+## 学习目标 {#learning-objectives}
+
+- 说明 prefill 与 decode 的输入、输出和依赖关系。
+- 用 TTFT 与 TPOT 分解用户等待时间。
+- 判断长输入和长输出带来的不同压力。
+
+## 学习前需要掌握 {#prerequisites}
+
+## 背景与问题 {#background}
+
+同一模型回答两个问题：一个输入很长但只要求短答，另一个输入很短却要求长文。两者可能有相近的总 token 数，用户感受到的等待过程却完全不同。
+
+## 概念定义 {#definition}
+
+Prefill 处理已经知道的提示词 token，计算相应隐藏状态并建立 KV Cache；因果 mask 保留自回归约束，但提示词位置可以并行参与计算。Decode 在已有上下文基础上每轮生成新 token，后续 token 依赖之前的生成结果。
+
+TTFT（Time to First Token）是客户端从发送请求到收到首个输出 token 的时间，通常包括排队、输入处理、prefill 与传输；TPOT（Time per Output Token）通常描述首个 token 之后的平均生成间隔，必须说明具体统计口径。
+
+## 直观理解 {#intuition}
+
+某请求 300 ms 后收到首个 token，共生成 21 token，之后平均每 40 ms 一个 token，则最后一个 token 约在 300+20×40=1100 ms 到达。生成 21 token 只有 20 个后续间隔，不能再乘 21。
+
+## 核心原理 {#core-principle}
+
+$$
+T_{\mathrm{last\ token}}\approx TTFT+(n_{\mathrm{out}}-1)\,TPOT
+$$
+
+式中时间单位一致，$n_{\mathrm{out}}$ 至少为 2；单 token 输出没有后续间隔，TPOT 应标记不适用。连接关闭或流结束事件可能晚于最后一个 token，因此端到端完成时间还要说明截止事件。
+
+Prefill 常有较多并行矩阵计算，decode 小 batch 常受权重读取或缓存访问限制。长上下文还会扩大注意力与 KV 访问成本；具体瓶颈随模型、batch、硬件和注意力实现变化。
+
+长 prefill 若独占执行，会干扰正在 decode 的请求。Chunked prefill 把输入处理切块，与其他请求交错；prefill/decode 分离则把两阶段放到不同资源池，需要额外处理 KV 传输、调度与资源比例，不能视为无成本优化。
+
+## 分析与实践步骤 {#algorithm-steps}
+
+1. 固定模型、tokenizer、输入与输出长度分布。
+2. 记录请求发送、首 token、各后续 token 与完成事件。
+3. 分别统计排队、TTFT、TPOT 与完成延迟，查看分位数。
+4. 改变输入长度与输出长度，观察瓶颈如何移动。
+5. 在并发负载下复测，检查长输入是否拖慢其他请求。
+
+## 实际应用 {#applications}
+
+- 交互问答优先检查首响应和生成节奏，离线任务更重视有效吞吐。
+- 为长文总结、RAG 和代码补全设置不同的输入输出预算。
+
+## 常见错误 {#pitfalls}
+
+- 把总输出 token/s 的倒数当作每位用户的 TPOT。
+- 只测模型内部 prefill 耗时，却把它命名为客户端 TTFT。
+- 计算 TPOT 时把首 token 等待也算进去，导致两项重复。
+
+## 与其他概念的关系 {#related}

@@ -1,0 +1,83 @@
+---
+id: kv-cache-paged-attention
+slug: kv-cache-paged-attention
+title: KV Cache 与分页注意力
+category: artificial-intelligence
+difficulty: 挑战
+summary: 计算自回归推理的 KV 缓存，理解 GQA、分页分配、前缀复用与上下文长度如何影响服务容量。
+prerequisites: [llm-prefill-decode, multi-head-attention]
+relatedConcepts: [continuous-batching, llm-memory-budget, llm-serving-deployment]
+order: 1010
+directory: AI Infra
+---
+
+## 学习目标 {#learning-objectives}
+
+- 按层数、KV 头数、head dimension 和 token 数计算缓存。
+- 说明分页减少分配浪费的机制与边界。
+- 区分 KV Cache、前缀复用和完整回答缓存。
+
+## 学习前需要掌握 {#prerequisites}
+
+## 背景与问题 {#background}
+
+模型权重固定，但随着生成变长，服务显存仍会增长。这是因为每条活跃序列需要保存各层历史 token 的 key 和 value，避免每一步重算完整历史。
+
+## 概念定义 {#definition}
+
+KV Cache 保存自注意力层已经计算出的 key/value 张量，供后续 token 查询。分页注意力（PagedAttention）使用逻辑块到物理块的映射组织缓存，不要求为每条序列预先占用一段最大长度的连续显存。
+
+## 直观理解 {#intuition}
+
+假设 32 层、8 个 KV 头、每头 128 维，K/V 都用 BF16。每 token 缓存是 2×32×8×128×2=131072 byte，即 128 KiB；4096 token 的单序列约为 0.5 GiB，16 条同长序列约为 8 GiB。
+
+## 核心原理 {#core-principle}
+
+$$
+M_{KV}=2 L H_{KV}d_h b_{KV}\sum_{i=1}^{N} T_i
+$$
+
+$L$ 为层数，$H_{KV}$ 为 KV 头数，$d_h$ 为每头维度，$b_{KV}$ 为每元素字节数，$T_i$ 为第 $i$ 条序列当前保留的上下文 token 数。前面的 2 分别代表 K 与 V。这个式子假设所有层都保留完整历史，未考虑分片、滑动窗口、块取整与共享。
+
+GQA 的 KV 头数通常小于 query 头数，应读取模型配置中的 KV 头数而不是直接使用注意力头总数。TP 下每卡缓存如何划分，还要核对后端对 KV 头的分配或复制方式。
+
+块大小为 16 token 时，长度 17 的序列需 2 块、共 32 个位置，仍浪费 15 个位置。分页主要减少连续分配与预留带来的浪费，不能消除缓存随 token 增长的基本成本。
+
+前缀复用可让完全相同且满足实现条件的前缀共享计算和物理块。缓存键必须匹配模型、tokenizer、适配器与相应推理配置；多租户还需考虑隔离与命中信息泄漏。它不会保证同一问题永远返回同一答案，也不等于保存完整回答。
+
+## 计算与实践步骤 {#algorithm-steps}
+
+1. 从模型配置获取层数、KV 头数与维度，确认缓存 dtype。
+2. 将提示词、已生成 token 和并发分别纳入预算。
+3. 扣除权重、激活、运行时与余量，再估算缓存允许的总 token。
+4. 压测长尾长度、块利用率、缓存命中和抢占，确认峰值行为。
+
+## 代码实现 {#code}
+
+```python
+layers, kv_heads, head_dim, bytes_per_value = 32, 8, 128, 2
+tokens, sequences = 4096, 16
+per_token = 2 * layers * kv_heads * head_dim * bytes_per_value
+print(f"per_token={per_token // 1024} KiB")
+print(f"one_sequence={per_token * tokens / 2**30:.2f} GiB")
+print(f"all_sequences={per_token * tokens * sequences / 2**30:.2f} GiB")
+```
+
+输出 `per_token=128 KiB`、`one_sequence=0.50 GiB`、`all_sequences=8.00 GiB`。这是教学配置，不是所有 7B 模型的 KV 结构。
+
+## 实际应用 {#applications}
+
+- 决定最大上下文、活跃序列数与 token 总预算。
+- 判断缓存不足时应减少并发、限制长度还是调整缓存实现。
+
+## 常见错误 {#pitfalls}
+
+- 忘记 K/V 两份张量，或把 query 头数误用为 KV 头数。
+- 认为启用分页后任意长度与并发都能装下。
+- 只按输入长度预算，没有为后续生成增长留空间。
+
+## 与其他概念的关系 {#related}
+
+## 继续阅读 {#further-reading}
+
+[vLLM Paged Attention](https://docs.vllm.ai/en/latest/design/paged_attention/) 说明块表映射与注意力 kernel 的数据布局。

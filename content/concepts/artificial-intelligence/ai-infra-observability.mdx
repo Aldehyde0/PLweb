@@ -1,0 +1,88 @@
+---
+id: ai-infra-observability
+slug: ai-infra-observability
+title: AI Infra 可观测性、SLO 与成本
+category: artificial-intelligence
+difficulty: 进阶
+summary: 将用户延迟与成功率连接到排队、GPU、缓存和版本指标，定义可执行的服务目标、告警与单位有效请求成本。
+prerequisites: [inference-benchmarking]
+relatedConcepts: [tracing-observability, llm-serving-deployment, gpu-cluster-scheduling]
+order: 1016
+directory: AI Infra
+---
+
+## 学习目标 {#learning-objectives}
+
+- 为服务目标写清样本、时间窗口、分母与失败条件。
+- 将用户症状对应到资源和请求阶段证据。
+- 用有效工作量衡量成本，避免优化无效 token。
+
+## 学习前需要掌握 {#prerequisites}
+
+## 背景与问题 {#background}
+
+告警“GPU 使用率超过 95%”无法告诉值班者用户是否受影响。反过来，GPU 使用率只有 30% 时，CPU 分词或数据加载阻塞也可能使 TTFT 超标。
+
+## 概念定义 {#definition}
+
+可观测性通过指标、日志和追踪解释系统行为。SLI 是实际观测指标，SLO 是在指定窗口内希望达到的目标。例如“过去 30 天，至少 99% 的范围内请求完整成功且 TTFT 不超过 1 秒”，就同时规定了窗口与合格事件。
+
+## 直观理解 {#intuition}
+
+如果窗口内有 10000 个范围内请求，目标为 99% 合格，则允许 100 个不合格；已出现 70 个不合格时，还剩 30 个预算。是否计入客户端错误、取消或超长输入必须预先定义，不能在故障后临时修改分母。
+
+## 核心原理 {#core-principle}
+
+$$
+\mathrm{burn\ rate}=\frac{\mathrm{observed\ bad\ fraction}}{1-\mathrm{SLO\ target}}
+$$
+
+目标为 99%，某个告警观察窗口的不合格率为 3%，消耗速率是 3 倍。它表示该窗口的坏事件速率是可持续预算的三倍，不代表完整 30 天预算已经耗尽。可结合短、长两个窗口判断持续性和紧急程度。
+
+| 用户症状 | 要关联的证据 | 常见后续检查 |
+| --- | --- | --- |
+| 首 token 变慢 | 排队、输入长度、prefill 时间 | 突发负载、分词 CPU、缓存冷启动 |
+| 生成断续 | TPOT、批次组成、KV 使用 | 长输入干扰、缓存抢占、内存压力 |
+| 失败增加 | OOM、重启、拒绝、流结束原因 | 长度限制、容量与发布版本 |
+| 成本升高 | GPU 时长、有效请求与 token | 重试、闲置副本、长无效回答 |
+
+请求追踪可关联网关、分词、排队、prefill、decode 与下游工具，但高基数 request ID 不应直接作为每个指标序列的标签。日志默认保留必要元数据，提示词等敏感正文按实际权限、留存与脱敏要求处理。
+
+成本可以定义为某窗口 GPU 等费用除以合格完成请求数，或每百万合格输出 token 的费用；必须标明是否包含闲置、CPU、网络和存储。分母为零时应显示未定义，不能算作零成本。
+
+## 计算与实践步骤 {#algorithm-steps}
+
+1. 定义服务范围、SLI、窗口和质量/延迟目标。
+2. 采集客户端结果并关联版本、队列、缓存、设备和请求阶段。
+3. 用坏事件比例及预算消耗建立可采取行动的告警。
+4. 每条告警附上排查入口和处置条件，如回滚、限流或扩容。
+5. 回放一次故障，确认监控能定位问题并验证处置效果。
+
+## 代码实现 {#code}
+
+```python
+total, bad, target = 10_000, 70, 0.99
+allowed_bad = round(total * (1 - target))
+recent_bad_fraction = 0.03
+print(f"remaining_bad_budget={allowed_bad - bad}")
+print(f"recent_burn_rate={recent_bad_fraction / (1 - target):.1f}x")
+```
+
+输出 `remaining_bad_budget=30`、`recent_burn_rate=3.0x`。前者来自完整窗口计数，后者来自另一个近期窗口，两个时间口径应分别标注。
+
+## 实际应用 {#applications}
+
+- 将新模型或量化版本的灰度结果与实际服务目标比较。
+- 在扩容、限流、回滚和任务降级之间做有证据的选择。
+
+## 常见错误 {#pitfalls}
+
+- 用平均值代替长尾，或把服务内部延迟冒充客户端延迟。
+- 为每个用户、提示词和 request ID 创建指标标签，导致基数爆炸。
+- 只降低每 token 成本，却生成更多无效内容并增加每次任务成本。
+
+## 与其他概念的关系 {#related}
+
+## 继续阅读 {#further-reading}
+
+[OpenTelemetry Signals](https://opentelemetry.io/docs/concepts/signals/) 介绍指标、日志与追踪的分工，可结合已有的 Agent tracing 文章连接应用与服务两层证据。

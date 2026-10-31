@@ -1,0 +1,85 @@
+---
+id: distributed-training-parallelism
+slug: distributed-training-parallelism
+title: 分布式训练：数据、张量与流水线并行
+category: artificial-intelligence
+difficulty: 挑战
+summary: 根据模型是否装得下、通信拓扑与全局 batch，选择 DP、TP、PP 及其组合，理解扩卡的收益与代价。
+prerequisites: [llm-memory-budget, training-data-pipeline, backpropagation]
+relatedConcepts: [gpu-collectives-topology, zero-fsdp, training-checkpoints-recovery]
+order: 1004
+directory: AI Infra
+---
+
+## 学习目标 {#learning-objectives}
+
+- 说明 DP、TP、PP 分别切分数据、层内计算与模型层。
+- 正确计算带梯度累积的全局 batch。
+- 区分容量扩展和训练加速两个目标。
+
+## 学习前需要掌握 {#prerequisites}
+
+## 背景与问题 {#background}
+
+模型能放进单卡时，多卡可能用于提高吞吐；模型单卡放不下时，则必须先解决容量问题。这两种场景需要的并行方案并不相同。
+
+## 概念定义 {#definition}
+
+数据并行（DP）让多个副本处理不同样本，再同步梯度；张量并行（TP）把层内矩阵或张量计算切到多卡；流水线并行（PP）把模型的不同层放在不同设备，用微批量在阶段间流动。
+
+DDP 是常见的数据并行实现。它通常在每个 rank 保留完整参数和优化器状态，所以增加 DDP 卡数并不能直接解决单卡模型状态放不下的问题。
+
+## 直观理解 {#intuition}
+
+用 8 张卡构成 TP=2、PP=2、DP=2，逻辑上有两个模型副本，每个副本占四张卡。微批量为 4、累积 8 次时，全局 batch 是 4×8×2=64 个样本；不能再把 TP 和 PP 乘进去，它们处理的是同一个副本的计算。
+
+## 核心原理 {#core-principle}
+
+$$
+B_{\mathrm{global}}=B_{\mathrm{micro}}\,A\,N_{DP},\qquad
+N_{\mathrm{GPU}}=N_{DP}N_{TP}N_{PP}
+$$
+
+这里 $A$ 为每次优化器更新的梯度累积次数；第二式假设这三个并行维度组成完整设备网格，未额外计入专家并行等维度。样本长度不同时，还要报告每次更新的有效 token 数。
+
+TP 常需要逐层集合通信，对低延迟高带宽互联敏感；PP 需要平衡各阶段计算与显存，并用足够微批量减少流水线气泡；DP 的梯度通信可与部分反向计算重叠，但扩卡收益仍取决于本地计算量和网络。
+
+强扩展保持总工作量不变，弱扩展保持每卡工作量近似不变。比较加速比时要说明口径；固定训练目标时，还要关注达到相同质量所花的总时间，而不是仅比较每步耗时。
+
+## 计算与实践步骤 {#algorithm-steps}
+
+1. 先测单卡显存和 step 时间，确认容量与性能限制。
+2. 能装下时建立 DP 基线；装不下时根据状态、激活与层结构考虑分片、TP 或 PP。
+3. 把高频通信放在更快的互联域内，并确认设备分组。
+4. 记录全局 batch、学习率、有效 token、通信时间和扩展效率。
+5. 检查梯度累积时损失缩放与同步频率，确保优化器更新语义符合预期。
+
+## 代码实现 {#code}
+
+```python
+gpus, tensor_parallel, pipeline_parallel = 8, 2, 2
+data_parallel = gpus // (tensor_parallel * pipeline_parallel)
+micro_batch, accumulation = 4, 8
+assert gpus % (tensor_parallel * pipeline_parallel) == 0
+print(f"DP={data_parallel}")
+print(f"global_batch={micro_batch * accumulation * data_parallel}")
+```
+
+输出 `DP=2` 和 `global_batch=64`。这是拓扑和 batch 账本，没有启动分布式训练。
+
+## 实际应用 {#applications}
+
+- 为多卡微调或预训练选择可解释的设备网格。
+- 诊断卡数翻倍后吞吐增长很小，或 loss 轨迹发生变化。
+
+## 常见错误 {#pitfalls}
+
+- 在扩卡时不小心改变全局 batch，却仍把质量差异归因于通信。
+- 所有 rank 读相同样本，或在不同 rank 上以不同顺序执行 collective。
+- 把梯度累积当作减少全部训练状态内存的方法；它主要允许减小微批量激活。
+
+## 与其他概念的关系 {#related}
+
+## 继续阅读 {#further-reading}
+
+[PyTorch Distributed Overview](https://docs.pytorch.org/tutorials/beginner/dist_overview.html) 对照 DDP、FSDP 与张量、流水线并行的适用边界。

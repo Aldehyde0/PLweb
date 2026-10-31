@@ -1,0 +1,94 @@
+---
+id: ai-infra-serving-lab
+slug: ai-infra-serving-lab
+title: 综合实验：推理容量规划与服务验收
+category: artificial-intelligence
+difficulty: 挑战
+summary: 用无需 GPU 的显存预算和合成请求日志完成容量筛选，再给出真实设备上的压测与上线验收清单。
+prerequisites: [kv-cache-paged-attention, inference-benchmarking, ai-infra-observability]
+relatedConcepts: [inference-quantization, llm-serving-deployment, gpu-cluster-scheduling]
+order: 1017
+directory: AI Infra
+---
+
+## 学习目标 {#learning-objectives}
+
+- 把模型状态、缓存、长度和并发放入同一张预算表。
+- 从完整成功标记和 TTFT 计算合格比例。
+- 给出区分“预算可行”和“实测通过”的服务验收结论。
+
+## 学习前需要掌握 {#prerequisites}
+
+## 背景与问题 {#background}
+
+你准备在一张 24 GiB GPU 上运行一个假想的 7B BF16 问答模型。每条序列最多保留 4096 个 token，目标是请求完整成功、客户端 TTFT 不超过 1000 ms，并在目标负载下至少 95% 合格。
+
+以下模型结构、余量与日志全部是教学用合成数据。实验第一阶段只用 Python 标准库，帮助练习预算和验收，不能证明真实 GPU 能达到同样的速度、质量或容量。
+
+## 概念定义 {#definition}
+
+容量规划先用资源账本筛选可测试配置，再用目标工作负载验证延迟、成功率、质量和成本。验收需要这些约束同时达标，单独满足显存条件只说明候选方案值得进一步测试。
+
+## 直观理解 {#intuition}
+
+BF16 权重约占 13.04 GiB。若假定激活、运行时与安全余量合计预留 3 GiB，则缓存预算约 7.96 GiB；每条 4096 token 序列缓存 0.5 GiB，算术上最多容纳 15 条。真实引擎还受到分块、瞬时峰值与调度上限影响，应从更低并发开始实测。
+
+## 核心原理 {#core-principle}
+
+资源可行性回答“能否放下”，负载测试回答“能否按时完成”，质量回归回答“回答是否仍可用”。这三类证据不能互相代替。容量增加后可能出现排队、TPOT 变慢或错误增长，最终有效吞吐反而降低。
+
+在候选配置之间比较时，固定模型、tokenizer、输入输出分布、缓存策略与到达方式。记录失败请求，即便它在 300 ms 就失败，也不能把它算成满足 TTFT 目标的成功请求。
+
+## 可运行实验 {#code}
+
+```python
+from math import floor
+
+gib = 2**30
+weights_gib = 7_000_000_000 * 2 / gib
+runtime_and_margin_gib = 3
+kv_per_sequence_gib = 2 * 32 * 8 * 128 * 2 * 4096 / gib
+cache_budget_gib = 24 - weights_gib - runtime_and_margin_gib
+candidate = floor(cache_budget_gib / kv_per_sequence_gib)
+
+# 合成日志：(客户端 TTFT 毫秒, 是否完整成功)
+requests = [(400, True), (800, True), (1200, True), (300, False)]
+good = sum(complete and ttft <= 1000 for ttft, complete in requests)
+good_fraction = good / len(requests)
+print(f"cache_budget={cache_budget_gib:.2f} GiB")
+print(f"memory_only_candidate={candidate} sequences")
+print(f"good_fraction={good_fraction:.0%}")
+print(f"latency_success_gate={good_fraction >= 0.95}")
+```
+
+预期输出依次为 `cache_budget=7.96 GiB`、`memory_only_candidate=15 sequences`、`good_fraction=50%`、`latency_success_gate=False`。
+
+四条记录中，前两条完整且及时，第三条过慢，第四条失败，所以合格比例为 2/4=50%。这四条合成记录只能验证计算逻辑，样本规模不足以推断真实服务可靠性；候选并发 15 与这组日志之间也没有真实测量关系。
+
+## 实验步骤与交付物 {#algorithm-steps}
+
+1. 运行上述预算例子，保存参数、计算结果与尚未测量的假设。
+2. 把结构换成目标模型真实配置，重新核对权重、KV 和运行时峰值。
+3. 在真实设备从低并发开始，固定长度分布，分别进行闭环和开环测试。
+4. 保存原始时间戳、实际输出 token、完整性、错误、显存与队列数据，报告 P50/P95/P99 和重复轮次。
+5. 对候选方案单独做质量回归，包括长上下文与关键任务；不达标时回退模型或量化配置。
+6. 提交预算表、环境版本、压测配置、质量结果、成本口径与回滚条件，再判断是否可以接入真实流量。
+
+## 参数探索 {#experiments}
+
+将上下文上限翻倍到 8192，在其他假设不变时每条缓存变成 1 GiB，预算候选从 15 降为 7。把权重量化到理想 4-bit 后，需要另计 scale 等开销；缓存精度不变时，每条缓存仍是 0.5 GiB。
+
+这两个变化适合写入网站笔记，再比较自己的设备实测。不要把更大的预算候选数直接填为上线并发上限。
+
+## 实际应用 {#applications}
+
+- 为个人设备上的模型选型建立可复算的理由。
+- 为团队服务评审提供完整的资源、质量、性能和恢复证据。
+
+## 常见错误 {#pitfalls}
+
+- 用合成日志或公式输出冒充真实模型压测。
+- 只看内存候选并发，忽略延迟、质量与请求到达率。
+- 在短样本上宣布达到 95% 服务目标，却没有足够观测窗口。
+
+## 与其他概念的关系 {#related}

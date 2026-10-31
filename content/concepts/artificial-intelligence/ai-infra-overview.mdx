@@ -1,0 +1,84 @@
+---
+id: ai-infra-overview
+slug: ai-infra-overview
+title: AI Infra：从模型到可靠服务
+category: artificial-intelligence
+difficulty: 入门
+summary: 用数据、计算、训练、推理和运维五层结构理解 AI 基础设施，并建立可以逐步实践的学习路线。
+prerequisites:
+  - generative-ai
+relatedConcepts:
+  - training-engineering
+  - llm-and-agent
+order: 1000
+directory: AI Infra
+---
+
+## 学习目标 {#learning-objectives}
+
+- 区分模型能力、应用编排和基础设施分别负责的问题。
+- 根据内存、带宽、通信、排队和可靠性约束定位问题。
+- 选择一条适合自己设备条件的训练或推理学习路线。
+
+## 学习前需要掌握 {#prerequisites}
+
+## 背景与问题 {#background}
+
+模型在笔记本上回答一次问题，不代表它能持续为多人服务。请求变长后显存可能耗尽；并发增加后首个 token 可能迟迟不来；一次训练中断也可能丢掉数小时进度。这些问题需要把模型放进完整系统中研究。
+
+本专题以 Transformer 语言模型为主要例子。调度、数据版本、检查点和监控同样适用于其他模型，但 KV Cache、prefill 与 decode 等概念主要针对自回归生成。
+
+## 概念定义 {#definition}
+
+AI Infrastructure（AI Infra，AI 基础设施）是支撑模型数据处理、训练、评估、部署和持续运行的软硬件系统。它协调 GPU、CPU、内存、存储与网络，让模型在给定质量、延迟、可靠性和成本约束下工作。
+
+模型算法决定“学什么、如何推断”；应用决定“为用户完成什么任务”；Infra 决定“用哪些资源稳定地完成这些计算”。三者相互影响：更长上下文改变缓存需求，服务延迟预算又会限制模型和并行方案的选择。
+
+## 直观理解 {#intuition}
+
+把一个 7B 模型用于学习问答：只计算 BF16 权重约需 14 GB，但服务还要放 KV Cache、运行时缓冲和临时张量。即使权重能加载，仍不能据此宣布显卡能支持 32 个长上下文请求。
+
+进一步扩大到多卡也会引入通信和调度成本。学习 Infra 的起点是列清资源账，而不是先选择一套最大的集群工具。
+
+## 核心原理 {#core-principle}
+
+一个 AI 系统可以按数据、计算、训练、推理和运维五层观察。数据层保证样本可追溯、供给及时；计算层关注设备执行与数据搬运；训练层组织梯度同步和故障恢复；推理层管理请求、缓存与生成；运维层记录服务是否持续满足目标。
+
+优化应从工作负载和测量出发。GPU 利用率低可能是数据等待、CPU 分词、网络通信或小批量造成的；利用率高也可能只是大量失败重试。每次只改变一个主要因素，并同时检查质量与端到端结果。
+
+| 层次 | 要回答的问题 | 常见证据 |
+| --- | --- | --- |
+| 数据 | GPU 是否在等样本？ | 读盘、分词和取 batch 耗时 |
+| 计算 | 算力还是搬运限制速度？ | 算子时间、显存带宽、峰值显存 |
+| 训练 | 多卡是否减少了完成时间？ | 有效 token/s、通信占比、恢复耗时 |
+| 推理 | 并发下还能及时回答吗？ | TTFT、TPOT、排队、成功率 |
+| 运维 | 质量和服务目标是否持续达标？ | 质量回归、SLO、成本与版本记录 |
+
+## 学习路线与实践步骤 {#algorithm-steps}
+
+1. 阅读 [GPU 算力与带宽](/concept/gpu-memory-bandwidth) 和 [显存预算](/concept/llm-memory-budget)，先解释一个模型能否装下。
+2. 训练路线：从 [数据流水线](/concept/training-data-pipeline) 到 [并行训练](/concept/distributed-training-parallelism)、[集合通信](/concept/gpu-collectives-topology)、[ZeRO 与 FSDP](/concept/zero-fsdp)、[检查点恢复](/concept/training-checkpoints-recovery)，最后学习 [内核与编译](/concept/gpu-kernels-compilation)。
+3. 推理路线：依次学习 [prefill 与 decode](/concept/llm-prefill-decode)、[KV Cache](/concept/kv-cache-paged-attention)、[连续批处理](/concept/continuous-batching)、[量化](/concept/inference-quantization) 和 [服务部署](/concept/llm-serving-deployment)。
+4. 进入 [压测](/concept/inference-benchmarking)、[集群调度](/concept/gpu-cluster-scheduling) 和 [监控与 SLO](/concept/ai-infra-observability)，评估优化是否对用户有效。
+5. 用 [推理容量规划实验](/concept/ai-infra-serving-lab) 串联预算、排队、指标与上线判断。
+
+这是一张路线图，不要求一次学完。没有 GPU 时先完成容量计算、日志分析与合成实验；有设备后再替换为实际运行数据。创建人工智能方向的学习计划时，新概念会按目录一并纳入，并沿用原有学习标记、笔记和复习流程。
+
+## 实际应用 {#applications}
+
+- 个人部署：在购置显卡前估算模型、上下文和并发需求。
+- 训练实验：判断扩展 GPU 数量是否值得，并保证中断后能恢复。
+- 团队服务：把“速度更快”转为指定负载下可检查的延迟、质量与成本目标。
+
+## 常见错误 {#pitfalls}
+
+- 只报 GPU 型号或模型参数量，没有输入长度、输出长度和并发条件。
+- 把一次运行成功视为容量、可靠性与质量都已验证。
+- 把模型质量下降当成吞吐优化的合理代价，却没有记录质量门槛。
+- 在没有测量瓶颈时同时引入分片、量化、编译和多级缓存，导致收益无法归因。
+
+## 与其他概念的关系 {#related}
+
+## 继续阅读 {#further-reading}
+
+[PyTorch 分布式概览](https://docs.pytorch.org/tutorials/beginner/dist_overview.html) 展示训练侧工具的分工；本专题后续文章会把这些工具放回资源预算与服务目标中理解。

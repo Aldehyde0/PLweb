@@ -1,0 +1,78 @@
+---
+id: training-checkpoints-recovery
+slug: training-checkpoints-recovery
+title: 训练检查点与故障恢复
+category: artificial-intelligence
+difficulty: 进阶
+summary: 保存模型、优化器、随机数与数据消费状态，以可校验的提交方式恢复训练，并权衡保存频率与重算成本。
+prerequisites: [training-data-pipeline, model-saving-inference]
+relatedConcepts: [zero-fsdp, gpu-cluster-scheduling]
+order: 1007
+directory: AI Infra
+---
+
+## 学习目标 {#learning-objectives}
+
+- 区分推理权重导出与可恢复的训练检查点。
+- 设计避免半成品被读取的提交协议。
+- 用保存间隔估计故障后的平均重算量。
+
+## 学习前需要掌握 {#prerequisites}
+
+## 背景与问题 {#background}
+
+训练在第 10 万步中断，仅加载模型权重后继续，并不一定沿着原来的轨迹优化。Adam 动量、学习率调度器和数据顺序若丢失，即使步号相同，也不是同一训练状态。
+
+## 概念定义 {#definition}
+
+训练检查点是在一致边界保存的可恢复状态，包括模型参数、优化器、调度器、精度缩放器（如使用）、全局 step、消费 token 数、随机数状态和采样器位置，并绑定模型、数据、tokenizer 和软件配置版本。
+
+## 直观理解 {#intuition}
+
+把检查点比作游戏存档：人物装备是模型权重，剩余资源和进度是优化器与数据状态。只保存装备，不能恢复到完全相同的关卡位置。
+
+## 核心原理 {#core-principle}
+
+一个检查点应在明确的优化器更新边界创建，或额外保存未完成梯度累积的状态。分布式场景中，各 rank 的分片必须属于同一步；只看到部分文件，不能判定保存成功。
+
+本地文件系统可以先写临时文件，完成校验后在同一文件系统内原子重命名。对象存储通常没有同样的重命名语义，可使用独立不可变前缀写所有分片，最后发布含文件清单、校验和及 step 的完成 manifest。读者只选择已提交版本。
+
+若每 $T$ 分钟保存一次，故障在两个成功检查点之间近似均匀发生，平均丢失计算约为 $T/2$。保存本身也有 I/O、同步和容量成本；间隔 20 分钟意味着平均约重算 10 分钟，不代表总恢复时间只有 10 分钟。
+
+## 恢复演练步骤 {#algorithm-steps}
+
+1. 固定模型、数据和依赖版本，记录完整配置及消费位置。
+2. 在一致边界保存到新路径，校验所有必需分片后再提交 manifest。
+3. 从最近的完整检查点加载，缺失或损坏时回退到上一份完整版本。
+4. 人为中断一个短训练，比较恢复前后的 step、学习率、数据 ID 和 loss 趋势。
+5. 单独记录保存耗时、下载耗时、状态重建和重算耗时，确认恢复目标能达到。
+
+## 核对清单示例 {#code}
+
+这个标准库例子检查逻辑字段是否齐全；它不验证磁盘持久性，也不保存真实张量。
+
+```python
+required = {"model", "optimizer", "scheduler", "rng", "sampler", "step"}
+checkpoint = {"model": "weights", "optimizer": "adam", "step": 100}
+missing = sorted(required - checkpoint.keys())
+print("missing=" + ",".join(missing))
+```
+
+输出 `missing=rng,sampler,scheduler`。真实实现还应绑定数据版本、张量格式和完整性校验。
+
+## 实际应用 {#applications}
+
+- 在抢占实例或共享集群中控制训练中断损失。
+- 从单卡实验发展到分片训练时，提前验证格式与恢复能力。
+
+## 常见错误 {#pitfalls}
+
+- 在异步保存完成之前删除上一份有效检查点。
+- 把随机种子相同等同于逐位复现；硬件、算子和读取调度也会影响结果。
+- 假定分片检查点可以任意改变 world size，未检查加载与重分片支持。
+
+## 与其他概念的关系 {#related}
+
+## 继续阅读 {#further-reading}
+
+[PyTorch Distributed Checkpoint](https://docs.pytorch.org/docs/stable/distributed.checkpoint.html) 用于核对分片保存、加载与版本限制。

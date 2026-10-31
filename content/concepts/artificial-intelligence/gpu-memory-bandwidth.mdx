@@ -1,0 +1,94 @@
+---
+id: gpu-memory-bandwidth
+slug: gpu-memory-bandwidth
+title: GPU：算力、显存与带宽瓶颈
+category: artificial-intelligence
+difficulty: 入门
+summary: 区分计算吞吐、显存容量与数据搬运速度，用算术强度解释 GPU 为什么没有跑满。
+prerequisites: [ai-infra-overview]
+relatedConcepts: [llm-memory-budget, gpu-kernels-compilation, pytorch-tensor-shape-device]
+order: 1001
+directory: AI Infra
+---
+
+## 学习目标 {#learning-objectives}
+
+- 分清 FLOP/s、字节和字节每秒，避免把容量当速度。
+- 用 Roofline 的简化上界判断计算与带宽约束。
+- 区分 GPU 显存访问、主机传输和跨卡通信。
+
+## 学习前需要掌握 {#prerequisites}
+
+## 背景与问题 {#background}
+
+一块峰值算力更高的 GPU，在逐 token 生成中未必同比更快。矩阵计算需要不断读取权重和中间数据；如果处理器等数据的时间更长，增加算力不会直接消除等待。
+
+## 概念定义 {#definition}
+
+显存容量决定能同时存放多少权重、激活和缓存；显存带宽决定 GPU 与其高带宽内存之间每秒能搬运多少数据；计算吞吐表示每秒能完成多少浮点运算。三者单位分别是 GB 或 GiB、GB/s 或 TB/s、FLOP/s。
+
+CPU 内存到 GPU 的 PCIe 传输、卡间的 NVLink 或 PCIe、节点间网络属于不同数据路径，不能用显存带宽代替它们的实际吞吐。
+
+## 直观理解 {#intuition}
+
+假设一个算子做 100 GFLOP 运算并读取 10 GB 数据，算术强度是 10 FLOP/byte。对一块假想的 100 TFLOP/s、1 TB/s GPU，计算至少需 1 ms，读数据至少需 10 ms，因此搬运约束更强。这是教学假设，不对应某张显卡的实测成绩。
+
+## 核心原理 {#core-principle}
+
+算术强度衡量每搬运一字节能做多少运算。忽略重叠与额外开销时，Roofline 给出吞吐上界；现实还会受到算子形状、精度、并行度、kernel 启动和缓存命中的影响。
+
+$$
+I=\frac{F}{D},\qquad P_{\mathrm{attainable}}\leq\min(P_{\mathrm{peak}},B I)
+$$
+
+| 符号 | 含义与单位 |
+| --- | --- |
+| $F$ | 运算量，FLOP；本文乘与加各算一次 |
+| $D$ | 从所分析内存层次搬运的数据，byte |
+| $I$ | 算术强度，FLOP/byte |
+| $B$ | 对应内存层次的带宽，byte/s |
+| $P$ | 计算吞吐，FLOP/s |
+
+大矩阵乘法可复用数据，容易增加算术强度；小 batch 的生成常需为很少的新 token 读取大量权重，更容易受带宽限制。不要把这一趋势解释为所有 prefill 必然计算受限、所有 decode 必然带宽受限，实际瓶颈仍需 profiling。
+
+## 计算与实践步骤 {#algorithm-steps}
+
+1. 记录模型、精度、batch、序列长度和设备拓扑。
+2. 先分开统计数据加载、主机传输、GPU 计算和通信时间。
+3. 在 profiler 中找主要算子，再分析其运算量与搬运量。
+4. 只修改一个因素，如 batch、数据布局或算子融合，复测延迟和内存峰值。
+5. 对异步 GPU 操作使用设备事件或正确同步；直接计时 CPU 调用可能只测到提交任务的时间。
+
+## 代码实现 {#code}
+
+以下只计算理论下界，Python 标准库即可运行，不会测量真实 GPU。
+
+```python
+flops = 100e9
+bytes_moved = 10e9
+peak_flops = 100e12
+bandwidth = 1e12
+compute_ms = flops / peak_flops * 1000
+memory_ms = bytes_moved / bandwidth * 1000
+print(f"compute={compute_ms:.1f} ms, memory={memory_ms:.1f} ms")
+print(f"lower_bound={max(compute_ms, memory_ms):.1f} ms")
+```
+
+预期输出为 `compute=1.0 ms, memory=10.0 ms`，下一行为 `lower_bound=10.0 ms`。真实耗时通常更高，不能把这个数当成基准测试。
+
+## 实际应用 {#applications}
+
+- 判断增加 batch、算子融合或升级网络分别可能改善哪类等待。
+- 比较设备时同时查看精度对应算力、容量、带宽和互联条件。
+
+## 常见错误 {#pitfalls}
+
+- 混用十进制 GB 与二进制 GiB，或把 bit/s 当成 byte/s。
+- 引用稀疏低精度峰值，却拿它预测普通 BF16 稠密计算。
+- 只看 GPU utilization，没有判断时间花在有效计算还是通信等待。
+
+## 与其他概念的关系 {#related}
+
+## 继续阅读 {#further-reading}
+
+[NVIDIA CUDA 编程指南](https://docs.nvidia.com/cuda/cuda-c-programming-guide/) 可用于理解线程执行、内存层次与数据访问。阅读时注意文档标记的版本及后继指南入口。

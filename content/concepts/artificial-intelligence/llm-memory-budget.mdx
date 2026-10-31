@@ -1,0 +1,80 @@
+---
+id: llm-memory-budget
+slug: llm-memory-budget
+title: 大模型显存预算：权重、训练状态与缓存
+category: artificial-intelligence
+difficulty: 进阶
+summary: 分别为推理和训练建立显存账本，计算权重与 Adam 状态，并为激活、KV Cache 和运行时预留空间。
+prerequisites: [gpu-memory-bandwidth]
+relatedConcepts: [kv-cache-paged-attention, zero-fsdp, automatic-mixed-precision]
+order: 1002
+directory: AI Infra
+---
+
+## 学习目标 {#learning-objectives}
+
+- 估算不同精度下的权重大小并正确换算 GB/GiB。
+- 说明训练比推理多存哪些状态。
+- 用分项预算解释“权重能装下，服务仍然 OOM”。
+
+## 学习前需要掌握 {#prerequisites}
+
+## 背景与问题 {#background}
+
+下载文件大小、模型参数量和运行峰值显存不是同一个量。量化模型可能附带缩放因子；训练需要梯度和优化器状态；服务需要为不断增长的上下文保存缓存。
+
+## 概念定义 {#definition}
+
+显存预算是在给定模型、数值格式、序列长度、batch 与并行策略下，枚举同时存活的设备数据及其峰值。推理通常包括权重、KV Cache、激活和运行时；训练还包括梯度、优化器状态，并可能保存 FP32 主权重。
+
+## 直观理解 {#intuition}
+
+用恰好 70 亿个参数做算例，BF16 每个参数 2 byte，权重为 14 GB，约 13.04 GiB。24 GiB 显卡减去这部分后，剩余约 10.96 GiB 仍要容纳缓存、激活、工作空间与碎片，不能全部分配给 KV Cache。
+
+## 核心原理 {#core-principle}
+
+$$
+M_{\mathrm{weights}}=P b_w,\qquad
+M_{\mathrm{infer,peak}}\approx P b_w+M_{KV}+M_{\mathrm{activation}}+M_{\mathrm{runtime}}
+$$
+
+$P$ 是参数个数，$b_w$ 是每参数存储字节数，各内存项均用 byte。BF16/FP16 为 2 byte，FP32 为 4 byte；4-bit 权重的理想值为 0.5 byte，但实际还包括量化元数据和未量化层。
+
+训练算例假设：BF16 权重 2 byte、BF16 梯度 2 byte、FP32 主权重 4 byte、Adam 两个 FP32 状态共 8 byte，合计 16 byte/参数，即 112 GB，约 104.31 GiB。这个数尚未包含激活与临时空间，也不是所有框架的固定实现；若梯度为 FP32、没有主权重或使用分片，必须重算。
+
+激活取决于层数、长度、微批量和保存策略；KV Cache 取决于层数、KV 头数、上下文长度与活跃序列数。分布式分片改变每张卡的驻留量，但临时聚合仍会形成峰值。
+
+## 计算与实践步骤 {#algorithm-steps}
+
+1. 从模型配置读取实际参数量、层数、KV 头数与 head dimension。
+2. 明确推理或训练，以及权重、梯度和优化器各自精度。
+3. 分项估算，单独列出未知项，保留运行时余量。
+4. 用目标长度与并发压测，记录 allocated、reserved 和设备总用量的差别。
+5. OOM 时先识别是哪一项增长，再选择缩短上下文、减小 batch、量化、激活重计算或分片。
+
+## 代码实现 {#code}
+
+```python
+parameters = 7_000_000_000
+gib = 2**30
+weight_bytes = parameters * 2
+training_state_bytes = parameters * (2 + 2 + 4 + 8)
+print(f"BF16 weights: {weight_bytes / gib:.2f} GiB")
+print(f"training states: {training_state_bytes / gib:.2f} GiB")
+print(f"24 GiB minus weights: {24 - weight_bytes / gib:.2f} GiB")
+```
+
+预期依次输出 `BF16 weights: 13.04 GiB`、`training states: 104.31 GiB`、`24 GiB minus weights: 10.96 GiB`。最后一项是扣除权重后的余额，尚不是可用缓存预算。
+
+## 实际应用 {#applications}
+
+- 为模型选型、训练微批量和服务并发建立第一版容量表。
+- 对比量化、激活重计算与状态分片分别节省哪一项内存。
+
+## 常见错误 {#pitfalls}
+
+- 用权重文件大小直接预测训练峰值或最大并发。
+- 把 PyTorch reserved 与 allocated 相加，重复计算缓存分配器管理的显存。
+- 在没有实测余量时把剩余显存全部承诺给新请求。
+
+## 与其他概念的关系 {#related}

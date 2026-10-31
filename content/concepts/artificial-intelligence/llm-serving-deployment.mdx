@@ -1,0 +1,84 @@
+---
+id: llm-serving-deployment
+slug: llm-serving-deployment
+title: 大模型服务部署与版本发布
+category: artificial-intelligence
+difficulty: 进阶
+summary: 从可复现产物、vLLM 本地服务到就绪检查、流式请求、灰度与回滚，建立可检查的部署流程。
+prerequisites: [llm-prefill-decode, llm-memory-budget]
+relatedConcepts: [continuous-batching, inference-benchmarking, ai-infra-observability]
+order: 1013
+directory: AI Infra
+---
+
+## 学习目标 {#learning-objectives}
+
+- 列出服务产物中除权重外必须固定的配置。
+- 区分进程存活、模型就绪与请求成功。
+- 设计带真实请求验证和回滚路径的发布流程。
+
+## 学习前需要掌握 {#prerequisites}
+
+## 背景与问题 {#background}
+
+服务进程启动不代表模型已加载，端口能连接也不代表生成正常。发布一个 tokenizer 不匹配的模型，可能让输入输出出错；同时重启全部副本又可能造成整个服务冷启动。
+
+## 概念定义 {#definition}
+
+模型服务把模型产物包装成可调用接口，并管理加载、输入限制、请求调度、流式输出和生命周期。可复现产物应绑定权重 revision、tokenizer、chat template、量化、运行时镜像和启动参数。
+
+## 直观理解 {#intuition}
+
+一个副本已经监听端口，但还在加载 14 GB 权重。如果流量在这一刻进入，就会排队、失败或超时。只有完成模型加载并通过小请求验证后，才应标记 ready 并接收业务流量。
+
+## 核心原理 {#core-principle}
+
+存活检查关注进程是否需要重启，就绪检查关注是否可以接流量，启动检查允许慢加载期间避免被过早杀掉。真实推理验证应使用固定短请求，确认格式、tokenizer、流式结束和基本质量；检查频率也要避免产生过大负载。
+
+接口兼容不等于语义完全一致。不同后端支持的采样参数、工具调用格式、chat template 与错误事件可能不同。流式服务在已返回 HTTP 200 后仍可能中途出错，应检查结束事件与生成完整性。
+
+发布时先验证新副本，再逐步分流，比较质量、错误率、延迟与显存；旧版本保留到观察期结束。下线时停止接收新请求，对存量请求进行有期限的 drain，随后回收资源。
+
+## 本地部署操作 {#algorithm-steps}
+
+1. 准备 Linux GPU 环境、匹配的驱动与服务运行时，核对模型许可和硬件支持。Windows 可使用满足 GPU 条件的 Linux/WSL2 环境，具体支持以安装版本为准。
+2. 下载并固定一个已知 revision 到本地目录，记录 tokenizer 与 chat template；先做离线生成验证。
+3. 检查 `vllm --version` 和 `vllm serve --help`，再用本地目录启动，仅监听本机。
+4. 用相同模型别名发送一个非流式与一个流式短请求；核对首 token、结束原因和输出格式。
+5. 根据预算设置长度、并发、超时与网关限制，完成压测后再增加流量。
+
+例如，本地模型目录为 `/models/learning-model`，可使用命令 `vllm serve /models/learning-model --host 127.0.0.1 --port 8000 --served-model-name learning-model`。该命令需要已安装且兼容的 vLLM、完整模型文件和足够 GPU 显存，本页不把它描述为已执行的实验。
+
+## 请求体示例 {#request-example}
+
+向本地接口 `/v1/chat/completions` 发送以下 JSON；它只展示请求结构，不会在浏览器中调用外部服务。
+
+```json
+{
+  "model": "learning-model",
+  "messages": [{"role": "user", "content": "用一句话解释显存带宽。"}],
+  "max_tokens": 64,
+  "temperature": 0,
+  "stream": true
+}
+```
+
+`max_tokens` 是请求的输出上限；实际输出可能因 EOS 等原因更短。应验证安装版本对字段的支持，不能把上限当成实际完成 token 数。
+
+## 实际应用 {#applications}
+
+- 把离线验证过的本地模型接入应用，并保留模型版本证据。
+- 为新量化格式、服务引擎升级或新模型建立灰度比较。
+
+## 常见错误 {#pitfalls}
+
+- 只固定模型名称，没有固定 revision、tokenizer 与运行时。
+- 以 liveness 代替 readiness，或让加载慢的服务陷入反复重启。
+- 直接把裸模型服务暴露到公网，省略认证、限流、长度约束与租户隔离。
+- 默认开启任意远程模型代码或记录完整用户提示词，却没有核对实际需求与权限。
+
+## 与其他概念的关系 {#related}
+
+## 继续阅读 {#further-reading}
+
+[vLLM serve 参数](https://docs.vllm.ai/en/latest/cli/serve/) 用于核对模型加载、长度、并行和内存相关选项；文档版本应与安装版本对应。

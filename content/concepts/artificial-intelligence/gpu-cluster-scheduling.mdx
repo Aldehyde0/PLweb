@@ -1,0 +1,66 @@
+---
+id: gpu-cluster-scheduling
+slug: gpu-cluster-scheduling
+title: GPU 集群调度：资源、拓扑与弹性
+category: artificial-intelligence
+difficulty: 挑战
+summary: 理解 GPU 请求、设备插件、多卡作业同时启动和副本扩缩容，区分资源分配、负载均衡与模型内批调度。
+prerequisites: [llm-serving-deployment, distributed-training-parallelism]
+relatedConcepts: [gpu-collectives-topology, training-checkpoints-recovery, ai-infra-observability]
+order: 1015
+directory: AI Infra
+---
+
+## 学习目标 {#learning-objectives}
+
+- 区分集群资源调度、请求路由与引擎内部批处理。
+- 解释为什么“总共有八张空卡”不保证八卡作业能运行。
+- 为 GPU 服务设计考虑冷启动与缓存的扩缩容规则。
+
+## 学习前需要掌握 {#prerequisites}
+
+## 背景与问题 {#background}
+
+两台机器各空闲两张卡，未必能承接必须单机四卡的模型；四个训练 rank 只启动了三个，也可能一直等待最后一个。GPU 调度需要满足资源量之外的拓扑和协作条件。
+
+## 概念定义 {#definition}
+
+集群调度把训练作业和推理副本放到满足设备、显存、互联和隔离要求的节点。Kubernetes 可通过设备插件暴露 GPU 扩展资源；请求路由决定哪个副本接收请求；连续批处理则决定副本内部每轮执行哪些序列。
+
+## 直观理解 {#intuition}
+
+训练作业需要四张互联较快的 GPU。集群虽然总空闲四张卡，但它们分布在四个节点且网络很慢，这个布局可能无法满足原先的训练目标。模型服务还有加载时间，新副本被创建不等于立刻增加可用吞吐。
+
+## 核心原理 {#core-principle}
+
+使用 NVIDIA 设备插件时，`nvidia.com/gpu` 是常见资源名。GPU 可在 limits 中声明，未显式设置 requests 时 Kubernetes 可按该限制处理；若同时设置，两者必须相等。通常按整数分配；分区、共享与计费语义依赖设备插件及 MIG 等配置，不能假定写 0.5 就得到半张卡。
+
+多 rank 作业需要协调启动与失败处理。Gang scheduling 尝试为协作任务同时满足资源，通常需要额外调度能力或作业系统，普通 Deployment 并不会自动提供所有语义。还要考虑节点亲和、机架网络、网卡与 GPU 的邻近关系。
+
+扩缩容信号可以结合队列长度、排队时间、活跃 token 和 SLO。GPU 利用率单独不足以区分高效计算与阻塞。缩容前需要 drain；扩容要考虑模型下载、加载、预热和前缀缓存冷启动，避免频繁抖动。
+
+## 规划与实践步骤 {#algorithm-steps}
+
+1. 给作业写明 GPU 数量、设备类型、CPU、主机内存、存储和互联约束。
+2. 检查节点可分配资源、设备插件状态、亲和规则和实际拓扑。
+3. 对多 rank 作业验证共同启动、单 rank 失败与重试恢复。
+4. 对服务副本测冷启动和 drain 时间，再设置扩容提前量及缩容稳定窗口。
+5. 在配额与成本约束下进行突发流量演练，检查 Pending、拒绝与超时。
+
+## 实际应用 {#applications}
+
+- 共享集群中为训练与在线推理分配不同优先级和资源池。
+- 在成本可控的条件下为峰值流量预热额外副本。
+
+## 常见错误 {#pitfalls}
+
+- 只申请 GPU，忽略分词 CPU、主机内存和模型加载 I/O。
+- 认为增加副本会自动把单个跨卡模型拆到更多设备。
+- 直接删除繁忙副本，导致流式回答中断。
+- 只看总空闲数量，忽略显存容量、节点和互联布局。
+
+## 与其他概念的关系 {#related}
+
+## 继续阅读 {#further-reading}
+
+[Kubernetes Schedule GPUs](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/) 说明设备插件、资源声明及节点选择规则。

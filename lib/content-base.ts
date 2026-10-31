@@ -39,7 +39,8 @@ export const categories: Category[] = [
     slug: 'artificial-intelligence',
     title: '人工智能',
     shortTitle: 'AI',
-    description: '理解让机器表现出感知、推理、规划与生成能力的基本思想。',
+    description:
+      '理解感知、推理、规划与生成，以及支撑模型训练和可靠服务的 AI 基础设施。',
   },
   {
     slug: 'machine-learning',

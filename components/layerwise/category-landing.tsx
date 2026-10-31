@@ -26,7 +26,7 @@ const profiles = {
     title: 'Artificial intelligence',
     line: 'Think in connections.',
     description:
-      'Explore how knowledge, reasoning, and agents come together. Start with a topic that sparks your curiosity.',
+      'Explore knowledge, reasoning, agents, and AI infrastructure. Follow models from first principles to reliable services.',
     visual: 'A constellation of ideas',
   },
   'machine-learning': {

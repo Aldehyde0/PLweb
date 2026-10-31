@@ -1,0 +1,72 @@
+---
+id: zero-fsdp
+slug: zero-fsdp
+title: ZeRO 与 FSDP：训练状态如何分片
+category: artificial-intelligence
+difficulty: 挑战
+summary: 从参数、梯度和优化器状态的驻留方式理解 ZeRO 分级与 FSDP，分析显存收益、通信开销和瞬时峰值。
+prerequisites: [distributed-training-parallelism, gpu-collectives-topology]
+relatedConcepts: [llm-memory-budget, training-checkpoints-recovery]
+order: 1006
+directory: AI Infra
+---
+
+## 学习目标 {#learning-objectives}
+
+- 说明 ZeRO 的三个阶段分别分片什么。
+- 区分稳态分片大小与计算时的参数聚合峰值。
+- 理解 FSDP 与 TP、激活重计算解决的问题不同。
+
+## 学习前需要掌握 {#prerequisites}
+
+## 背景与问题 {#background}
+
+普通数据并行在每张卡重复保存完整训练状态，容量利用不充分。若四张卡都保存同样的 Adam 状态，模型即使总状态小于四卡总显存，仍可能因单卡容量不足而无法训练。
+
+## 概念定义 {#definition}
+
+ZeRO（Zero Redundancy Optimizer）通过在数据并行 rank 间划分状态，降低重复驻留。Stage 1 分片优化器状态；Stage 2 再分片梯度；Stage 3 进一步分片参数。FSDP 的完全分片策略同样把参数、梯度和优化器状态分布到多卡，但其 API、通信时机与具体实现不能简单等同于 ZeRO。
+
+## 直观理解 {#intuition}
+
+沿用 7B 模型的简化账本：参数 14 GB、梯度 14 GB、FP32 主权重与 Adam 状态共 84 GB。四卡普通数据并行每卡仍需 112 GB；理想全分片稳态降为每卡 28 GB，但这还没有算激活、临时聚合和工作空间。
+
+## 核心原理 {#core-principle}
+
+| 策略 | 参数 | 梯度 | 优化器及主权重 | 四卡单卡状态估算 |
+| --- | --- | --- | --- | --- |
+| 普通 DP | 完整 | 完整 | 完整 | 112 GB |
+| ZeRO-1 | 完整 | 完整 | 分片 | 49 GB |
+| ZeRO-2 | 完整 | 分片 | 分片 | 38.5 GB |
+| ZeRO-3 / 完全分片的理想稳态 | 分片 | 分片 | 分片 | 28 GB |
+
+上表是十进制 GB，假设各状态均匀分片、梯度为 BF16，主权重计入优化器侧。实际实现可能在通信中保留额外缓冲或不同梯度精度，必须检查框架配置。
+
+分片参数在对应计算前通常需要 AllGather，计算后可重新分片；梯度可通过 ReduceScatter 分发。分组粒度小会增加通信次数，粒度大又会提高瞬时峰值。CPU offload 用主机内存换设备容量，也会增加传输开销。
+
+激活重计算通过少存中间结果、反向时重算来节省激活；TP 切分层内计算；状态分片减少重复训练状态。三者可以组合，但必须分别测量内存和速度。
+
+## 选择与实践步骤 {#algorithm-steps}
+
+1. 先确认峰值来自状态还是激活，建立普通 DP 或单卡基线。
+2. 从足以解决容量问题的分片级别开始，记录吞吐损失。
+3. 调整包装单元、预取和重分片策略，查看瞬时参数聚合峰值。
+4. 实测保存、加载与恢复，确认检查点格式匹配并行方案。
+5. 使用固定框架版本和官方迁移说明；FSDP1 的包装器与 FSDP2 的 `fully_shard` 路线不能混抄代码。
+
+## 实际应用 {#applications}
+
+- 模型本身能分层执行，但完整训练状态超出单卡容量。
+- 在固定硬件上比较“更小微批量＋重计算”与“分片＋通信”的代价。
+
+## 常见错误 {#pitfalls}
+
+- 认为显存一定精确降到原来的卡数分之一。
+- 只测前向，不测反向、优化器更新和检查点期间的峰值。
+- 保存时把完整参数聚到某张卡，造成训练正常而保存 OOM。
+
+## 与其他概念的关系 {#related}
+
+## 继续阅读 {#further-reading}
+
+[PyTorch FSDP 文档](https://docs.pytorch.org/docs/stable/fsdp.html) 和 [分布式概览](https://docs.pytorch.org/tutorials/beginner/dist_overview.html) 用于核对当前版本的接口与支持范围。

@@ -1,0 +1,81 @@
+---
+id: continuous-batching
+slug: continuous-batching
+title: 连续批处理与推理请求调度
+category: artificial-intelligence
+difficulty: 进阶
+summary: 用不同输出长度的请求比较静态与连续批处理，理解吞吐、排队、KV 预算和交互延迟之间的权衡。
+prerequisites: [llm-prefill-decode]
+relatedConcepts: [kv-cache-paged-attention, inference-benchmarking, gpu-cluster-scheduling]
+order: 1011
+directory: AI Infra
+---
+
+## 学习目标 {#learning-objectives}
+
+- 解释连续批处理如何回收已完成请求的位置。
+- 区分序列数上限与每轮 token 预算。
+- 判断吞吐改善是否牺牲了尾延迟与公平性。
+
+## 学习前需要掌握 {#prerequisites}
+
+## 背景与问题 {#background}
+
+同一批中的一个请求只生成 2 token，另一个生成 200 token。若整批结束后才接收新请求，短请求留下的可用位置会闲置很久。
+
+## 概念定义 {#definition}
+
+连续批处理在生成迭代边界更新活跃请求集合：完成或取消的请求退出，等待请求在资源允许时加入。调度器同时协调 prefill、decode、KV 缓存和计算预算，而不是仅把所有请求拼成一个大 batch。
+
+## 直观理解 {#intuition}
+
+设三个请求都在时刻 0 到达，输出长度为 2、4、2，最多同时处理两条，忽略 prefill 且每轮每条生成一个 token。固定两条成批执行，需要 4+2=6 轮；连续调度在第一条第 2 轮完成后加入第三条，三条到第 4 轮都完成。
+
+## 核心原理 {#core-principle}
+
+活跃序列数控制同时参与生成的请求数量，token 预算控制一轮允许处理的工作量，KV 预算约束驻留上下文。三者互相关联但不能互相替代：两个超长输入可能比十个短输入消耗更多 prefill 工作与缓存。
+
+增大 batch 通常能提高权重读取复用率，但可能增大每轮耗时、排队与单请求间隔。Chunked prefill 可减少长输入对 decode 的阻塞，但块大小和优先级需要在 TTFT、TPOT 与吞吐之间权衡。
+
+服务还需要取消传播、超时、背压和准入控制。超过容量时无限排队不会创造算力，只会拉高尾延迟；应记录拒绝、超时和重试，并防止长请求长期饿死短请求或反之。
+
+## 小型调度实验 {#code}
+
+以下是单位轮次的 CPU 模拟，每条请求每轮固定前进一步，不含真实 prefill、KV 和 GPU 执行成本。
+
+```python
+from collections import deque
+
+lengths, slots = [2, 4, 2], 2
+static_rounds = sum(max(lengths[i:i + slots]) for i in range(0, len(lengths), slots))
+waiting, active, rounds = deque(lengths), [], 0
+while waiting or active:
+    while waiting and len(active) < slots:
+        active.append(waiting.popleft())
+    active = [remaining - 1 for remaining in active if remaining > 1]
+    rounds += 1
+print(f"static_rounds={static_rounds}, continuous_rounds={rounds}")
+```
+
+输出 `static_rounds=6, continuous_rounds=4`。这个差异只说明调度机制；现实中每轮耗时随 batch、长度与硬件改变，不能直接宣称吞吐提高 50%。
+
+## 调优与实践步骤 {#algorithm-steps}
+
+1. 固定真实长度分布、到达模式和超时规则。
+2. 同时观察等待队列、活跃序列、KV 使用、TTFT 和 TPOT 分位数。
+3. 逐项调整序列上限、token 预算和 prefill 分块。
+4. 引入长短混合、取消与突发流量，检查公平性和背压。
+5. 只有在质量、错误率和延迟门槛都满足时，才把吞吐增长算作有效收益。
+
+## 实际应用 {#applications}
+
+- 多用户生成服务中减少长短请求混批造成的闲置。
+- 为在线交互与离线批处理设置不同的排队策略。
+
+## 常见错误 {#pitfalls}
+
+- 把最大 batch 调到最大值，忽略缓存不足与尾延迟。
+- 客户端取消后 GPU 仍继续生成，浪费容量。
+- 仅统计完成请求，不报告拒绝和超时，隐藏饱和问题。
+
+## 与其他概念的关系 {#related}

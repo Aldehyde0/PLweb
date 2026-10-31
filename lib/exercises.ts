@@ -16,6 +16,258 @@ export interface Exercise {
 
 export const exercises: Exercise[] = [
   {
+    id: 'infra-system-boundaries',
+    title: '定位 AI Infra 的职责',
+    question:
+      '问答模型离线回答正常，但并发后首 token 变慢、显存耗尽。应从哪些 Infra 层次收集证据？',
+    answer:
+      '记录输入输出长度、到达率与并发；推理层检查排队、prefill/decode、KV Cache 和批调度；计算层检查显存容量、带宽与算子时间；运维层核对成功率、延迟目标和版本。不能仅凭模型能回答一次就判定服务容量达标。',
+    category: 'artificial-intelligence',
+    difficulty: '入门',
+    type: '诊断',
+    tags: ['AI Infra', '系统分层', '容量'],
+    conceptSlug: 'ai-infra-overview',
+    source: 'Layerwise / AI Infra',
+  },
+  {
+    id: 'infra-roofline-bound',
+    title: '算力还是带宽受限',
+    question:
+      '某算子完成 100 GFLOP 并搬运 10 GB。假设峰值算力 100 TFLOP/s、带宽 1 TB/s，忽略其他开销，耗时下界是多少？',
+    answer:
+      '计算下界为 100e9/100e12=1 ms，搬运下界为 10e9/1e12=10 ms，整体至少为两者最大值 10 ms。算术强度为 10 FLOP/byte，带宽约束更强；真实耗时通常更高。',
+    category: 'artificial-intelligence',
+    difficulty: '入门',
+    type: '计算',
+    tags: ['AI Infra', 'GPU', 'Roofline', '带宽'],
+    conceptSlug: 'gpu-memory-bandwidth',
+    source: 'Layerwise / AI Infra',
+  },
+  {
+    id: 'infra-bf16-budget',
+    title: '7B 模型的权重账本',
+    question:
+      '恰好 70 亿参数的 BF16 模型，权重占多少 GB 和 GiB？为什么不能直接用 24 GiB 减去权重来承诺缓存容量？',
+    answer:
+      '每参数 2 byte，共 14 GB，除以 2^30 得约 13.04 GiB。剩余约 10.96 GiB 还要容纳激活、运行时工作空间、分配碎片及余量；训练时另有梯度与优化器状态。',
+    category: 'artificial-intelligence',
+    difficulty: '进阶',
+    type: '计算',
+    tags: ['AI Infra', '显存', 'BF16'],
+    conceptSlug: 'llm-memory-budget',
+    source: 'Layerwise / AI Infra',
+  },
+  {
+    id: 'infra-padding-mask',
+    title: 'Padding 的利用率与掩码',
+    question:
+      '三个样本长度为 6、3、3，全部补到 8，位置利用率是多少？attention mask 与 loss mask 能否互相替代？',
+    answer:
+      '原始 token 共 12，补齐后 24 个位置，利用率 50%。attention mask 控制可关注的位置，loss mask 控制计入损失的目标，不能互相替代。语言模型还需检查标签右移、padding 忽略与 packing 边界。',
+    category: 'artificial-intelligence',
+    difficulty: '进阶',
+    type: '计算',
+    tags: ['AI Infra', '数据流水线', 'Padding', 'Mask'],
+    conceptSlug: 'training-data-pipeline',
+    source: 'Layerwise / AI Infra',
+  },
+  {
+    id: 'infra-global-batch',
+    title: '混合并行的全局 Batch',
+    question:
+      '8 张 GPU，TP=2、PP=2，微批量为 4，梯度累积 8 次，全局 batch 是多少？TP 和 PP 为什么不应再乘入？',
+    answer:
+      'DP=8/(2×2)=2，全局 batch=4×8×2=64。TP 与 PP 拆分同一个模型副本的计算，不增加独立样本副本数；长度可变时还需记录每次更新的有效 token 数。',
+    category: 'artificial-intelligence',
+    difficulty: '挑战',
+    type: '计算',
+    tags: ['AI Infra', 'DP', 'TP', 'PP'],
+    conceptSlug: 'distributed-training-parallelism',
+    source: 'Layerwise / AI Infra',
+  },
+  {
+    id: 'infra-collective-meaning',
+    title: 'AllReduce 后还要除一次吗',
+    question:
+      '两个 rank 的梯度为 [1,3] 与 [5,7]。求和 AllReduce 后得到什么？使用训练框架时为什么不能盲目再除以 rank 数？',
+    answer:
+      '每个 rank 都得到 [6,10]；手工平均为 [3,5]。框架可能已按其梯度归约语义完成平均，再除一次会使梯度缩小，必须核对实际实现。',
+    category: 'artificial-intelligence',
+    difficulty: '挑战',
+    type: '概念',
+    tags: ['AI Infra', 'NCCL', 'AllReduce'],
+    conceptSlug: 'gpu-collectives-topology',
+    source: 'Layerwise / AI Infra',
+  },
+  {
+    id: 'infra-zero-peak',
+    title: '全分片为什么仍然 OOM',
+    question:
+      '训练状态总计 112 GB，四卡全分片的理想稳态为 28 GB/卡。为什么不能据此保证 32 GB 显卡可运行？',
+    answer:
+      '28 GB 只涵盖所假设的均匀分片状态；还需激活、参数 AllGather、通信缓冲、运行时和碎片。计算、反向与保存期间都可能出现更高峰值，需按实际 dtype 和分组实测。',
+    category: 'artificial-intelligence',
+    difficulty: '挑战',
+    type: '诊断',
+    tags: ['AI Infra', 'ZeRO', 'FSDP', 'OOM'],
+    conceptSlug: 'zero-fsdp',
+    source: 'Layerwise / AI Infra',
+  },
+  {
+    id: 'infra-checkpoint-commit',
+    title: '分片检查点的完整性',
+    question:
+      '对象存储出现了 8 个预期分片中的 7 个，可以更新 latest 指针吗？恢复训练还需要哪些非权重状态？',
+    answer:
+      '不能。应写完并校验全部分片，最后发布完成 manifest，再让读者选择该版本。恢复还需优化器、调度器、随机数、采样器与消费位置、step/token 数和配置版本，必要时包括精度缩放器。',
+    category: 'artificial-intelligence',
+    difficulty: '进阶',
+    type: '诊断',
+    tags: ['AI Infra', 'Checkpoint', '故障恢复'],
+    conceptSlug: 'training-checkpoints-recovery',
+    source: 'Layerwise / AI Infra',
+  },
+  {
+    id: 'infra-fusion-traffic',
+    title: '融合减少了哪些读写',
+    question:
+      '100 万个 float32 元素计算 y=x*scale+bias，scale/bias 为标量。忽略它们及缓存，分开乘加与融合的理想流量分别是多少？',
+    answer:
+      '每个数组 4 MB。分开时读 x、写中间、读中间、写 y，共 16 MB；融合只读 x 和写 y，共 8 MB。流量减半不保证耗时减半，还受启动、计算、寄存器和缓存影响。',
+    category: 'artificial-intelligence',
+    difficulty: '挑战',
+    type: '计算',
+    tags: ['AI Infra', 'Kernel', '算子融合', 'torch.compile'],
+    conceptSlug: 'gpu-kernels-compilation',
+    source: 'Layerwise / AI Infra',
+  },
+  {
+    id: 'infra-token-latency',
+    title: '从 TTFT 推算最后一个 Token',
+    question:
+      'TTFT 为 300 ms，输出共 21 token，首 token 后平均间隔 40 ms，最后一个 token 大约何时到达？',
+    answer:
+      '300+(21−1)×40=1100 ms。首 token 已计入 TTFT，后续只有 20 个间隔；该估计截止到最后一个 token，不一定包含流关闭等额外耗时。',
+    category: 'artificial-intelligence',
+    difficulty: '进阶',
+    type: '计算',
+    tags: ['AI Infra', 'Prefill', 'Decode', 'TTFT', 'TPOT'],
+    conceptSlug: 'llm-prefill-decode',
+    source: 'Layerwise / AI Infra',
+  },
+  {
+    id: 'infra-kv-capacity',
+    title: 'KV Cache 的每条序列开销',
+    question:
+      '32 层、8 个 KV 头、每头 128 维、BF16 缓存，一条 4096 token 序列的缓存多大？分页能消除这部分增长吗？',
+    answer:
+      '每 token 为 2×32×8×128×2=131072 byte=128 KiB；4096 token 为 0.5 GiB。分页可减少预留与连续分配浪费，但不能消除缓存随 token 数增长的基本成本。',
+    category: 'artificial-intelligence',
+    difficulty: '挑战',
+    type: '计算',
+    tags: ['AI Infra', 'KV Cache', 'GQA', 'PagedAttention'],
+    conceptSlug: 'kv-cache-paged-attention',
+    source: 'Layerwise / AI Infra',
+  },
+  {
+    id: 'infra-continuous-schedule',
+    title: '短请求完成后的空位',
+    question:
+      '三个同时到达的请求输出长度为 2、4、2，最多同时执行两条，每条每轮生成一个 token且忽略 prefill。固定批次和连续调度分别需要几轮？',
+    answer:
+      '固定批次先处理前两条需 4 轮，再处理第三条需 2 轮，共 6 轮。连续调度在第 2 轮后补入第三条，到第 4 轮全部完成。真实每轮耗时并不恒定，不能直接把轮数比例视为 GPU 加速比。',
+    category: 'artificial-intelligence',
+    difficulty: '进阶',
+    type: '计算',
+    tags: ['AI Infra', '连续批处理', '请求调度'],
+    conceptSlug: 'continuous-batching',
+    source: 'Layerwise / AI Infra',
+  },
+  {
+    id: 'infra-quantization-scope',
+    title: '权重变小，缓存也变小吗',
+    question:
+      '把 BF16 权重变成 W4A16 后，KV Cache 是否自动缩到四分之一？为什么模型文件也不一定恰好缩小四倍？',
+    answer:
+      '不会。W4A16 描述权重与激活，不自动改变 KV dtype；KV 需要单独量化配置。文件另有 scale、zero point、对齐和未量化层。是否更快还取决于后端 kernel、硬件与工作负载，必须同时验证质量。',
+    category: 'artificial-intelligence',
+    difficulty: '进阶',
+    type: '概念',
+    tags: ['AI Infra', '量化', 'W4A16', '质量回归'],
+    conceptSlug: 'inference-quantization',
+    source: 'Layerwise / AI Infra',
+  },
+  {
+    id: 'infra-ready-not-listening',
+    title: '监听端口是否代表服务就绪',
+    question:
+      '进程已监听端口但模型还在加载，是否应接入流量？流式接口已经返回 HTTP 200，能否直接算完整成功？',
+    answer:
+      '应等模型加载完成并通过就绪及小请求检查后再接流量。HTTP 200 后流仍可能中断，应核对完整结束事件、结束原因与输出。发布还需固定权重、tokenizer、模板和运行时，并保留回滚版本。',
+    category: 'artificial-intelligence',
+    difficulty: '进阶',
+    type: '诊断',
+    tags: ['AI Infra', 'vLLM', '部署', 'Readiness'],
+    conceptSlug: 'llm-serving-deployment',
+    source: 'Layerwise / AI Infra',
+  },
+  {
+    id: 'infra-benchmark-goodput',
+    title: '吞吐与 Goodput',
+    question:
+      '60 秒内发起 100 个请求，90 个完整成功并输出 9000 token，其中 72 个满足延迟门槛。成功吞吐、输出吞吐、goodput 和失败率分别是多少？',
+    answer:
+      '成功吞吐 90/60=1.5 req/s；输出吞吐 9000/60=150 token/s；按请求计 goodput 为 72/60=1.2 req/s；失败率 (100−90)/100=10%。质量门槛若另有要求，也必须纳入合格定义。',
+    category: 'artificial-intelligence',
+    difficulty: '进阶',
+    type: '计算',
+    tags: ['AI Infra', '压测', 'Goodput', '吞吐'],
+    conceptSlug: 'inference-benchmarking',
+    source: 'Layerwise / AI Infra',
+  },
+  {
+    id: 'infra-scaling-cold-start',
+    title: '有空闲 GPU 为什么仍无法启动',
+    question:
+      '作业要求单机四卡，集群两台机器各空闲两卡，能否仅凭空闲总数承诺启动？新增推理副本为何也不能立即计入容量？',
+    answer:
+      '不能，资源布局不满足单机四卡约束，还需检查设备与互联。新服务副本需要模型下载、加载、预热和就绪验证，前缀缓存也可能是冷的；扩容应预留提前量，缩容前应 drain。',
+    category: 'artificial-intelligence',
+    difficulty: '挑战',
+    type: '诊断',
+    tags: ['AI Infra', 'Kubernetes', 'GPU 调度', '扩缩容'],
+    conceptSlug: 'gpu-cluster-scheduling',
+    source: 'Layerwise / AI Infra',
+  },
+  {
+    id: 'infra-slo-budget',
+    title: 'SLO 的错误预算与消耗速率',
+    question:
+      '10000 个范围内请求的 SLO 为 99% 合格，已有 70 个不合格，还剩多少预算？近期窗口不合格率 3% 对应多少倍消耗速率？',
+    answer:
+      '允许 100 个不合格，剩余 30 个；近期 burn rate=3%/(1−99%)=3 倍。近期速率与完整窗口累计预算是不同口径，不能据此直接说 30 天预算已经耗尽。',
+    category: 'artificial-intelligence',
+    difficulty: '进阶',
+    type: '计算',
+    tags: ['AI Infra', 'SLO', '可观测性', '成本'],
+    conceptSlug: 'ai-infra-observability',
+    source: 'Layerwise / AI Infra',
+  },
+  {
+    id: 'infra-capacity-acceptance',
+    title: '把预算变成可验收方案',
+    question:
+      '预算显示最多可容纳 15 条序列；四条合成日志中仅两条完整且 TTFT 不超过 1 秒。能否宣布达到 95% 服务目标并上线？还需交付什么证据？',
+    answer:
+      '不能。内存预算只是候选，合成日志只验证统计逻辑，2/4=50% 也未达到示例门槛。需真实模型配置、硬件和运行时版本、目标负载压测原始记录、充分样本、质量回归、成本口径以及灰度回滚条件。',
+    category: 'artificial-intelligence',
+    difficulty: '挑战',
+    type: '项目',
+    tags: ['AI Infra', '综合实验', '容量规划', '验收'],
+    conceptSlug: 'ai-infra-serving-lab',
+    source: 'Layerwise / AI Infra',
+  },
+  {
     id: 'ml-task-type',
     title: '分类还是回归',
     question:

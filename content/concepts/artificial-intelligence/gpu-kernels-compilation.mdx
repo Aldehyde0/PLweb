@@ -1,0 +1,77 @@
+---
+id: gpu-kernels-compilation
+slug: gpu-kernels-compilation
+title: GPU 内核、算子融合与编译优化
+category: artificial-intelligence
+difficulty: 挑战
+summary: 从显存读写、kernel 启动与中间张量理解融合，分清 CUDA、Triton、torch.compile 和 CUDA Graph 的作用。
+prerequisites: [gpu-memory-bandwidth, pytorch-autograd]
+relatedConcepts: [llm-prefill-decode, inference-benchmarking]
+order: 1008
+directory: AI Infra
+---
+
+## 学习目标 {#learning-objectives}
+
+- 解释融合为什么可能减少显存搬运与启动开销。
+- 区分编译器、kernel 编程与执行图重放。
+- 正确分开编译冷启动和稳态性能。
+
+## 学习前需要掌握 {#prerequisites}
+
+## 背景与问题 {#background}
+
+计算 `y = x * scale + bias` 看起来很短，逐算子执行却可能先写出乘法结果，再重新读入做加法。小算子很多时，中间读写和启动成本可能超过有效计算。
+
+## 概念定义 {#definition}
+
+GPU kernel 是在设备上并行执行的计算程序。算子融合把多个计算步骤合进较少的 kernel，减少中间张量与启动。CUDA 提供 GPU 编程平台，Triton 是编写高效并行 kernel 的一种语言与编译工具，`torch.compile` 尝试捕获并优化 PyTorch 计算图。
+
+## 直观理解 {#intuition}
+
+假设 float32 数组有 100 万个元素，scale 和 bias 是标量且忽略其流量。分开乘、加时，需要读 x、写中间值、读中间值、写 y，理想流量为 16 MB；融合后只读 x、写 y，理想为 8 MB。流量减半不保证耗时精确减半。
+
+## 核心原理 {#core-principle}
+
+融合适合复用同一数据的相邻运算，但可能提高寄存器需求、降低占用率，或破坏专门优化的库算子。注意力优化还可能利用分块和在线归一化避免物化完整注意力矩阵；它和简单地拼接几个逐元素算子不是同一难度。
+
+`torch.compile` 的收益受图中断、动态 shape、重编译和后端支持影响。CUDA Graph 侧重捕获和重放执行以降低 CPU 提交开销，对地址、shape 与控制流有约束；它不会自动解决算法复杂度或内存容量问题。
+
+性能验证至少包含：相同输入和 dtype、数值误差门槛、训练梯度（如适用）、预热、正确设备计时，以及真实形状分布。首轮编译成本应单独报告，不能把热身后的最快一次包装成完整服务延迟。
+
+## 计算与实践步骤 {#algorithm-steps}
+
+1. 先用 profiler 找热点，确认是启动、访存还是计算占主导。
+2. 建立原始算子的数值与耗时基线。
+3. 优先尝试框架现有融合和编译选项，再判断是否值得写专用 kernel。
+4. 测常见与边界 shape；记录编译次数、冷启动、稳态和峰值显存。
+5. 在完整模型上复测，确认局部收益没有被其他瓶颈抵消。
+
+## 代码实现 {#code}
+
+```python
+elements, bytes_per_element = 1_000_000, 4
+separate = elements * bytes_per_element * 4
+fused = elements * bytes_per_element * 2
+print(f"separate={separate / 1e6:.1f} MB")
+print(f"fused={fused / 1e6:.1f} MB")
+```
+
+输出 `separate=16.0 MB` 与 `fused=8.0 MB`。这是理想流量账本，未运行 GPU kernel，也没有考虑缓存或编译器已经做过的融合。
+
+## 实际应用 {#applications}
+
+- 分析模型中大量小算子与 CPU 提交造成的性能损失。
+- 为固定常用形状选择编译与执行图优化，并评估冷启动代价。
+
+## 常见错误 {#pitfalls}
+
+- 没有同步 GPU 就用 CPU 计时比较优化前后。
+- 只核对输出 shape，不检查数值、梯度和不同精度下的误差。
+- 用一个固定 shape 的最好结果预测动态请求服务。
+
+## 与其他概念的关系 {#related}
+
+## 继续阅读 {#further-reading}
+
+[Introduction to torch.compile](https://docs.pytorch.org/tutorials/intermediate/torch_compile_tutorial.html) 提供编译路径与性能测量的官方例子。

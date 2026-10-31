@@ -30,8 +30,8 @@ const directions = [
     icon: BrainCircuit,
     slug: 'artificial-intelligence',
     description:
-      'Explore search, reasoning, and agents. Build your first map of AI.',
-    topics: 'Foundations · Search · Reasoning',
+      'Explore reasoning, agents, and the infrastructure that runs AI.',
+    topics: 'Foundations · Agents · AI infrastructure',
   },
   {
     code: 'ML',
